@@ -1,0 +1,8 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="Source/ddraw/ddraw.vcxproj" Id="af2d2f8a-9f27-4076-8c75-fb7aa1fc2a92" />
+  <Project Path="Source/SugarDraw/SugarDraw.vcxproj" Id="ed96e371-1ece-4add-8d55-de67142e8d8d" />
+</Solution>

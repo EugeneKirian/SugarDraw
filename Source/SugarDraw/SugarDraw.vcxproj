@@ -23,20 +23,30 @@
     <ClInclude Include="arr.h" />
     <ClInclude Include="common.h" />
     <ClInclude Include="dd.h" />
+    <ClInclude Include="ddp.h" />
+    <ClInclude Include="dds.h" />
     <ClInclude Include="idd.h" />
+    <ClInclude Include="iddp.h" />
+    <ClInclude Include="idds.h" />
     <ClInclude Include="intfc.h" />
     <ClInclude Include="logger.h" />
     <ClInclude Include="sugar.h" />
+    <ClInclude Include="utilities.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="allocator.c" />
     <ClCompile Include="arr.c" />
     <ClCompile Include="common.c" />
     <ClCompile Include="dd.c" />
+    <ClCompile Include="ddp.c" />
+    <ClCompile Include="dds.c" />
     <ClCompile Include="idd.c" />
+    <ClCompile Include="iddp.c" />
+    <ClCompile Include="idds.c" />
     <ClCompile Include="intfc.c" />
     <ClCompile Include="logger.c" />
     <ClCompile Include="sugar.c" />
+    <ClCompile Include="utilities.c" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>18.0</VCProjectVersion>

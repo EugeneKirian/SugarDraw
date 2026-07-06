@@ -12,7 +12,7 @@ DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {
         ZeroMemory(path, MAX_PATH);
         if (GetModuleFileNameA(hModule, path, MAX_PATH) != 0) {
             if (strcat_s(path, MAX_PATH, ".log") == 0) {
-                for (int i = 0; path[i] != NULL; i++) {
+                for (int i = 0; path[i] != '\0'; i++) {
                     path[i] = tolower(path[i]);
                 }
 
@@ -156,7 +156,7 @@ DirectDrawEnumerateExA(LPDDENUMCALLBACKEXA lpCallback, LPVOID lpContext, DWORD d
         return DDERR_INVALIDPARAMS;
     }
 
-    if (dwFlags == DDENUM_NONE || (dwFlags & ~DDENUM_VALID)) {
+    if ((dwFlags == DDENUM_NONE) || (dwFlags & ~DDENUM_VALID)) {
         return DDERR_INVALIDPARAMS;
     }
 
@@ -182,7 +182,7 @@ DirectDrawEnumerateExW(LPDDENUMCALLBACKEXW lpCallback, LPVOID lpContext, DWORD d
         return DDERR_INVALIDPARAMS;
     }
 
-    if (dwFlags == DDENUM_NONE || (dwFlags & ~DDENUM_VALID)) {
+    if ((dwFlags == DDENUM_NONE) || (dwFlags & ~DDENUM_VALID)) {
         return DDERR_INVALIDPARAMS;
     }
 

@@ -1,5 +1,6 @@
 #include "allocator.h"
 #include "logger.h"
+#include "utilities.h"
 
 #include <stdio.h>
 #include <stdarg.h>

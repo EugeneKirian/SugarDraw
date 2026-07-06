@@ -46,6 +46,18 @@ static HRESULT SUGARCALL idd_get_device_identifier7(idd*, LPDDDEVICEIDENTIFIER2,
 static HRESULT SUGARCALL idd_start_mode_test7(idd*, LPSIZE, DWORD, DWORD);
 static HRESULT SUGARCALL idd_evaluate_mode7(idd*, DWORD, DWORD*);
 
+typedef struct iddu_vft {
+    IDDQUERYINTERFACE           QueryInterface;
+    IDDADDREF                   AddRef;
+    IDDRELEASE                  Release;
+} iddu_vft;
+
+const static iddu_vft iddu_self = {
+    idd_query_interface,
+    idd_add_ref,
+    idd_remove_ref
+};
+
 typedef struct idd1_vft {
     IDDQUERYINTERFACE           QueryInterface;
     IDDADDREF                   AddRef;
@@ -285,7 +297,8 @@ HRESULT SUGARCALL idd_create(sugar* manager, const GUID* riid, idd** object) {
         return DDERR_INVALIDPARAMS;
     }
 
-    if (!IsEqualGUID(&IID_IDirectDraw, riid)
+    if (!IsEqualGUID(&IID_IUnknown, riid)
+        && !IsEqualGUID(&IID_IDirectDraw, riid)
         && !IsEqualGUID(&IID_IDirectDraw2, riid)
         && !IsEqualGUID(&IID_IDirectDraw4, riid)
         && !IsEqualGUID(&IID_IDirectDraw7, riid)) {
@@ -295,7 +308,10 @@ HRESULT SUGARCALL idd_create(sugar* manager, const GUID* riid, idd** object) {
     HRESULT hr = DD_OK;
     idd* instance = NULL;
     if (SUCCEEDED(hr = allocator_allocate(manager->allocator, MEM_TAG_IDIRECTDRAW, sizeof(idd), &instance))) {
-        if (IsEqualGUID(&IID_IDirectDraw, riid)) {
+        if (IsEqualGUID(&IID_IUnknown, riid)) {
+            instance->self = &iddu_self;
+        }
+        else if (IsEqualGUID(&IID_IDirectDraw, riid)) {
             instance->self = &idd1_self;
         }
         else if (IsEqualGUID(&IID_IDirectDraw2, riid)) {
@@ -318,7 +334,7 @@ HRESULT SUGARCALL idd_create(sugar* manager, const GUID* riid, idd** object) {
     return hr;
 }
 
-VOID SUGARCALL idd_release(idd* self) {
+void SUGARCALL idd_release(idd* self) {
     if (self != NULL) {
         allocator_free(self->manager->allocator, self);
     }
@@ -330,7 +346,7 @@ HRESULT SUGARCALL idd_query_interface(idd* self, const GUID* riid, void** object
     }
 
     if (riid == NULL || object == NULL) {
-        return E_INVALIDARG;
+        return DDERR_INVALIDPARAMS;
     }
 
     return dd_query_interface(self->instance, riid, object);
@@ -373,11 +389,38 @@ HRESULT SUGARCALL idd_create_clipper(idd* self, DWORD dwFlags, LPDIRECTDRAWCLIPP
 }
 
 HRESULT SUGARCALL idd_create_palette(idd* self, DWORD dwFlags, LPPALETTEENTRY lpDDColorArray, LPDIRECTDRAWPALETTE* lplpDDPalette, IUnknown* pUnkOuter) {
-    return DDERR_UNSUPPORTED;
+    if (self == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    // TODO validate dwFlags
+
+    if (lpDDColorArray == NULL || lplpDDPalette == NULL || pUnkOuter != NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    return dd_create_palette(self->instance, dwFlags, lpDDColorArray, lplpDDPalette);
 }
 
 HRESULT SUGARCALL idd_create_surface1(idd* self, LPDDSURFACEDESC lpDDSurfaceDesc, LPDIRECTDRAWSURFACE* lplpDDSurface, IUnknown* pUnkOuter) {
-    return DDERR_UNSUPPORTED;
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (lpDDSurfaceDesc == NULL || lplpDDSurface == NULL || pUnkOuter != NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if (lpDDSurfaceDesc->dwSize != sizeof(DDSURFACEDESC)) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    DDSURFACEDESC2 desc;
+    ZeroMemory(&desc, sizeof(DDSURFACEDESC2));
+    CopyMemory(&desc, lpDDSurfaceDesc, sizeof(DDSURFACEDESC));
+    desc.dwSize = sizeof(DDSURFACEDESC2);
+
+    return dd_create_surface(self->instance, &IID_IDirectDrawSurface, &desc, lplpDDSurface);
 }
 
 HRESULT SUGARCALL idd_duplicate_surface1(idd* self, LPDIRECTDRAWSURFACE lpDDSurface, LPDIRECTDRAWSURFACE* lplpDupDDSurface) {
@@ -437,15 +480,52 @@ HRESULT SUGARCALL idd_initialize(idd* self, const GUID* lpGUID) {
 }
 
 HRESULT SUGARCALL idd_restore_display_mode(idd* self) {
+    // TODO: Read documentation about IDirectDraw7::SetCooperativeLevel interaction with ::SetDisplayMode and ::RestoreDisplayMode
     return DDERR_UNSUPPORTED;
 }
 
 HRESULT SUGARCALL idd_set_cooperative_level(idd* self, HWND hWnd, DWORD dwFlags) {
-    return DDERR_UNSUPPORTED;
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (dwFlags & ~DDSCL_VALID) { return DDERR_INVALIDPARAMS; }
+
+    // The FPU flags are exclusive.
+    if ((dwFlags & DDSCL_FPUSETUP) && (dwFlags & DDSCL_FPUPRESERVE)) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    // Must specify DDSCL_EXCLUSIVE or DDSCL_NORMAL when DDSCL_SETFOCUSWINDOW is not set.
+    if (!(dwFlags & (DDSCL_EXCLUSIVE | DDSCL_NORMAL)) && !(dwFlags & DDSCL_SETFOCUSWINDOW)) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    // Flag DDSCL_EXCLUSIVE has to be combined with DDSCL_FULLSCREEN.
+    if ((dwFlags & DDSCL_EXCLUSIVE) && !(dwFlags & DDSCL_FULLSCREEN)) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    // Check if provided window is a valid window om DDSCL_EXCLUSIVE mode.
+    if ((dwFlags & DDSCL_EXCLUSIVE) && !(dwFlags & DDSCL_CREATEDEVICEWINDOW)) {
+        if (hWnd == NULL) {
+            return DDERR_INVALIDPARAMS;
+        }
+
+        if (!IsWindow(hWnd)) { return DDERR_INVALIDPARAMS; }
+        if (GetWindowLongA(hWnd, GWL_STYLE) & WS_CHILD) {
+            return DDERR_HWNDSUBCLASSED;
+        }
+    }
+
+    // TODO: Incomplete.
+    // For now - just do basic validation and pass the value..
+
+    return dd_set_cooperative_level(self->instance, hWnd, dwFlags);
 }
 
-HRESULT SUGARCALL idd_set_display_mode1(idd* self, DWORD dwWidth, DWORD dwHeight, DWORD dwBpp) {
-    return DDERR_UNSUPPORTED;
+HRESULT SUGARCALL idd_set_display_mode1(idd* self, DWORD dwWidth, DWORD dwHeight, DWORD dwBPP) {
+    return dd_set_display_mode(self->instance, dwWidth, dwHeight, dwBPP, 0, DDSDM_NONE);
 }
 
 HRESULT SUGARCALL idd_wait_for_vertical_blank(idd* self, DWORD dwFlags, HANDLE hEvent) {
@@ -453,7 +533,15 @@ HRESULT SUGARCALL idd_wait_for_vertical_blank(idd* self, DWORD dwFlags, HANDLE h
 }
 
 HRESULT SUGARCALL idd_set_display_mode2(idd* self, DWORD dwWidth, DWORD dwHeight, DWORD dwBPP, DWORD dwRefreshRate, DWORD dwFlags) {
-    return DDERR_UNSUPPORTED;
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if ((dwFlags != DDSDM_NONE) && (dwFlags & ~DDSDM_VALID)) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    return dd_set_display_mode(self->instance, dwWidth, dwHeight, dwBPP, dwRefreshRate, dwFlags);
 }
 
 HRESULT SUGARCALL idd_get_available_vid_mem2(idd* self, LPDDSCAPS lpDDSCaps, LPDWORD lpdwTotal, LPDWORD lpdwFree) {
@@ -461,7 +549,22 @@ HRESULT SUGARCALL idd_get_available_vid_mem2(idd* self, LPDDSCAPS lpDDSCaps, LPD
 }
 
 HRESULT SUGARCALL idd_create_surface4(idd* self, LPDDSURFACEDESC2 lpDDSurfaceDesc, LPDIRECTDRAWSURFACE4* lplpDDSurface, IUnknown* pUnkOuter) {
-    return DDERR_UNSUPPORTED;
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (lpDDSurfaceDesc == NULL || lplpDDSurface == NULL || pUnkOuter != NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if (lpDDSurfaceDesc->dwSize != sizeof(DDSURFACEDESC2)) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    DDSURFACEDESC2 desc;
+    CopyMemory(&desc, lpDDSurfaceDesc, sizeof(DDSURFACEDESC2));
+
+    return dd_create_surface(self->instance, &IID_IDirectDrawSurface4, &desc, lplpDDSurface);
 }
 
 HRESULT SUGARCALL idd_duplicate_surface4(idd* self, LPDIRECTDRAWSURFACE4 lpDDSurface, LPDIRECTDRAWSURFACE4* lplpDupDDSurface) {
@@ -521,7 +624,22 @@ HRESULT SUGARCALL idd_get_device_identifier4(idd* self, LPDDDEVICEIDENTIFIER lpd
 }
 
 HRESULT SUGARCALL idd_create_surface7(idd* self, LPDDSURFACEDESC2 lpDDSurfaceDesc, LPDIRECTDRAWSURFACE7* lplpDDSurface, IUnknown* pUnkOuter) {
-    return DDERR_UNSUPPORTED;
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (lpDDSurfaceDesc == NULL || lplpDDSurface == NULL || pUnkOuter != NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if (lpDDSurfaceDesc->dwSize != sizeof(DDSURFACEDESC2)) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    DDSURFACEDESC2 desc;
+    CopyMemory(&desc, lpDDSurfaceDesc, sizeof(DDSURFACEDESC2));
+
+    return dd_create_surface(self->instance, &IID_IDirectDrawSurface7, &desc, lplpDDSurface);
 }
 
 HRESULT SUGARCALL idd_duplicate_surface7(idd* self, LPDIRECTDRAWSURFACE7 lpDDSurface, LPDIRECTDRAWSURFACE7* lplpDupDDSurface) {

@@ -12,8 +12,8 @@ typedef struct idd {
 } idd;
 
 typedef HRESULT(SUGARCALL* IDDQUERYINTERFACE)(idd*, REFIID, LPVOID*);
-typedef ULONG(SUGARCALL* IDDADDREF)(idd*);
-typedef ULONG(SUGARCALL* IDDRELEASE)(idd*);
+typedef ULONG(SUGARCALL*   IDDADDREF)(idd*);
+typedef ULONG(SUGARCALL*   IDDRELEASE)(idd*);
 typedef HRESULT(SUGARCALL* IDDCOMPACT)(idd*);
 typedef HRESULT(SUGARCALL* IDDCREATECLIPPER)(idd*, DWORD, LPDIRECTDRAWCLIPPER*, IUnknown*);
 typedef HRESULT(SUGARCALL* IDDCREATEPALETTE)(idd*, DWORD, LPPALETTEENTRY, LPDIRECTDRAWPALETTE*, IUnknown*);
@@ -60,7 +60,7 @@ typedef HRESULT(SUGARCALL* IDDSTARTMODETEST7)(idd*, LPSIZE, DWORD, DWORD);
 typedef HRESULT(SUGARCALL* IDDEVALUATEMODE7)(idd*, DWORD, DWORD*);
 
 HRESULT SUGARCALL idd_create(sugar* manager, const GUID* riid, idd** object);
-VOID SUGARCALL idd_release(idd* self);
+void SUGARCALL idd_release(idd* self);
 
 HRESULT SUGARCALL idd_query_interface(idd* self, const GUID* riid, void** object);
 ULONG SUGARCALL idd_add_ref(idd* self);

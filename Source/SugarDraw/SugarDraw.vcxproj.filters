@@ -39,6 +39,21 @@
     <ClInclude Include="sugar.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="idds.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="dds.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="utilities.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="iddp.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ddp.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="sugar.c">
@@ -63,6 +78,21 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="intfc.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="dds.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="utilities.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="idds.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="iddp.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ddp.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

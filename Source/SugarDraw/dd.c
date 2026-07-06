@@ -1,12 +1,15 @@
 #include "idd.h"
 #include "dd.h"
+#include "dds.h"
+#include "ddp.h"
 
 HRESULT dd_create(sugar* manager, const GUID* rclsid, dd** object) {
     if (manager == NULL || rclsid == NULL || object == NULL) {
-        return E_INVALIDARG;
+        return DDERR_INVALIDPARAMS;
     }
 
-    if (!IsEqualGUID(&CLSID_DirectDraw, rclsid) && !IsEqualGUID(&CLSID_DirectDraw7, rclsid)) {
+    if (!IsEqualGUID(&CLSID_DirectDraw, rclsid)
+        && !IsEqualGUID(&CLSID_DirectDraw7, rclsid)) {
         return E_NOINTERFACE;
     }
 
@@ -16,9 +19,17 @@ HRESULT dd_create(sugar* manager, const GUID* rclsid, dd** object) {
         instance->manager = manager;
         CopyMemory(&instance->id, rclsid, sizeof(GUID));
         if (SUCCEEDED(hr = intfc_create(manager->allocator, MEM_TAG_DIRECTDRAW, &instance->interfaces))) {
-            InitializeCriticalSection(&instance->lock);
-            *object = instance;
-            return hr;
+            if (SUCCEEDED(hr = arr_create(manager->allocator, MEM_TAG_DIRECTDRAW, &instance->surfaces))) {
+                if (SUCCEEDED(hr = arr_create(manager->allocator, MEM_TAG_DIRECTDRAW, &instance->palettes))) {
+                    InitializeCriticalSection(&instance->lock);
+                    *object = instance;
+                    return hr;
+                }
+                
+                arr_release(instance->surfaces);
+            }
+
+            intfc_release(instance->interfaces);
         }
 
         allocator_free(manager->allocator, instance);
@@ -27,7 +38,7 @@ HRESULT dd_create(sugar* manager, const GUID* rclsid, dd** object) {
     return hr;
 }
 
-void dd_release(dd* self) {
+void dd_release(dd* self, u32 flags) {
     if (self != NULL) {
         EnterCriticalSection(&self->lock);
 
@@ -43,8 +54,36 @@ void dd_release(dd* self) {
             intfc_release(self->interfaces);
         }
 
+        if (self->surfaces != NULL) {
+            const int item_count = arr_get_count(self->surfaces);
+            for (int i = 0; i < item_count; i++) {
+                dds* instance = NULL;
+                if (SUCCEEDED(arr_get_item(self->surfaces, i, &instance))) {
+                    dds_release(instance, RELEASE_NONE);
+                }
+            }
+
+            arr_release(self->surfaces);
+        }
+
+        if (self->palettes != NULL) {
+            const int item_count = arr_get_count(self->palettes);
+            for (int i = 0; i < item_count; i++) {
+                ddp* instance = NULL;
+                if (SUCCEEDED(arr_get_item(self->palettes, i, &instance))) {
+                    ddp_release(instance, RELEASE_NONE);
+                }
+            }
+
+            arr_release(self->palettes);
+        }
+
         LeaveCriticalSection(&self->lock);
         DeleteCriticalSection(&self->lock);
+
+        if (flags & RELEASE_NOTIFY) {
+            sugar_remove_direct_draw(self->manager, self);
+        }
 
         allocator_free(self->manager->allocator, self);
     }
@@ -61,11 +100,11 @@ HRESULT dd_query_interface(dd* self, const GUID* riid, void** object) {
         goto exit;
     }
 
-    const bool valid = IsEqualGUID(&IID_IUnknown, riid)
-        || IsEqualGUID(&IID_IDirectDraw, riid) || IsEqualGUID(&IID_IDirectDraw2, riid)
-        || IsEqualGUID(&IID_IDirectDraw4, riid) || IsEqualGUID(&IID_IDirectDraw7, riid);
-
-    if (valid) {
+    if (IsEqualGUID(&IID_IUnknown, riid)
+        || IsEqualGUID(&IID_IDirectDraw, riid)
+        || IsEqualGUID(&IID_IDirectDraw2, riid)
+        || IsEqualGUID(&IID_IDirectDraw4, riid)
+        || IsEqualGUID(&IID_IDirectDraw7, riid)) {
         if (SUCCEEDED(hr = idd_create(self->manager, riid, &instance))) {
             instance->instance = self;
             if (SUCCEEDED(hr = dd_add_ref(self, instance))) {
@@ -89,11 +128,299 @@ HRESULT dd_add_ref(dd* self, idd* object) {
 
 HRESULT dd_remove_ref(dd* self, idd* object) {
     HRESULT hr = DD_OK;
+    EnterCriticalSection(&self->lock);
+
     if (SUCCEEDED(hr = intfc_remove_item(self->interfaces, &object->id))) {
         if (intfc_get_count(self->interfaces) == 0) {
-            dd_release(self);
+            dd_release(self, RELEASE_NOTIFY);
         }
     }
+
+    LeaveCriticalSection(&self->lock);
+
+    return hr;
+}
+
+HRESULT dd_create_surface(dd* self, const GUID* riid, DDSURFACEDESC2* desc, void** object) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (riid == NULL || desc == NULL || object == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    // TODO incomplete validations...
+    // TODO move most of validations into separate function, so that it can be reused by ::Initialize
+
+    if (self->cooperative_level.flags == DDSCL_NONE) {
+        return DDERR_NOCOOPERATIVELEVELSET;
+    }
+
+    desc->dwFlags |= DDSD_CAPS;
+    if ((desc->dwFlags != DDSD_NONE) && (desc->dwFlags & ~DDSD_VALID)) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if (desc->ddsCaps.dwCaps & ~DDSCAPS_VALID) {
+        return DDERR_INVALIDCAPS;
+    }
+
+    if ((desc->ddsCaps.dwCaps & DDSCAPS_MODEX)
+        && (desc->ddsCaps.dwCaps & DDSCAPS_STANDARDVGAMODE)) {
+        return DDERR_INVALIDCAPS;
+    }
+
+    if ((desc->ddsCaps.dwCaps & DDSCAPS_FRONTBUFFER)
+        && (desc->ddsCaps.dwCaps & DDSCAPS_BACKBUFFER)) {
+        return DDERR_INVALIDCAPS;
+    }
+
+    if (desc->ddsCaps.dwCaps & (DDSCAPS_FLIP | DDSCAPS_COMPLEX)) {
+        if (!(desc->ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACE)
+            && !(desc->ddsCaps.dwCaps & (DDSCAPS_FRONTBUFFER | DDSCAPS_BACKBUFFER))) {
+            return DDERR_INVALIDCAPS;
+        }
+
+        if (desc->dwFlags & DDSD_BACKBUFFERCOUNT && desc->dwBackBufferCount == 0) {
+            return DDERR_INVALIDPARAMS;
+        }
+    }
+
+    HRESULT hr = DD_OK;
+    if (desc->ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACE) {
+        if (self->primary != NULL) {
+            return DDERR_PRIMARYSURFACEALREADYEXISTS;
+        }
+
+        if (desc->dwFlags & (DDSD_PITCH | DDSD_LPSURFACE | DDSD_LINEARSIZE | DDSD_FVF)) {
+            return DDERR_INVALIDCAPS;
+        }
+
+        if (desc->ddsCaps.dwCaps & (DDSCAPS_FLIP | DDSCAPS_COMPLEX)
+            && !(self->cooperative_level.flags & (DDSCL_FULLSCREEN | DDSCL_EXCLUSIVE))) {
+            return DDERR_NOEXCLUSIVEMODE;
+        }
+
+        desc->ddsCaps.dwCaps |= DDSCAPS_VISIBLE;
+        if (desc->ddsCaps.dwCaps & DDSCAPS_FLIP) {
+            desc->ddsCaps.dwCaps |= DDSCAPS_FRONTBUFFER;
+        }
+
+        if (!(desc->dwFlags & (DDSD_WIDTH | DDSD_HEIGHT | DDSD_PIXELFORMAT))) {
+            DEVMODEA mode;
+            ZeroMemory(&mode, sizeof(DEVMODEA));
+            if (FAILED(hr = sugar_get_display_mode(self->manager, &mode))) {
+                return hr;
+            }
+
+            if (!(desc->dwFlags & DDSD_WIDTH)) {
+                desc->dwFlags |= DDSD_WIDTH;
+                desc->dwWidth = mode.dmPelsWidth;
+            }
+
+            if (!(desc->dwFlags & DDSD_HEIGHT)) {
+                desc->dwFlags |= DDSD_HEIGHT;
+                desc->dwHeight = mode.dmPelsHeight;
+            }
+
+            if (!(desc->dwFlags & DDSD_PIXELFORMAT)) {
+                desc->dwFlags |= DDSD_PIXELFORMAT;
+
+                // TODO proper implementation..
+
+                ZeroMemory(&desc->ddpfPixelFormat, sizeof(DDPIXELFORMAT));
+                desc->ddpfPixelFormat.dwSize = sizeof(DDPIXELFORMAT);
+
+                switch (mode.dmBitsPerPel) {
+                case 1:
+                case 2:
+                case 4: {
+                    return DDERR_UNSUPPORTEDFORMAT;
+                }break;
+                case 8: {
+                    desc->ddpfPixelFormat.dwFlags = DDPF_RGB | DDPF_PALETTEINDEXED8;
+                    desc->ddpfPixelFormat.dwRGBBitCount = 8;
+                    desc->ddsCaps.dwCaps |= DDSCAPS_PALETTE;
+                }break;
+                case 15:
+                case 16:
+                case 24: {
+                    return DDERR_UNSUPPORTEDFORMAT;
+                }break;
+                case 32: {
+                    return DDERR_UNSUPPORTEDFORMAT;
+                }break;
+                }
+            }
+        }
+    }
+    else {
+        // TODO: non-primary surface...
+        return DDERR_UNSUPPORTED;
+    }
+
+    // TODO validate pixel format...
+
+    EnterCriticalSection(&self->lock);
+
+    dds* instance = NULL;
+    if (SUCCEEDED(hr = dds_create(self->manager, &instance))) {
+        if (SUCCEEDED(hr = dds_initialize(instance, self, desc))) {
+            idds* intfc = NULL;
+            if (SUCCEEDED(hr = dds_query_interface(instance, riid, &intfc))) {
+                if (SUCCEEDED(hr = arr_add_item(self->surfaces, instance))) {
+                    if (desc->ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACE) {
+                        self->primary = instance;
+                    }
+
+                    *object = intfc;
+                    goto exit;
+                }
+            }
+        }
+
+        dds_release(instance, RELEASE_NONE);
+    }
+
+exit:
+    LeaveCriticalSection(&self->lock);
+
+    return hr;
+}
+
+HRESULT dd_remove_surface(dd* self, dds* object) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (object == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    HRESULT hr = DD_OK;
+    EnterCriticalSection(&self->lock);
+
+    const int item_count = arr_get_count(self->surfaces);
+    for (int i = 0; i < item_count; i++) {
+        dds* instance = NULL;
+        if (SUCCEEDED(hr = arr_get_item(self->surfaces, i, &instance))) {
+            if (instance == object) {
+                hr = arr_remove_item(self->surfaces, i, NULL);
+                if (self->primary == object) {
+                    self->primary = NULL;
+                }
+
+                goto exit;
+            }
+        }
+    }
+
+    hr = DDERR_NOTFOUND;
+
+exit:
+    LeaveCriticalSection(&self->lock);
+
+    return hr;
+}
+
+HRESULT dd_create_palette(dd* self, u32 flags, PALETTEENTRY* entries, void** object) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if ((flags != DDPCAPS_NONE) && (flags & ~DDPCAPS_VALID)) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if (entries == NULL || object == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if (!self->initialized) {
+        return DDERR_NOTINITIALIZED;
+    }
+
+    if (self->cooperative_level.flags == DDSCL_NONE) {
+        return DDERR_NOCOOPERATIVELEVELSET;
+    }
+
+    if (!(flags & (DDPCAPS_1BIT | DDPCAPS_2BIT | DDPCAPS_4BIT | DDPCAPS_8BIT))) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    // TODO more validations
+
+    HRESULT hr = DD_OK;
+    EnterCriticalSection(&self->lock);
+
+    ddp* instance = NULL;
+    if (SUCCEEDED(hr = ddp_create(self->manager, &instance))) {
+        if (SUCCEEDED(hr = ddp_initialize(instance, self, DDPCAPS_NONE, NULL))) {
+            iddp* intfc = NULL;
+            if (SUCCEEDED(hr = ddp_query_interface(instance, &IID_IDirectDrawPalette, &intfc))) {
+                if (SUCCEEDED(hr = arr_add_item(self->palettes, instance))) {
+                    u32 start = 0, count = 0;
+                    if (flags & DDPCAPS_1BIT) {
+                        count = 2;
+                    }
+                    else if (flags & DDPCAPS_2BIT) {
+                        count = 4;
+                    }
+                    else if (flags & DDPCAPS_4BIT) {
+                        count = 16;
+                    }
+                    else if (flags & DDPCAPS_8BIT) {
+                        count = PALETTE_MAX_ENTRY_COUNT;
+                    }
+
+                    // TODO DDPCAPS_ALLOW256
+                    // TODO DDPCAPS_8BITENTRIES 
+
+                    if (SUCCEEDED(hr = ddp_set_entries(instance, DDPCAPS_NONE, start, count, entries))) {
+                        *object = intfc;
+                        goto exit;
+                    }
+                }
+            }
+        }
+
+        ddp_release(instance, RELEASE_NONE);
+    }
+
+exit:
+    LeaveCriticalSection(&self->lock);
+
+    return hr;
+}
+
+HRESULT dd_remove_palette(dd* self, ddp* object) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (object == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    HRESULT hr = DD_OK;
+    EnterCriticalSection(&self->lock);
+
+    const int item_count = arr_get_count(self->palettes);
+    for (int i = 0; i < item_count; i++) {
+        ddp* instance = NULL;
+        if (SUCCEEDED(hr = arr_get_item(self->palettes, i, &instance))) {
+            if (instance == object) {
+                hr = arr_remove_item(self->palettes, i, NULL);
+                goto exit;
+            }
+        }
+    }
+
+    hr = DDERR_NOTFOUND;
+
+exit:
+    LeaveCriticalSection(&self->lock);
 
     return hr;
 }
@@ -117,4 +444,69 @@ HRESULT dd_initialize(dd* self, const GUID* riid) {
     self->initialized = TRUE;
 
     return DD_OK;
+}
+
+HRESULT dd_restore_display_mode(dd* self) {
+    // TODO
+    return DDERR_UNSUPPORTED;
+}
+
+HRESULT dd_set_cooperative_level(dd* self, HWND hwnd, u32 flags) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (!self->initialized) {
+        return DDERR_NOTINITIALIZED;
+    }
+
+    if (flags & (DDSCL_EXCLUSIVE | DDSCL_FULLSCREEN)) {
+        if (!IsWindow(hwnd)) {
+            return DDERR_INVALIDPARAMS;
+        }
+    }
+
+    // TODO Incomplete.
+    // TODO: all kind of validations and checks.
+    // Also, the manager has to know what object, if any has exclusive mode.
+    // Only one object can have exclusive mode at a time. TODO Tests...
+
+    // TODO. It also seems that the mode cannot be changed if at least one surface or palette
+    // was created by DirectDraw instance and still exists. TODO Tests...
+
+    EnterCriticalSection(&self->lock);
+
+    self->cooperative_level.hwnd = hwnd;
+    self->cooperative_level.flags = flags;
+
+    LeaveCriticalSection(&self->lock);
+
+    return DD_OK;
+}
+
+HRESULT dd_set_display_mode(dd* self, u32 width, u32 height, u32 bpp, u32 rate, u32 flags) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (!(self->cooperative_level.flags & DDSCL_EXCLUSIVE)) {
+        return DDERR_NOEXCLUSIVEMODE;
+    }
+
+    // TODO: Per documentation - check for locked surfaces, or still drawing...
+
+    // TODO: Read documentation about IDirectDraw7::SetCooperativeLevel interaction with ::SetDisplayMode and ::RestoreDisplayMode
+
+    EnterCriticalSection(&self->lock);
+
+    const HRESULT hr = sugar_set_display_mode(self->manager, width, height, bpp, rate);
+
+    // TODO proper implementation
+    if (self->cooperative_level.flags & (DDSCL_EXCLUSIVE | DDSCL_FULLSCREEN)) {
+        SetWindowPos(self->cooperative_level.hwnd, HWND_TOPMOST, 0, 0, width, height, SWP_SHOWWINDOW);
+    }
+
+    LeaveCriticalSection(&self->lock);
+
+    return hr;
 }

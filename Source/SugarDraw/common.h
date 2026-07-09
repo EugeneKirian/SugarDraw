@@ -69,6 +69,19 @@
                                                     | DDPCAPS_PRIMARYSURFACE | DDPCAPS_PRIMARYSURFACELEFT | DDPCAPS_ALLOW256 \
                                                     | DDPCAPS_VSYNC | DDPCAPS_1BIT | DDPCAPS_2BIT | DDPCAPS_ALPHA)
 
+
+#define DDBLTFAST_NONE                          DDBLTFAST_NOCOLORKEY
+#define DDBLTFAST_VALID                         (DDBLTFAST_NOCOLORKEY | DDBLTFAST_SRCCOLORKEY | DDBLTFAST_DESTCOLORKEY \
+                                                    | DDBLTFAST_WAIT | DDBLTFAST_DONOTWAIT)
+
+#define DDCKEY_NONE                             0x00000000L
+#define DDCKEY_VALID		                    (DDCKEY_COLORSPACE | DDCKEY_DESTBLT	| DDCKEY_DESTOVERLAY | DDCKEY_SRCBLT | DDCKEY_SRCOVERLAY)
+
+#define DDLOCK_NONE                             DDLOCK_SURFACEMEMORYPTR
+#define DDLOCK_VALID                            (DDLOCK_SURFACEMEMORYPTR | DDLOCK_WAIT | DDLOCK_EVENT | DDLOCK_EVENT \
+                                                    | DDLOCK_WRITEONLY | DDLOCK_NOSYSLOCK | DDLOCK_NOOVERWRITE | DDLOCK_DISCARDCONTENTS \
+                                                    | DDLOCK_OKTOSWAP | DDLOCK_DONOTWAIT | DDLOCK_HASVOLUMETEXTUREBOXRECT | DDLOCK_NODIRTYUPDATE)
+
 typedef int bool;
 
 typedef int s32;

@@ -659,7 +659,15 @@ HRESULT SUGARCALL idds_blt_batch(idds* self, LPDDBLTBATCH lpDDBltBatch, DWORD dw
 }
 
 HRESULT SUGARCALL idds_blt_fast1(idds* self, DWORD dwX, DWORD dwY, LPDIRECTDRAWSURFACE lpDDSrcSurface, LPRECT lpSrcRect, DWORD dwTrans) {
-    return DDERR_UNSUPPORTED;
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (lpDDSrcSurface == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    return dds_blt_fast(self->instance, dwX, dwY, ((idds*)lpDDSrcSurface)->instance, lpSrcRect, dwTrans);
 }
 
 HRESULT SUGARCALL idds_delete_attached_surface1(idds* self, DWORD dwFlags, LPDIRECTDRAWSURFACE lpDDSAttachedSurface) {
@@ -719,7 +727,19 @@ HRESULT SUGARCALL idds_get_clipper(idds* self, LPDIRECTDRAWCLIPPER* lplpDDClippe
 }
 
 HRESULT SUGARCALL idds_get_color_key(idds* self, DWORD dwFlags, LPDDCOLORKEY lpDDColorKey) {
-    return DDERR_UNSUPPORTED;
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (dwFlags & ~DDCKEY_VALID) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if (lpDDColorKey == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    return dds_get_color_key(self->instance, dwFlags, lpDDColorKey);
 }
 
 HRESULT SUGARCALL idds_get_dc(idds* self, HDC* lphDC) {
@@ -808,7 +828,34 @@ HRESULT SUGARCALL idds_is_lost(idds* self) {
 }
 
 HRESULT SUGARCALL idds_lock1(idds* self, LPRECT lpDestRect, LPDDSURFACEDESC lpDDSurfaceDesc, DWORD dwFlags, HANDLE hEvent) {
-    return DDERR_UNSUPPORTED;
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (lpDDSurfaceDesc == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if (lpDDSurfaceDesc->dwSize != sizeof(DDSURFACEDESC)) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if (dwFlags & ~DDLOCK_VALID) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    // TODO Early versions suport event, see documentation.
+    // For now assume DirectDraw 6+ behavior...
+    if ((dwFlags & DDLOCK_EVENT) || hEvent != NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    DDSURFACEDESC2 desc;
+    ZeroMemory(&desc, sizeof(DDSURFACEDESC2));
+    CopyMemory(&desc, lpDDSurfaceDesc, sizeof(DDSURFACEDESC));
+    desc.dwSize = sizeof(DDSURFACEDESC2);
+
+    return dds_lock(self->instance, lpDestRect, &desc, dwFlags);
 }
 
 HRESULT SUGARCALL idds_release_dc(idds* self, HDC hDC) {
@@ -836,7 +883,15 @@ HRESULT SUGARCALL idds_set_clipper(idds* self, LPDIRECTDRAWCLIPPER lpDDClipper) 
 }
 
 HRESULT SUGARCALL idds_set_color_key(idds* self, DWORD dwFlags, LPDDCOLORKEY lpDDColorKey) {
-    return DDERR_UNSUPPORTED;
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (dwFlags & ~DDCKEY_VALID) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    return dds_set_color_key(self->instance, dwFlags, lpDDColorKey);
 }
 
 HRESULT SUGARCALL idds_set_overlay_position(idds* self, LONG lX, LONG lY) {
@@ -876,7 +931,15 @@ HRESULT SUGARCALL idds_blt2(idds* self, LPRECT lpDestRect, LPDIRECTDRAWSURFACE2 
 }
 
 HRESULT SUGARCALL idds_blt_fast2(idds* self, DWORD dwX, DWORD dwY, LPDIRECTDRAWSURFACE2 lpDDSrcSurface, LPRECT lpSrcRect, DWORD dwTrans) {
-    return DDERR_UNSUPPORTED;
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (lpDDSrcSurface == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    return dds_blt_fast(self->instance, dwX, dwY, ((idds*)lpDDSrcSurface)->instance, lpSrcRect, dwTrans);
 }
 
 HRESULT SUGARCALL idds_delete_attached_surface2(idds* self, DWORD dwFlags, LPDIRECTDRAWSURFACE2 lpDDSAttachedSurface) {
@@ -944,7 +1007,15 @@ HRESULT SUGARCALL idds_blt3(idds* self, LPRECT lpDestRect, LPDIRECTDRAWSURFACE3 
 }
 
 HRESULT SUGARCALL idds_blt_fast3(idds* self, DWORD dwX, DWORD dwY, LPDIRECTDRAWSURFACE3 lpDDSrcSurface, LPRECT lpSrcRect, DWORD dwTrans) {
-    return DDERR_UNSUPPORTED;
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (lpDDSrcSurface == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    return dds_blt_fast(self->instance, dwX, dwY, ((idds*)lpDDSrcSurface)->instance, lpSrcRect, dwTrans);
 }
 
 HRESULT SUGARCALL idds_delete_attached_surface3(idds* self, DWORD dwFlags, LPDIRECTDRAWSURFACE3 lpDDSAttachedSurface) {
@@ -1004,7 +1075,15 @@ HRESULT SUGARCALL idds_blt4(idds* self, LPRECT lpDestRect, LPDIRECTDRAWSURFACE4 
 }
 
 HRESULT SUGARCALL idds_blt_fast4(idds* self, DWORD dwX, DWORD dwY, LPDIRECTDRAWSURFACE4 lpDDSrcSurface, LPRECT lpSrcRect, DWORD dwTrans) {
-    return DDERR_UNSUPPORTED;
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (lpDDSrcSurface == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    return dds_blt_fast(self->instance, dwX, dwY, ((idds*)lpDDSrcSurface)->instance, lpSrcRect, dwTrans);
 }
 
 HRESULT SUGARCALL idds_delete_attached_surface4(idds* self, DWORD dwFlags, LPDIRECTDRAWSURFACE4 lpDDSAttachedSurface) {
@@ -1074,7 +1153,30 @@ HRESULT SUGARCALL idds_initialize4(idds* self, LPDIRECTDRAW lpDD, LPDDSURFACEDES
 }
 
 HRESULT SUGARCALL idds_lock4(idds* self, LPRECT lpDestRect, LPDDSURFACEDESC2 lpDDSurfaceDesc, DWORD dwFlags, HANDLE hEvent) {
-    return DDERR_UNSUPPORTED;
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (lpDDSurfaceDesc == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if (lpDDSurfaceDesc->dwSize != sizeof(DDSURFACEDESC2)) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if (dwFlags & ~DDLOCK_VALID) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if ((dwFlags & DDLOCK_EVENT) || hEvent != NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    DDSURFACEDESC2 desc;
+    CopyMemory(&desc, lpDDSurfaceDesc, sizeof(DDSURFACEDESC2));
+
+    return dds_lock(self->instance, lpDestRect, &desc, dwFlags);
 }
 
 HRESULT SUGARCALL idds_update_overlay4(idds* self, LPRECT lpSrcRect, LPDIRECTDRAWSURFACE4 lpDDDestSurface, LPRECT lpDestRect, DWORD dwFlags, LPDDOVERLAYFX lpDDOverlayFx) {
@@ -1118,7 +1220,15 @@ HRESULT SUGARCALL idds_blt7(idds* self, LPRECT lpDestRect, LPDIRECTDRAWSURFACE7 
 }
 
 HRESULT SUGARCALL idds_blt_fast7(idds* self, DWORD dwX, DWORD dwY, LPDIRECTDRAWSURFACE7 lpDDSrcSurface, LPRECT lpSrcRect, DWORD dwTrans) {
-    return DDERR_UNSUPPORTED;
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (lpDDSrcSurface == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    return dds_blt_fast(self->instance, dwX, dwY, ((idds*)lpDDSrcSurface)->instance, lpSrcRect, dwTrans);
 }
 
 HRESULT SUGARCALL idds_delete_attached_surface7(idds* self, DWORD dwFlags, LPDIRECTDRAWSURFACE7 lpDDSAttachedSurface) {

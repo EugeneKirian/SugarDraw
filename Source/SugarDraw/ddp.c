@@ -2,6 +2,7 @@
 #include "dd.h"
 #include "ddp.h"
 #include "dds.h"
+#include "utilities.h"
 
 HRESULT ddp_create(sugar* manager, ddp** object) {
     if (manager == NULL || object == NULL) {
@@ -140,6 +141,7 @@ HRESULT ddp_get_entries(ddp* self, u32 flags, u32 base, u32 count, PALETTEENTRY*
         return DDERR_INVALIDPARAMS;
     }
     
+    // TODO better checks on count for 1, 2, 4, and 8-bit palettes
     if (flags != DDPFLAGS_NONE
         || base >= PALETTE_MAX_ENTRY_COUNT
         || count > PALETTE_MAX_ENTRY_COUNT
@@ -155,21 +157,21 @@ HRESULT ddp_get_entries(ddp* self, u32 flags, u32 base, u32 count, PALETTEENTRY*
         return DDERR_NOTINITIALIZED;
     }
 
+    // TODO indexed palettes
+    // TODO checks for base and count for non 8-bit palettes
+
     if (self->caps & DDPCAPS_8BITENTRIES) {
         return DDERR_UNSUPPORTED; // TODO
     }
 
     EnterCriticalSection(&self->lock);
-    for (u32 i = base; i < count; i++) {
-        CopyMemory(&entries[i - base], &self->entries[i], sizeof(PALETTEENTRY));
-    }
-
+    CopyMemory(entries, &self->entries[base], count * sizeof(PALETTEENTRY));
     LeaveCriticalSection(&self->lock);
 
     return DD_OK;
 }
 
-HRESULT ddp_initialize(ddp* self, dd* object, u32 flags, PALETTEENTRY* entries) {
+HRESULT ddp_initialize(ddp* self, dd* object, u32 flags) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
@@ -178,14 +180,11 @@ HRESULT ddp_initialize(ddp* self, dd* object, u32 flags, PALETTEENTRY* entries) 
         return DDERR_INVALIDPARAMS;
     }
 
-    if (flags != DDPFLAGS_NONE || entries != NULL) {
-        return DDERR_INVALIDPARAMS;
-    }
-
     if (self->instance != NULL) {
         return DDERR_ALREADYINITIALIZED;
     }
 
+    self->caps = flags;
     self->instance = object;
 
     return DD_OK;
@@ -211,26 +210,44 @@ HRESULT ddp_set_entries(ddp* self, u32 flags, u32 start, u32 count, PALETTEENTRY
         return DDERR_NOTINITIALIZED;
     }
 
+    // TODO indexed palettes
+    // TODO checks for start and count for non 8-bit palettes
+
     if (self->caps & DDPCAPS_8BITENTRIES) {
         return DDERR_UNSUPPORTED; // TODO
     }
 
+    HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
-    for (u32 i = start; i < count; i++) {
-        CopyMemory(&self->entries[i + start], &entries[i], sizeof(PALETTEENTRY));
+    CopyMemory(&self->entries[start], entries, count * sizeof(PALETTEENTRY));
+
+    if (!(self->caps & DDPCAPS_ALLOW256)) {
+        // TODO handle non 8-bit
+        // TODO handle alpha caps
+        self->entries[0].peRed = 0;
+        self->entries[0].peGreen = 0;
+        self->entries[0].peBlue = 0;
+        self->entries[0].peFlags = 0;
+
+        self->entries[255].peRed = 255;
+        self->entries[255].peGreen = 255;
+        self->entries[255].peBlue = 255;
+        self->entries[255].peFlags = 255;
     }
 
-    const int item_count = arr_get_count(self->surfaces);
-    for (int i = 0; i < item_count; i++) {
-        dds* instance = NULL;
-        if (SUCCEEDED(arr_get_item(self->surfaces, i, &instance))) {
-            dds_update_palette_entries(instance);
+    if (SUCCEEDED(hr = palette_entry_to_rgb_quad(&self->entries[start], count, &self->quads[start]))) {
+        const int item_count = arr_get_count(self->surfaces);
+        for (int i = 0; i < item_count; i++) {
+            dds* instance = NULL;
+            if (SUCCEEDED(arr_get_item(self->surfaces, i, &instance))) {
+                dds_update_palette_entries(instance);
+            }
         }
     }
 
     LeaveCriticalSection(&self->lock);
 
-    return DD_OK;
+    return hr;
 }
 
 HRESULT ddp_register_surface(ddp* self, dds* surface) {

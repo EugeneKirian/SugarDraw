@@ -188,6 +188,77 @@ HRESULT dd_create_surface(dd* self, const GUID* riid, DDSURFACEDESC2* desc, void
     }
 
     HRESULT hr = DD_OK;
+    if ((desc->dwFlags & (DDSD_WIDTH | DDSD_HEIGHT | DDSD_PIXELFORMAT))
+        != (DDSD_WIDTH | DDSD_HEIGHT | DDSD_PIXELFORMAT)) {
+        DEVMODEA mode;
+        ZeroMemory(&mode, sizeof(DEVMODEA));
+        if (FAILED(hr = sugar_get_display_mode(self->manager, &mode))) {
+            return hr;
+        }
+
+        if (!(desc->dwFlags & DDSD_WIDTH)) {
+            desc->dwFlags |= DDSD_WIDTH;
+            desc->dwWidth = mode.dmPelsWidth;
+        }
+
+        if (!(desc->dwFlags & DDSD_HEIGHT)) {
+            desc->dwFlags |= DDSD_HEIGHT;
+            desc->dwHeight = mode.dmPelsHeight;
+        }
+
+        if (!(desc->dwFlags & DDSD_PIXELFORMAT)) {
+            desc->dwFlags |= DDSD_PIXELFORMAT;
+
+            // TODO proper implementation..
+
+            ZeroMemory(&desc->ddpfPixelFormat, sizeof(DDPIXELFORMAT));
+            desc->ddpfPixelFormat.dwSize = sizeof(DDPIXELFORMAT);
+
+            switch (mode.dmBitsPerPel) {
+            case 1:
+            case 2:
+            case 4: {
+                return DDERR_UNSUPPORTEDFORMAT;
+            }break;
+            case 8: {
+                desc->ddpfPixelFormat.dwFlags = DDPF_RGB | DDPF_PALETTEINDEXED8;
+                desc->ddpfPixelFormat.dwRGBBitCount = 8;
+                desc->ddsCaps.dwCaps |= DDSCAPS_PALETTE;
+            }break;
+            case 15:
+            case 16: {
+                return DDERR_UNSUPPORTEDFORMAT;
+            }break;
+            case 24: {
+                return DDERR_UNSUPPORTEDFORMAT;
+            }break;
+            case 32: {
+                return DDERR_UNSUPPORTEDFORMAT;
+            }break;
+            }
+        }
+    }
+
+    // TODO proper caps setting...
+    if (desc->ddpfPixelFormat.dwRGBBitCount <= 8) {
+        desc->ddsCaps.dwCaps |= DDSCAPS_PALETTE;
+
+        switch (desc->ddpfPixelFormat.dwRGBBitCount) {
+        case 1: {
+            desc->ddpfPixelFormat.dwFlags = DDPF_RGB | DDPF_PALETTEINDEXED1;
+        }break;
+        case 2: {
+            desc->ddpfPixelFormat.dwFlags = DDPF_RGB | DDPF_PALETTEINDEXED2;
+        }break;
+        case 4: {
+            desc->ddpfPixelFormat.dwFlags = DDPF_RGB | DDPF_PALETTEINDEXED4;
+        }break;
+        case 8: {
+            desc->ddpfPixelFormat.dwFlags = DDPF_RGB | DDPF_PALETTEINDEXED8;
+        }break;
+        }
+    }
+
     if (desc->ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACE) {
         if (self->primary != NULL) {
             return DDERR_PRIMARYSURFACEALREADYEXISTS;
@@ -206,58 +277,10 @@ HRESULT dd_create_surface(dd* self, const GUID* riid, DDSURFACEDESC2* desc, void
         if (desc->ddsCaps.dwCaps & DDSCAPS_FLIP) {
             desc->ddsCaps.dwCaps |= DDSCAPS_FRONTBUFFER;
         }
-
-        if (!(desc->dwFlags & (DDSD_WIDTH | DDSD_HEIGHT | DDSD_PIXELFORMAT))) {
-            DEVMODEA mode;
-            ZeroMemory(&mode, sizeof(DEVMODEA));
-            if (FAILED(hr = sugar_get_display_mode(self->manager, &mode))) {
-                return hr;
-            }
-
-            if (!(desc->dwFlags & DDSD_WIDTH)) {
-                desc->dwFlags |= DDSD_WIDTH;
-                desc->dwWidth = mode.dmPelsWidth;
-            }
-
-            if (!(desc->dwFlags & DDSD_HEIGHT)) {
-                desc->dwFlags |= DDSD_HEIGHT;
-                desc->dwHeight = mode.dmPelsHeight;
-            }
-
-            if (!(desc->dwFlags & DDSD_PIXELFORMAT)) {
-                desc->dwFlags |= DDSD_PIXELFORMAT;
-
-                // TODO proper implementation..
-
-                ZeroMemory(&desc->ddpfPixelFormat, sizeof(DDPIXELFORMAT));
-                desc->ddpfPixelFormat.dwSize = sizeof(DDPIXELFORMAT);
-
-                switch (mode.dmBitsPerPel) {
-                case 1:
-                case 2:
-                case 4: {
-                    return DDERR_UNSUPPORTEDFORMAT;
-                }break;
-                case 8: {
-                    desc->ddpfPixelFormat.dwFlags = DDPF_RGB | DDPF_PALETTEINDEXED8;
-                    desc->ddpfPixelFormat.dwRGBBitCount = 8;
-                    desc->ddsCaps.dwCaps |= DDSCAPS_PALETTE;
-                }break;
-                case 15:
-                case 16:
-                case 24: {
-                    return DDERR_UNSUPPORTEDFORMAT;
-                }break;
-                case 32: {
-                    return DDERR_UNSUPPORTEDFORMAT;
-                }break;
-                }
-            }
-        }
     }
-    else {
-        // TODO: non-primary surface...
-        return DDERR_UNSUPPORTED;
+
+    if (!(desc->dwFlags & DDSD_LPSURFACE)) {
+        desc->ddsCaps.dwCaps |= DDSCAPS_SYSTEMMEMORY;// | DDSCAPS_VIDEOMEMORY; // TODO verify...
     }
 
     // TODO validate pixel format...
@@ -356,7 +379,7 @@ HRESULT dd_create_palette(dd* self, u32 flags, PALETTEENTRY* entries, void** obj
 
     ddp* instance = NULL;
     if (SUCCEEDED(hr = ddp_create(self->manager, &instance))) {
-        if (SUCCEEDED(hr = ddp_initialize(instance, self, DDPCAPS_NONE, NULL))) {
+        if (SUCCEEDED(hr = ddp_initialize(instance, self, flags))) {
             iddp* intfc = NULL;
             if (SUCCEEDED(hr = ddp_query_interface(instance, &IID_IDirectDrawPalette, &intfc))) {
                 if (SUCCEEDED(hr = arr_add_item(self->palettes, instance))) {

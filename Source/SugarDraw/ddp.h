@@ -13,6 +13,7 @@ typedef struct ddp {
     arr*                surfaces;
     CRITICAL_SECTION    lock;
     u32                 caps;
+    RGBQUAD             quads[PALETTE_MAX_ENTRY_COUNT];
     PALETTEENTRY        entries[PALETTE_MAX_ENTRY_COUNT];
 } ddp;
 
@@ -25,7 +26,7 @@ HRESULT ddp_remove_ref(ddp* self, iddp* object);
 
 HRESULT ddp_get_caps(ddp* self, u32* caps);
 HRESULT ddp_get_entries(ddp* self, u32 flags, u32 base, u32 count, PALETTEENTRY* entries);
-HRESULT ddp_initialize(ddp* self, dd* object, u32 flags, PALETTEENTRY* entries);
+HRESULT ddp_initialize(ddp* self, dd* object, u32 flags);
 HRESULT ddp_set_entries(ddp* self, u32 flags, u32 start, u32 count, PALETTEENTRY* entries);
 
 HRESULT ddp_register_surface(ddp* self, dds* surface);

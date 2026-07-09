@@ -136,7 +136,19 @@ HRESULT SUGARCALL iddp_initialize(iddp* self, LPDIRECTDRAW lpDD, DWORD dwFlags, 
         return DDERR_INVALIDOBJECT;
     }
 
-    return ddp_initialize(self->instance, ((idd*)lpDD)->instance, dwFlags, lpDDColorTable);
+    if (lpDD == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if (dwFlags != DDPCAPS_NONE) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if (lpDDColorTable != NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    return ddp_initialize(self->instance, ((idd*)lpDD)->instance, DDPCAPS_NONE);
 }
 
 HRESULT SUGARCALL iddp_set_entries(iddp* self, DWORD dwFlags, DWORD dwStartingEntry, DWORD dwCount, LPPALETTEENTRY lpEntries) {

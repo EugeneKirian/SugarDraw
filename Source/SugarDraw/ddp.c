@@ -232,7 +232,7 @@ HRESULT ddp_set_entries(ddp* self, u32 flags, u32 start, u32 count, PALETTEENTRY
         self->entries[255].peRed = 255;
         self->entries[255].peGreen = 255;
         self->entries[255].peBlue = 255;
-        self->entries[255].peFlags = 255;
+        self->entries[255].peFlags = 0;
     }
 
     if (SUCCEEDED(hr = palette_entry_to_rgb_quad(&self->entries[start], count, &self->quads[start]))) {

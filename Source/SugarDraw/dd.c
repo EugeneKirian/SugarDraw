@@ -25,7 +25,7 @@ HRESULT dd_create(sugar* manager, const GUID* rclsid, dd** object) {
                     *object = instance;
                     return hr;
                 }
-                
+
                 arr_release(instance->surfaces);
             }
 
@@ -210,30 +210,56 @@ HRESULT dd_create_surface(dd* self, const GUID* riid, DDSURFACEDESC2* desc, void
             desc->dwFlags |= DDSD_PIXELFORMAT;
 
             // TODO proper implementation..
+            // Surface pixel format can be implicit (i.e. same as primary surface)
+            // TODO do we need to set it for non-primary surfaces explicitly?
+            // TODO dds_get_pixel_format ...
 
             ZeroMemory(&desc->ddpfPixelFormat, sizeof(DDPIXELFORMAT));
             desc->ddpfPixelFormat.dwSize = sizeof(DDPIXELFORMAT);
 
+            desc->ddpfPixelFormat.dwFlags = DDPF_RGB;
+            desc->ddpfPixelFormat.dwRGBBitCount = mode.dmBitsPerPel;
+
             switch (mode.dmBitsPerPel) {
-            case 1:
-            case 2:
+            case 1: {
+                desc->ddsCaps.dwCaps |= DDSCAPS_PALETTE;
+                desc->ddpfPixelFormat.dwFlags |= DDPF_PALETTEINDEXED1;
+                return DDERR_UNSUPPORTEDFORMAT; // TODO
+            }break;
+            case 2: {
+                desc->ddsCaps.dwCaps |= DDSCAPS_PALETTE;
+                desc->ddpfPixelFormat.dwFlags |= DDPF_PALETTEINDEXED2;
+                return DDERR_UNSUPPORTEDFORMAT; // TODO
+            }break;
             case 4: {
-                return DDERR_UNSUPPORTEDFORMAT;
+                desc->ddsCaps.dwCaps |= DDSCAPS_PALETTE;
+                desc->ddpfPixelFormat.dwFlags |= DDPF_PALETTEINDEXED4;
+                return DDERR_UNSUPPORTEDFORMAT; // TODO
             }break;
             case 8: {
-                desc->ddpfPixelFormat.dwFlags = DDPF_RGB | DDPF_PALETTEINDEXED8;
-                desc->ddpfPixelFormat.dwRGBBitCount = 8;
                 desc->ddsCaps.dwCaps |= DDSCAPS_PALETTE;
+                desc->ddpfPixelFormat.dwFlags |= DDPF_PALETTEINDEXED8;
             }break;
-            case 15:
+            case 15: {
+                desc->ddpfPixelFormat.dwRBitMask = 0x7C00;
+                desc->ddpfPixelFormat.dwGBitMask = 0x03E0;
+                desc->ddpfPixelFormat.dwBBitMask = 0x001F;
+            }break;
             case 16: {
-                return DDERR_UNSUPPORTEDFORMAT;
+                desc->ddpfPixelFormat.dwRBitMask = 0xF800;
+                desc->ddpfPixelFormat.dwGBitMask = 0x07E0;
+                desc->ddpfPixelFormat.dwBBitMask = 0x001F;
             }break;
             case 24: {
-                return DDERR_UNSUPPORTEDFORMAT;
+                desc->ddpfPixelFormat.dwRBitMask = 0x00FF0000;
+                desc->ddpfPixelFormat.dwGBitMask = 0x0000FF00;
+                desc->ddpfPixelFormat.dwBBitMask = 0x000000FF;
             }break;
             case 32: {
-                return DDERR_UNSUPPORTEDFORMAT;
+                desc->ddpfPixelFormat.dwRBitMask = 0x00FF0000;
+                desc->ddpfPixelFormat.dwGBitMask = 0x0000FF00;
+                desc->ddpfPixelFormat.dwBBitMask = 0x000000FF;
+                desc->ddpfPixelFormat.dwRGBAlphaBitMask = 0xFF000000;
             }break;
             }
         }
@@ -245,16 +271,16 @@ HRESULT dd_create_surface(dd* self, const GUID* riid, DDSURFACEDESC2* desc, void
 
         switch (desc->ddpfPixelFormat.dwRGBBitCount) {
         case 1: {
-            desc->ddpfPixelFormat.dwFlags = DDPF_RGB | DDPF_PALETTEINDEXED1;
+            desc->ddpfPixelFormat.dwFlags |= DDPF_PALETTEINDEXED1;
         }break;
         case 2: {
-            desc->ddpfPixelFormat.dwFlags = DDPF_RGB | DDPF_PALETTEINDEXED2;
+            desc->ddpfPixelFormat.dwFlags |= DDPF_PALETTEINDEXED2;
         }break;
         case 4: {
-            desc->ddpfPixelFormat.dwFlags = DDPF_RGB | DDPF_PALETTEINDEXED4;
+            desc->ddpfPixelFormat.dwFlags |= DDPF_PALETTEINDEXED4;
         }break;
         case 8: {
-            desc->ddpfPixelFormat.dwFlags = DDPF_RGB | DDPF_PALETTEINDEXED8;
+            desc->ddpfPixelFormat.dwFlags |= DDPF_PALETTEINDEXED8;
         }break;
         }
     }
@@ -522,11 +548,12 @@ HRESULT dd_set_display_mode(dd* self, u32 width, u32 height, u32 bpp, u32 rate, 
 
     EnterCriticalSection(&self->lock);
 
-    const HRESULT hr = sugar_set_display_mode(self->manager, width, height, bpp, rate);
-
-    // TODO proper implementation
-    if (self->cooperative_level.flags & (DDSCL_EXCLUSIVE | DDSCL_FULLSCREEN)) {
-        SetWindowPos(self->cooperative_level.hwnd, HWND_TOPMOST, 0, 0, width, height, SWP_SHOWWINDOW);
+    HRESULT hr = DD_OK;
+    if (SUCCEEDED(hr = sugar_set_display_mode(self->manager, width, height, bpp, rate))) {
+        // TODO proper implementation
+        if (self->cooperative_level.flags & (DDSCL_EXCLUSIVE | DDSCL_FULLSCREEN)) {
+            SetWindowPos(self->cooperative_level.hwnd, HWND_TOPMOST, 0, 0, width, height, SWP_SHOWWINDOW);
+        }
     }
 
     LeaveCriticalSection(&self->lock);

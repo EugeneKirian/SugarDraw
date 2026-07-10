@@ -440,7 +440,62 @@ HRESULT SUGARCALL idd_flip_to_gdi_surface(idd* self) {
 }
 
 HRESULT SUGARCALL idd_get_caps(idd* self, LPDDCAPS lpDDDriverCaps, LPDDCAPS lpDDHELCaps) {
-    return DDERR_UNSUPPORTED;
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    DDCAPS_DX7 caps;
+    ZeroMemory(&caps, sizeof(DDCAPS_DX7));
+    caps.dwSize = sizeof(DDCAPS_DX7);
+
+    // TODO move this to DD, because it has dynamic fields
+
+    caps.dwCaps = DDCAPS_ALL;
+    // TODO
+    caps.dwCKeyCaps = DDCKEYCAPS_ALL;
+
+    // TODO
+    caps.dwMaxVisibleOverlays = 256;
+    caps.dwCurrVisibleOverlays = 0; // TODO Dynamic from dd object
+
+    // TODO
+
+    // Devices that do not impose limits on stretching or shrinking
+    // an overlay destination rectangle often report a minimum and maximum stretch factor of 0.
+    caps.dwMinOverlayStretch = 0;
+    caps.dwMaxOverlayStretch = 0;
+
+    // TODO proper values
+
+    if (lpDDDriverCaps != NULL) {
+        const u32 size = lpDDDriverCaps->dwSize;
+        if (size != sizeof(DDCAPS_DX1)
+            && size != sizeof(DDCAPS_DX3)
+            && size != sizeof(DDCAPS_DX5)
+            && size != sizeof(DDCAPS_DX6)
+            && size != sizeof(DDCAPS_DX7)) {
+            return DDERR_INVALIDPARAMS;
+        }
+
+        CopyMemory(lpDDDriverCaps, &caps, size);
+        lpDDDriverCaps->dwSize = size;
+    }
+
+    if (lpDDHELCaps != NULL) {
+        const u32 size = lpDDHELCaps->dwSize;
+        if (size != sizeof(DDCAPS_DX1)
+            && size != sizeof(DDCAPS_DX3)
+            && size != sizeof(DDCAPS_DX5)
+            && size != sizeof(DDCAPS_DX6)
+            && size != sizeof(DDCAPS_DX7)) {
+            return DDERR_INVALIDPARAMS;
+        }
+
+        CopyMemory(lpDDHELCaps, &caps, size);
+        lpDDHELCaps->dwSize = size;
+    }
+
+    return DD_OK;
 }
 
 HRESULT SUGARCALL idd_get_display_mode1(idd* self, LPDDSURFACEDESC lpDDSurfaceDesc) {

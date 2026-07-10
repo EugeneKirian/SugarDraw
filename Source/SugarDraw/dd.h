@@ -18,9 +18,9 @@ typedef struct dd {
         DWORD           flags;
     } cooperative_level;
 
-    dds* primary;
-    arr* surfaces;
-    arr* palettes;
+    dds*                primary;
+    arr*                surfaces;
+    arr*                palettes;
 } dd;
 
 HRESULT dd_create(sugar* manager, const GUID* rclsid, dd** object);

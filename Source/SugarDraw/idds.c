@@ -824,7 +824,11 @@ HRESULT SUGARCALL idds_initialize1(idds* self, LPDIRECTDRAW lpDD, LPDDSURFACEDES
 }
 
 HRESULT SUGARCALL idds_is_lost(idds* self) {
-    return DDERR_UNSUPPORTED;
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    return DD_OK;
 }
 
 HRESULT SUGARCALL idds_lock1(idds* self, LPRECT lpDestRect, LPDDSURFACEDESC lpDDSurfaceDesc, DWORD dwFlags, HANDLE hEvent) {
@@ -855,7 +859,13 @@ HRESULT SUGARCALL idds_lock1(idds* self, LPRECT lpDestRect, LPDDSURFACEDESC lpDD
     CopyMemory(&desc, lpDDSurfaceDesc, sizeof(DDSURFACEDESC));
     desc.dwSize = sizeof(DDSURFACEDESC2);
 
-    return dds_lock(self->instance, lpDestRect, &desc, dwFlags);
+    HRESULT hr = DD_OK;
+    if (SUCCEEDED(hr = dds_lock(self->instance, lpDestRect, &desc, dwFlags))) {
+        CopyMemory(lpDDSurfaceDesc, &desc, sizeof(DDSURFACEDESC));
+        lpDDSurfaceDesc->dwSize = sizeof(DDSURFACEDESC);
+    }
+
+    return hr;
 }
 
 HRESULT SUGARCALL idds_release_dc(idds* self, HDC hDC) {
@@ -907,11 +917,41 @@ HRESULT SUGARCALL idds_set_palette(idds* self, LPDIRECTDRAWPALETTE lpDDPalette) 
 }
 
 HRESULT SUGARCALL idds_unlock(idds* self, LPRECT lpRect) {
-    return DDERR_UNSUPPORTED;
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    return dds_unlock(self->instance, lpRect);
 }
 
 HRESULT SUGARCALL idds_update_overlay1(idds* self, LPRECT lpSrcRect, LPDIRECTDRAWSURFACE lpDDDestSurface, LPRECT lpDestRect, DWORD dwFlags, LPDDOVERLAYFX lpDDOverlayFx) {
-    return DDERR_UNSUPPORTED;
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (lpSrcRect == NULL || lpDDDestSurface == NULL || lpDestRect == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if ((dwFlags == DDOVER_NONE) || (dwFlags & ~DDOVER_VALID)) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if ((dwFlags & DDOVER_HIDE) && (dwFlags & DDOVER_SHOW)) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if ((dwFlags & DDOVER_DDFX) && lpDDOverlayFx == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if (lpDDOverlayFx != NULL) {
+        if (lpDDOverlayFx->dwSize != sizeof(DDOVERLAYFX)) {
+            return DDERR_INVALIDPARAMS;
+        }
+    }
+
+    return dds_update_overlay(self->instance, lpSrcRect, ((idds*)lpDDDestSurface)->instance, lpDestRect, dwFlags, lpDDOverlayFx);
 }
 
 HRESULT SUGARCALL idds_update_overlay_display(idds* self, DWORD dwFlags) {
@@ -979,7 +1019,33 @@ HRESULT SUGARCALL idds_get_attached_surface2(idds* self, LPDDSCAPS lpDDSCaps, LP
 }
 
 HRESULT SUGARCALL idds_update_overlay2(idds* self, LPRECT lpSrcRect, LPDIRECTDRAWSURFACE2 lpDDDestSurface, LPRECT lpDestRect, DWORD dwFlags, LPDDOVERLAYFX lpDDOverlayFx) {
-    return DDERR_UNSUPPORTED;
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (lpSrcRect == NULL || lpDDDestSurface == NULL || lpDestRect == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if ((dwFlags == DDOVER_NONE) || (dwFlags & ~DDOVER_VALID)) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if ((dwFlags & DDOVER_HIDE) && (dwFlags & DDOVER_SHOW)) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if ((dwFlags & DDOVER_DDFX) && lpDDOverlayFx == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if (lpDDOverlayFx != NULL) {
+        if (lpDDOverlayFx->dwSize != sizeof(DDOVERLAYFX)) {
+            return DDERR_INVALIDPARAMS;
+        }
+    }
+
+    return dds_update_overlay(self->instance, lpSrcRect, ((idds*)lpDDDestSurface)->instance, lpDestRect, dwFlags, lpDDOverlayFx);
 }
 
 HRESULT SUGARCALL idds_update_overlay_z_order2(idds* self, DWORD dwFlags, LPDIRECTDRAWSURFACE2 lpDDSReference) {
@@ -1055,7 +1121,33 @@ HRESULT SUGARCALL idds_get_attached_surface3(idds* self, LPDDSCAPS lpDDSCaps, LP
 }
 
 HRESULT SUGARCALL idds_update_overlay3(idds* self, LPRECT lpSrcRect, LPDIRECTDRAWSURFACE3 lpDDDestSurface, LPRECT lpDestRect, DWORD dwFlags, LPDDOVERLAYFX lpDDOverlayFx) {
-    return DDERR_UNSUPPORTED;
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (lpSrcRect == NULL || lpDDDestSurface == NULL || lpDestRect == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if ((dwFlags == DDOVER_NONE) || (dwFlags & ~DDOVER_VALID)) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if ((dwFlags & DDOVER_HIDE) && (dwFlags & DDOVER_SHOW)) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if ((dwFlags & DDOVER_DDFX) && lpDDOverlayFx == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if (lpDDOverlayFx != NULL) {
+        if (lpDDOverlayFx->dwSize != sizeof(DDOVERLAYFX)) {
+            return DDERR_INVALIDPARAMS;
+        }
+    }
+
+    return dds_update_overlay(self->instance, lpSrcRect, ((idds*)lpDDDestSurface)->instance, lpDestRect, dwFlags, lpDDOverlayFx);
 }
 
 HRESULT SUGARCALL idds_update_overlay_z_order3(idds* self, DWORD dwFlags, LPDIRECTDRAWSURFACE3 lpDDSReference) {
@@ -1148,7 +1240,7 @@ HRESULT SUGARCALL idds_initialize4(idds* self, LPDIRECTDRAW lpDD, LPDDSURFACEDES
 
     DDSURFACEDESC2 desc;
     CopyMemory(&desc, lpDDSurfaceDesc, sizeof(DDSURFACEDESC2));
-    
+
     return dds_initialize(self->instance, ((idd*)lpDD)->instance, &desc);
 }
 
@@ -1176,11 +1268,42 @@ HRESULT SUGARCALL idds_lock4(idds* self, LPRECT lpDestRect, LPDDSURFACEDESC2 lpD
     DDSURFACEDESC2 desc;
     CopyMemory(&desc, lpDDSurfaceDesc, sizeof(DDSURFACEDESC2));
 
-    return dds_lock(self->instance, lpDestRect, &desc, dwFlags);
+    HRESULT hr = DD_OK;
+    if (SUCCEEDED(hr = dds_lock(self->instance, lpDestRect, &desc, dwFlags))) {
+        CopyMemory(lpDDSurfaceDesc, &desc, sizeof(DDSURFACEDESC2));
+    }
+
+    return hr;
 }
 
 HRESULT SUGARCALL idds_update_overlay4(idds* self, LPRECT lpSrcRect, LPDIRECTDRAWSURFACE4 lpDDDestSurface, LPRECT lpDestRect, DWORD dwFlags, LPDDOVERLAYFX lpDDOverlayFx) {
-    return DDERR_UNSUPPORTED;
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (lpSrcRect == NULL || lpDDDestSurface == NULL || lpDestRect == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if ((dwFlags == DDOVER_NONE) || (dwFlags & ~DDOVER_VALID)) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if ((dwFlags & DDOVER_HIDE) && (dwFlags & DDOVER_SHOW)) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if ((dwFlags & DDOVER_DDFX) && lpDDOverlayFx == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if (lpDDOverlayFx != NULL) {
+        if (lpDDOverlayFx->dwSize != sizeof(DDOVERLAYFX)) {
+            return DDERR_INVALIDPARAMS;
+        }
+    }
+
+    return dds_update_overlay(self->instance, lpSrcRect, ((idds*)lpDDDestSurface)->instance, lpDestRect, dwFlags, lpDDOverlayFx);
 }
 
 HRESULT SUGARCALL idds_update_overlay_z_order4(idds* self, DWORD dwFlags, LPDIRECTDRAWSURFACE4 lpDDSReference) {
@@ -1204,11 +1327,23 @@ HRESULT SUGARCALL idds_free_private_data4(idds* self, REFGUID guidTag) {
 }
 
 HRESULT SUGARCALL idds_get_uniqueness_value4(idds* self, LPDWORD lpValue) {
-    return DDERR_UNSUPPORTED;
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (lpValue == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    return dds_get_uniqueness_value(self->instance, lpValue);
 }
 
 HRESULT SUGARCALL idds_change_uniqueness_value4(idds* self) {
-    return DDERR_UNSUPPORTED;
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    return dds_change_uniqueness_value(self->instance);
 }
 
 HRESULT SUGARCALL idds_add_attached_surface7(idds* self, LPDIRECTDRAWSURFACE7 lpDDSAttachedSurface) {
@@ -1263,7 +1398,33 @@ HRESULT SUGARCALL idds_get_attached_surface7(idds* self, LPDDSCAPS2 lpDDSCaps, L
 }
 
 HRESULT SUGARCALL idds_update_overlay7(idds* self, LPRECT lpSrcRect, LPDIRECTDRAWSURFACE7 lpDDDestSurface, LPRECT lpDestRect, DWORD dwFlags, LPDDOVERLAYFX lpDDOverlayFx) {
-    return DDERR_UNSUPPORTED;
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (lpSrcRect == NULL || lpDDDestSurface == NULL || lpDestRect == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if ((dwFlags == DDOVER_NONE) || (dwFlags & ~DDOVER_VALID)) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if ((dwFlags & DDOVER_HIDE) && (dwFlags & DDOVER_SHOW)) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if ((dwFlags & DDOVER_DDFX) && lpDDOverlayFx == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if (lpDDOverlayFx != NULL) {
+        if (lpDDOverlayFx->dwSize != sizeof(DDOVERLAYFX)) {
+            return DDERR_INVALIDPARAMS;
+        }
+    }
+
+    return dds_update_overlay(self->instance, lpSrcRect, ((idds*)lpDDDestSurface)->instance, lpDestRect, dwFlags, lpDDOverlayFx);
 }
 
 HRESULT SUGARCALL idds_update_overlay_z_order7(idds* self, DWORD dwFlags, LPDIRECTDRAWSURFACE7 lpDDSReference) {

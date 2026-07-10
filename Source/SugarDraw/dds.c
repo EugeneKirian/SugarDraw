@@ -1,3 +1,4 @@
+#include "blt.h"
 #include "dd.h"
 #include "ddp.h"
 #include "dds.h"
@@ -17,9 +18,13 @@ HRESULT dds_create(sugar* manager, dds** object) {
         if (SUCCEEDED(hr = allocator_allocate(manager->allocator, MEM_TAG_DIRECTDRAWSURFACE, sizeof(ddsinfo), &instance->surface))) {
             if (SUCCEEDED(hr = intfc_create(manager->allocator, MEM_TAG_DIRECTDRAWSURFACE, &instance->interfaces))) {
                 if (SUCCEEDED(hr = arr_create(manager->allocator, MEM_TAG_DIRECTDRAWSURFACE, &instance->attachments))) {
-                    InitializeCriticalSection(&instance->lock);
-                    *object = instance;
-                    return hr;
+                    if (SUCCEEDED(hr = lock_create(manager->allocator, MEM_TAG_DIRECTDRAWSURFACE, &instance->locks))) {
+                        InitializeCriticalSection(&instance->lock);
+                        *object = instance;
+                        return hr;
+                    }
+
+                    arr_release(instance->attachments);
                 }
 
                 intfc_release(instance->interfaces);
@@ -58,6 +63,10 @@ void dds_release(dds* self, u32 flags) {
             }
 
             allocator_free(self->manager->allocator, self->surface);
+        }
+
+        if (self->locks != NULL) {
+            lock_release(self->locks);
         }
 
         // TODO attachments
@@ -155,9 +164,21 @@ HRESULT dds_blt_fast(dds* self, u32 x, u32 y, dds* surface, RECT* rect, u32 tran
     // TODO proper implementation
     // TODO: for now handle the most simplest cases...
 
-    if (transfer != DDBLTFAST_NOCOLORKEY) {
-        return DDERR_UNSUPPORTED; // TODO
+    // TODO overlay: DDSD_CKDESTOVERLAY and DDSD_CKSRCOVERLAY 
+
+    if (transfer & DDBLTFAST_SRCCOLORKEY) {
+        if (!(surface->desc.dwFlags & DDSD_CKSRCBLT)) {
+            return DDERR_INVALIDCAPS; // TODO error code
+        }
     }
+
+    if (transfer & DDBLTFAST_DESTCOLORKEY) {
+        if (!(self->desc.dwFlags & DDSD_CKDESTBLT)) {
+            return DDERR_INVALIDCAPS; // TODO error code
+        }
+    }
+    
+    // TODO can transfer be both DDBLTFAST_SRCCOLORKEY and DDBLTFAST_DESTCOLORKEY?
 
     if (self->desc.ddpfPixelFormat.dwRGBBitCount != surface->desc.ddpfPixelFormat.dwRGBBitCount) {
         return DDERR_UNSUPPORTED; // TODO
@@ -175,8 +196,12 @@ HRESULT dds_blt_fast(dds* self, u32 x, u32 y, dds* surface, RECT* rect, u32 tran
 
     s32 src_x = rect == NULL ? 0 : rect->left;
     s32 src_y = rect == NULL ? 0 : rect->top;
-    s32 src_w = rect == NULL ? (s32)surface->desc.dwWidth : rect->right - rect->top;
-    s32 src_h = rect == NULL ? (s32)surface->desc.dwHeight : rect->bottom - rect->bottom;
+    s32 src_w = rect == NULL ? (s32)surface->desc.dwWidth : rect->right - rect->left;
+    s32 src_h = rect == NULL ? (s32)surface->desc.dwHeight : rect->bottom - rect->top;
+
+    // TODO adjust dimensions for partial or no overlaps?
+    // do it gracefully, or fails with DDERR_INVALIDRECT ?
+    // below is clipping. Need tests!
 
     // Clip the source rectangle to the source surface boundaries.
     if (src_x < 0) {
@@ -200,29 +225,46 @@ HRESULT dds_blt_fast(dds* self, u32 x, u32 y, dds* surface, RECT* rect, u32 tran
     }
 
     // Adjust destination rectangle width and height to source rectangle width and height.
-    if (src_w < dst_w) {
-        src_w = dst_w;
-    }
+    //if (src_w < dst_w) {
+    //    src_w = dst_w;
+    //}
 
-    if (src_h < dst_h) {
-        src_h = dst_h;
-    }
+    //if (src_h < dst_h) {
+    //    src_h = dst_h;
+    //}
 
     // TODO DDERR_INVALIDRECT
 
     // TODO lock checks DDERR_SURFACEBUSY and DDERR_LOCKEDSURFACES
+    // TODO self->uniqueness++;
 
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
-    // TODO proper blitting
-    // TODO handle case when source and destination surfaces are the same...
-    for (int i = 0; i < src_h - src_y; i++) {
-        const u8* src = (surface->surface->data
-            + (i + src_y) * surface->surface->stride + src_x * surface->desc.ddpfPixelFormat.dwRGBBitCount / 8);
-        u8* dst = (self->surface->data
-            + (i + dst_y) * self->surface->stride + dst_x * self->desc.ddpfPixelFormat.dwRGBBitCount / 8);
-        CopyMemory(dst, src, (dst_w - dst_x) * self->desc.ddpfPixelFormat.dwRGBBitCount / 8);
+    if (self == surface) {
+        // TODO handle case when source and destination surfaces are the same...
+        hr = DDERR_UNSUPPORTED;
+        goto exit;
+    }
+    else {
+        if (transfer & DDBLTFAST_SRCCOLORKEY) {
+            blt_color_key(self->surface->data, dst_x, dst_y, dst_w, dst_h,
+                self->desc.ddpfPixelFormat.dwRGBBitCount, self->surface->stride,
+                surface->surface->data, src_x, src_y, src_w, src_h,
+                surface->desc.ddpfPixelFormat.dwRGBBitCount, surface->surface->stride,
+                surface->desc.ddckCKSrcBlt.dwColorSpaceLowValue,
+                surface->desc.ddckCKSrcBlt.dwColorSpaceHighValue);
+        }
+        else if (transfer & DDBLTFAST_DESTCOLORKEY) {
+            // TODO not suported
+            // TODO both flags?
+        }
+        else {
+            blt_blit(self->surface->data, dst_x, dst_y, dst_w, dst_h,
+                self->desc.ddpfPixelFormat.dwRGBBitCount, self->surface->stride,
+                surface->surface->data, src_x, src_y, src_w, src_h,
+                surface->desc.ddpfPixelFormat.dwRGBBitCount, surface->surface->stride);
+        }
     }
 
     if (self->desc.ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACE) {
@@ -240,6 +282,7 @@ HRESULT dds_blt_fast(dds* self, u32 x, u32 y, dds* surface, RECT* rect, u32 tran
         }
     }
 
+exit:
     LeaveCriticalSection(&self->lock);
 
     return hr;
@@ -301,7 +344,7 @@ HRESULT dds_flip(dds* self, dds* override, u32 flags) {
     }
 
     if (target == NULL) {
-        hr = DDERR_NOTFLIPPABLE;
+        hr = DDERR_NOTFLIPPABLE; // TODO error code
         goto exit;
     }
 
@@ -399,7 +442,7 @@ HRESULT dds_get_color_key(dds* self, u32 flags, DDCOLORKEY* key) {
     }
 
     if (flags & DDCKEY_DESTBLT) {
-        if (self->colors & DDCKEY_DESTBLT) {
+        if (self->desc.dwFlags & DDSD_CKDESTBLT) {
             CopyMemory(key, &self->desc.ddckCKDestBlt, sizeof(DDCOLORKEY));
             return DD_OK;
         }
@@ -407,8 +450,10 @@ HRESULT dds_get_color_key(dds* self, u32 flags, DDCOLORKEY* key) {
         return DDERR_NOCOLORKEY;
     }
 
-    if (flags & DDCKEY_DESTOVERLAY) {
-        if (self->colors & DDCKEY_DESTOVERLAY) {
+    // TODO check overlay flags with non-overlay surface
+
+    if (flags & DDSD_CKDESTOVERLAY) {
+        if (self->desc.dwFlags & DDCKEY_DESTOVERLAY) {
             CopyMemory(key, &self->desc.ddckCKDestOverlay, sizeof(DDCOLORKEY));
             return DD_OK;
         }
@@ -417,7 +462,7 @@ HRESULT dds_get_color_key(dds* self, u32 flags, DDCOLORKEY* key) {
     }
 
     if (flags & DDCKEY_SRCBLT) {
-        if (self->colors & DDCKEY_SRCBLT) {
+        if (self->desc.dwFlags & DDSD_CKSRCBLT) {
             CopyMemory(key, &self->desc.ddckCKSrcBlt, sizeof(DDCOLORKEY));
             return DD_OK;
         }
@@ -426,7 +471,7 @@ HRESULT dds_get_color_key(dds* self, u32 flags, DDCOLORKEY* key) {
     }
 
     if (flags & DDCKEY_SRCOVERLAY) {
-        if (self->colors & DDCKEY_SRCOVERLAY) {
+        if (self->desc.dwFlags & DDSD_CKSRCOVERLAY) {
             CopyMemory(key, &self->desc.ddckCKSrcOverlay, sizeof(DDCOLORKEY));
             return DD_OK;
         }
@@ -454,6 +499,10 @@ HRESULT dds_get_dc(dds* self, HDC* hdc) {
         return DDERR_UNSUPPORTED;
     }
 
+    if (self->desc.ddsCaps.dwCaps & DDSCAPS_OPTIMIZED) {
+        return DDERR_ISOPTIMIZEDSURFACE;
+    }
+
     if (self->surface->exposed) {
         return DDERR_DCALREADYCREATED;
     }
@@ -465,6 +514,16 @@ HRESULT dds_get_dc(dds* self, HDC* hdc) {
 
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
+
+    RECT lock;
+    lock.left = 0;
+    lock.top = 0;
+    lock.right = self->desc.dwWidth;
+    lock.bottom = self->desc.dwHeight;
+
+    if (FAILED(hr = lock_acquire(self->locks, &lock))) {
+        goto exit;
+    }
 
     self->surface->exposed = TRUE;
 
@@ -491,6 +550,7 @@ HRESULT dds_get_dc(dds* self, HDC* hdc) {
 
     *hdc = self->surface->dc;
 
+exit:
     LeaveCriticalSection(&self->lock);
 
     return hr;
@@ -633,7 +693,7 @@ HRESULT dds_initialize(dds* self, dd* object, DDSURFACEDESC2* desc) {
                         palette_entry_to_rgb_quad(entries, PALETTE_MAX_ENTRY_COUNT, palette);
                     }
                 }
-                
+
                 if (!is_set) {
                     // Default palette to gray scale.
                     for (int i = 0; i < PALETTE_MAX_ENTRY_COUNT; i++) {
@@ -643,21 +703,24 @@ HRESULT dds_initialize(dds* self, dd* object, DDSURFACEDESC2* desc) {
                     }
                 }
             }break;
-            case 15: {
-                header->biClrUsed = 3;
-                ((DWORD*)self->surface->info->palette)[0] = 0x7C00;
-                ((DWORD*)self->surface->info->palette)[1] = 0x03E0;
-                ((DWORD*)self->surface->info->palette)[2] = 0x001F;
-            }break;
+            case 15:
             case 16: {
                 header->biClrUsed = 3;
-                ((DWORD*)self->surface->info->palette)[0] = 0xF800;
-                ((DWORD*)self->surface->info->palette)[1] = 0x07E0;
-                ((DWORD*)self->surface->info->palette)[2] = 0x001F;
+                ((DWORD*)self->surface->info->palette)[0]
+                    = self->desc.ddpfPixelFormat.dwRBitMask;
+                ((DWORD*)self->surface->info->palette)[1]
+                    = self->desc.ddpfPixelFormat.dwGBitMask;
+                ((DWORD*)self->surface->info->palette)[2]
+                    = self->desc.ddpfPixelFormat.dwBBitMask;
             }break;
-            case 32:
-            case 24: {
-                // TODO
+            case 24:
+            case 32: {
+                ((DWORD*)self->surface->info->palette)[0]
+                    = self->desc.ddpfPixelFormat.dwRBitMask;
+                ((DWORD*)self->surface->info->palette)[1]
+                    = self->desc.ddpfPixelFormat.dwGBitMask;
+                ((DWORD*)self->surface->info->palette)[2]
+                    = self->desc.ddpfPixelFormat.dwBBitMask;
             }break;
             }
 
@@ -757,8 +820,37 @@ exit:
 }
 
 HRESULT dds_lock(dds* self, RECT* rect, DDSURFACEDESC2* desc, u32 flags) {
-    // TODO lock and unlock when GetDC and ReleaseDC
-    return DDERR_UNSUPPORTED;
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    RECT lock;
+    lock.left = rect == NULL ? 0 : rect->left;
+    lock.top = rect == NULL ? 0 : rect->top;
+    lock.right = rect == NULL ? self->desc.dwWidth : rect->right;
+    lock.bottom = rect == NULL ? self->desc.dwHeight : rect->bottom;
+
+    if (!IsValidRect(&lock)) {
+        return DDERR_INVALIDRECT;
+    }
+
+    HRESULT hr = DD_OK;
+    EnterCriticalSection(&self->lock);
+
+    if (SUCCEEDED(hr = lock_acquire(self->locks, &lock))) {
+        // TODO properly fill in desc
+        const u32 bytes =
+            (self->desc.ddpfPixelFormat.dwRGBBitCount == 15
+                ? 16 : self->desc.ddpfPixelFormat.dwRGBBitCount) / 8;
+        CopyMemory(desc, &self->desc, desc->dwSize);
+        desc->lpSurface = self->surface->data
+            + lock.left * bytes + lock.top * self->surface->stride; // TODO proper offset calculation
+        desc->lPitch = self->surface->stride;
+    }
+
+    LeaveCriticalSection(&self->lock);
+
+    return hr;
 }
 
 HRESULT dds_release_dc(dds* self, HDC hdc) {
@@ -794,7 +886,14 @@ HRESULT dds_release_dc(dds* self, HDC hdc) {
         RestoreDC(self->surface->dc, self->surface->checkpoint);
     }
 
-    // TODO unlock surface
+    RECT lock;
+    lock.left = 0;
+    lock.top = 0;
+    lock.right = self->desc.dwWidth;
+    lock.bottom = self->desc.dwHeight;
+
+    lock_unacquire(self->locks, &lock);
+    self->uniqueness++;
 
     LeaveCriticalSection(&self->lock);
 
@@ -814,21 +913,23 @@ HRESULT dds_set_color_key(dds* self, u32 flags, DDCOLORKEY* key) {
         return DDERR_INVALIDSURFACETYPE;
     }
 
+    // TODO check overlay flags with non-overlay surface
+
     if (key == NULL) {
         if (flags & DDCKEY_DESTBLT) {
-            self->colors &= ~DDCKEY_DESTBLT;
+            self->desc.dwFlags &= ~DDSD_CKDESTBLT;
         }
 
         if (flags & DDCKEY_DESTOVERLAY) {
-            self->colors &= ~DDCKEY_DESTOVERLAY;
+            self->desc.dwFlags &= ~DDSD_CKDESTOVERLAY;
         }
 
         if (flags & DDCKEY_SRCBLT) {
-            self->colors &= ~DDCKEY_SRCBLT;
+            self->desc.dwFlags &= ~DDSD_CKSRCBLT;
         }
 
         if (flags & DDCKEY_SRCOVERLAY) {
-            self->colors &= DDCKEY_SRCOVERLAY;
+            self->desc.dwFlags &= DDSD_CKSRCOVERLAY;
         }
     }
     else {
@@ -841,22 +942,22 @@ HRESULT dds_set_color_key(dds* self, u32 flags, DDCOLORKEY* key) {
         }
 
         if (flags & DDCKEY_DESTBLT) {
-            self->colors |= DDCKEY_DESTBLT;
+            self->desc.dwFlags |= DDSD_CKDESTBLT;
             CopyMemory(&self->desc.ddckCKDestBlt, &color, sizeof(DDCOLORKEY));
         }
 
         if (flags & DDCKEY_DESTOVERLAY) {
-            self->colors |= DDCKEY_DESTOVERLAY;
+            self->desc.dwFlags |= DDSD_CKDESTOVERLAY;
             CopyMemory(&self->desc.ddckCKDestOverlay, &color, sizeof(DDCOLORKEY));
         }
 
         if (flags & DDCKEY_SRCBLT) {
-            self->colors |= DDCKEY_SRCBLT;
+            self->desc.dwFlags |= DDSD_CKSRCBLT;
             CopyMemory(&self->desc.ddckCKSrcBlt, &color, sizeof(DDCOLORKEY));
         }
 
         if (flags & DDCKEY_SRCOVERLAY) {
-            self->colors |= DDCKEY_SRCOVERLAY;
+            self->desc.dwFlags |= DDSD_CKSRCOVERLAY;
             CopyMemory(&self->desc.ddckCKSrcOverlay, &color, sizeof(DDCOLORKEY));
         }
     }
@@ -934,6 +1035,7 @@ HRESULT dds_set_palette(dds* self, iddp* palette) {
             if (SUCCEEDED(arr_get_item(self->attachments, i, &instance))) {
                 if (instance->desc.ddsCaps.dwCaps & DDSCAPS_BACKBUFFER) {
                     dds_set_palette(instance, palette);
+                    self->uniqueness++;
                 }
             }
         }
@@ -943,6 +1045,118 @@ exit:
     LeaveCriticalSection(&self->lock);
 
     return hr;
+}
+
+HRESULT dds_unlock(dds* self, RECT* rect) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    RECT lock;
+    lock.left = rect == NULL ? 0 : rect->left;
+    lock.top = rect == NULL ? 0 : rect->top;
+    lock.right = rect == NULL ? self->desc.dwWidth : rect->right;
+    lock.bottom = rect == NULL ? self->desc.dwHeight : rect->bottom;
+
+    if (!IsValidRect(&lock)) {
+        return DDERR_INVALIDRECT;
+    }
+
+    HRESULT hr = DD_OK;
+    EnterCriticalSection(&self->lock);
+
+    if (lock_get_count(self->locks) == 0) {
+        hr = DDERR_NOTLOCKED;
+        goto exit;
+    }
+
+    hr = lock_unacquire(self->locks, &lock);
+    self->uniqueness++;
+
+exit:
+    LeaveCriticalSection(&self->lock);
+
+    return hr;
+}
+
+HRESULT dds_update_overlay(dds* self, RECT* src, dds* surface, RECT* dst, u32 flags, DDOVERLAYFX* effects) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (src != NULL) {
+        if (!IsValidRect(src)) {
+            return DDERR_INVALIDRECT;
+        }
+    }
+
+    if (dst != NULL) {
+        if (!IsValidRect(dst)) {
+            return DDERR_INVALIDRECT;
+        }
+    }
+
+    if (!(self->desc.dwFlags & DDSCAPS_OVERLAY)) {
+        return DDERR_NOTAOVERLAYSURFACE;
+    }
+
+    if (self->desc.dwFlags & DDSCAPS_OPTIMIZED) {
+        return DDERR_ISOPTIMIZEDSURFACE;
+    }
+
+    // TODO check DDOVER_HIDE and DDOVER_SHOW vs DDSCAPS_VISIBLE ?
+
+    // TODO the rectangle initialization code is super repetitive
+    RECT source;
+    source.left = src == NULL ? 0 : src->left;
+    source.top = src == NULL ? 0 : src->top;
+    source.right = src == NULL ? self->desc.dwWidth : src->right;
+    source.bottom = src == NULL ? self->desc.dwHeight : src->bottom;
+
+    RECT destination;
+    destination.left = dst == NULL ? 0 : dst->left;
+    destination.top = dst == NULL ? 0 : dst->top;
+    destination.right = dst == NULL
+        ? (destination.left + source.right - source.left) : dst->right;
+    destination.bottom = dst == NULL
+        ? (destination.top + source.bottom - source.top) : dst->bottom;
+
+    // TODO adjust dimensions for partial or no overlaps?
+    // do it gracefully, or fails with DDERR_INVALIDRECT ?
+
+    // TODO
+    //
+    // 1. flip visibility flag
+    // 2. store the flags
+    // 3. store effects structure
+    // 4. store the target surface link
+    // 5. let the target surface know that there is a new overlay to work with
+
+    return DD_OK;
+}
+
+HRESULT dds_get_uniqueness_value(dds* self, u32* value) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (value == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    *value = self->uniqueness;
+
+    return DD_OK;
+}
+
+HRESULT dds_change_uniqueness_value(dds* self) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    self->uniqueness++;
+
+    return DD_OK;
 }
 
 HRESULT dds_remove_palette(dds* self) {

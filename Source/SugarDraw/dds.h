@@ -1,5 +1,6 @@
 #pragma once
 #include "intfc.h"
+#include "lock.h"
 #include "sugar.h"
 
 typedef struct dd dd;
@@ -32,7 +33,8 @@ typedef struct dds {
     iddp*               palette; // TODO not use interface, but rather the object itself...
     ddsinfo*            surface;
     void*               clipper;
-    u32                 colors;
+    lock*               locks;
+    u32                 uniqueness;
 } dds;
 
 HRESULT dds_create(sugar* manager, dds** object);
@@ -53,15 +55,18 @@ HRESULT dds_get_dc(dds* self, HDC* hdc);
 HRESULT dds_get_palette(dds* self, iddp** palette);
 
 HRESULT dds_get_surface_desc(dds* self, DDSURFACEDESC2* desc);
-
 HRESULT dds_initialize(dds* self, dd* object, DDSURFACEDESC2* desc);
-
 HRESULT dds_lock(dds* self, RECT* rect, DDSURFACEDESC2* desc, u32 flags);
 HRESULT dds_release_dc(dds* self, HDC hdc);
 
 HRESULT dds_set_color_key(dds* self, u32 flags, DDCOLORKEY* key);
 
 HRESULT dds_set_palette(dds* self, iddp* palette);
+HRESULT dds_unlock(dds* self, RECT* rect);
+HRESULT dds_update_overlay(dds* self, RECT* src, dds* surface, RECT* dst, u32 flags, DDOVERLAYFX* effects);
+
+HRESULT dds_get_uniqueness_value(dds* self, u32* value);
+HRESULT dds_change_uniqueness_value(dds* self);
 
 HRESULT dds_remove_palette(dds* self);
 HRESULT dds_update_palette_entries(dds* self);

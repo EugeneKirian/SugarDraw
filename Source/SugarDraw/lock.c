@@ -1,23 +1,20 @@
-#include "intfc.h"
+#include "lock.h"
 
 #define DEFAULT_CAPACITY            8
 #define DEFAULT_CAPACITY_MULTIPLIER 2
 
-typedef struct intf {
-    GUID    id;
-    void*   item;
-} intf;
-
-struct intfc {
+struct lock {
     allocator*          allocator;
     int                 count, capacity;
-    intf*               items;
+    RECT*               items;
     CRITICAL_SECTION    lock;
 };
 
-static HRESULT intfc_resize(intfc* self);
+static HRESULT lock_add_item(lock* self, const RECT* rect);
+static HRESULT lock_remove_item(lock* self, const RECT* rect);
+static HRESULT lock_resize(lock* self);
 
-HRESULT intfc_create(allocator* allocator, memory_tag tag, intfc** object) {
+HRESULT lock_create(allocator* allocator, memory_tag tag, lock** object) {
     if (allocator == NULL || object == NULL) {
         return DDERR_INVALIDPARAMS;
     }
@@ -27,26 +24,26 @@ HRESULT intfc_create(allocator* allocator, memory_tag tag, intfc** object) {
     }
 
     HRESULT hr = DD_OK;
-    intfc* instance = NULL;
+    lock* instance = NULL;
 
-    if (SUCCEEDED(hr = allocator_allocate(allocator, tag, sizeof(intfc), &instance))) {
+    if (SUCCEEDED(hr = allocator_allocate(allocator, tag, sizeof(lock), &instance))) {
         instance->allocator = allocator;
         instance->count = 0;
         instance->capacity = DEFAULT_CAPACITY;
         if (SUCCEEDED(hr = allocator_allocate(allocator, tag,
-            instance->capacity * sizeof(intf), &instance->items))) {
+            instance->capacity * sizeof(RECT), &instance->items))) {
             InitializeCriticalSection(&instance->lock);
             *object = instance;
             return hr;
         }
 
-        intfc_release(instance);
+        lock_release(instance);
     }
 
     return hr;
 }
 
-void intfc_release(intfc* self) {
+void lock_release(lock* self) {
     if (self != NULL) {
         DeleteCriticalSection(&self->lock);
 
@@ -55,45 +52,49 @@ void intfc_release(intfc* self) {
     }
 }
 
-HRESULT intfc_get_item(intfc* self, int index, void** object) {
+HRESULT lock_get_item(lock* self, int index, RECT* rect) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (self->count < index + 1 || object == NULL) {
+    if (self->count < index + 1 || rect == NULL) {
         return DDERR_INVALIDPARAMS;
     }
 
     EnterCriticalSection(&self->lock);
-    *object = self->items[index].item;
+    CopyMemory(rect, &self->items[index], sizeof(RECT));
     LeaveCriticalSection(&self->lock);
 
     return DD_OK;
 }
 
-HRESULT intfc_query_item(intfc* self, const GUID* riid, void** object) {
+HRESULT lock_acquire(lock* self, const RECT* rect) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (riid == NULL || object == NULL) {
+    if (rect == NULL) {
         return DDERR_INVALIDPARAMS;
     }
 
-    if (self->count == 0) {
-        return DDERR_NOTFOUND;
+    if (!IsValidRect(rect)) {
+        return DDERR_INVALIDRECT;
     }
 
-    HRESULT hr = E_NOINTERFACE;
+    HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
+    RECT overlap;
+    ZeroMemory(&overlap, sizeof(RECT));
+
     for (int i = 0; i < self->count; i++) {
-        if (IsEqualGUID(riid, &self->items[i].id)) {
-            hr = DD_OK;
-            *object = self->items[i].item;
+        if (IntersectRect(&overlap, rect, &self->items[i])) {
+            hr = DDERR_SURFACEBUSY;
             goto exit;
         }
     }
+
+    hr = lock_add_item(self, rect);
 
 exit:
     LeaveCriticalSection(&self->lock);
@@ -101,12 +102,43 @@ exit:
     return hr;
 }
 
-HRESULT intfc_add_item(intfc* self, const GUID* riid, void* object) {
+HRESULT lock_unacquire(lock* self, const RECT* rect) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (riid == NULL || object == NULL) {
+    if (rect == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if (!IsValidRect(rect)) {
+        return DDERR_INVALIDRECT;
+    }
+
+    HRESULT hr = DD_OK;
+    EnterCriticalSection(&self->lock);
+
+    for (int i = 0; i < self->count; i++) {
+        if (CompareMemory(rect, &self->items[i], sizeof(RECT))) {
+            hr = lock_remove_item(self, rect);
+            goto exit;
+        }
+    }
+
+    hr = DDERR_NOTLOCKED; // TODO correct error code
+
+exit:
+    LeaveCriticalSection(&self->lock);
+
+    return hr;
+}
+
+HRESULT lock_add_item(lock* self, const RECT* rect) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (rect == NULL) {
         return DDERR_INVALIDPARAMS;
     }
 
@@ -114,13 +146,12 @@ HRESULT intfc_add_item(intfc* self, const GUID* riid, void* object) {
     EnterCriticalSection(&self->lock);
 
     if (self->capacity < self->count + 1) {
-        if (FAILED(hr = intfc_resize(self))) {
+        if (FAILED(hr = lock_resize(self))) {
             goto exit;
         }
     }
 
-    CopyMemory(&self->items[self->count].id, riid, sizeof(GUID));
-    self->items[self->count++].item = object;
+    CopyMemory(&self->items[self->count++], rect, sizeof(RECT));
 
 exit:
     LeaveCriticalSection(&self->lock);
@@ -128,12 +159,12 @@ exit:
     return hr;
 }
 
-HRESULT intfc_remove_item(intfc* self, const GUID* riid) {
+HRESULT lock_remove_item(lock* self, const RECT* rect) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (riid == NULL) {
+    if (rect == NULL) {
         return DDERR_INVALIDPARAMS;
     }
 
@@ -144,9 +175,9 @@ HRESULT intfc_remove_item(intfc* self, const GUID* riid) {
     EnterCriticalSection(&self->lock);
 
     for (int i = 0; i < self->count; i++) {
-        if (IsEqualGUID(riid, &self->items[i].id)) {
+        if (CompareMemory(&self->items[i], rect, sizeof(RECT))) {
             for (int k = i; k < self->count - 1; k++) {
-                CopyMemory(&self->items[k], &self->items[k + 1], sizeof(intf));
+                CopyMemory(&self->items[k], &self->items[k + 1], sizeof(RECT));
             }
 
             self->count--;
@@ -160,18 +191,18 @@ HRESULT intfc_remove_item(intfc* self, const GUID* riid) {
     return DD_OK;
 }
 
-int intfc_get_count(intfc* self) {
+int lock_get_count(lock* self) {
     return self == NULL ? 0 : self->count;
 }
 
-HRESULT intfc_resize(intfc* self) {
+HRESULT lock_resize(lock* self) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
 
     HRESULT hr = DD_OK;
     const size_t capacity = max(self->capacity, 1) * DEFAULT_CAPACITY_MULTIPLIER;
-    const size_t size = capacity * sizeof(intf);
+    const size_t size = capacity * sizeof(RECT);
 
     if (SUCCEEDED(hr = allocator_reallocate(self->allocator, self->items, size, &self->items))) {
         self->capacity = capacity;

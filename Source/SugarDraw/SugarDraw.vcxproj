@@ -21,6 +21,7 @@
   <ItemGroup>
     <ClInclude Include="allocator.h" />
     <ClInclude Include="arr.h" />
+    <ClInclude Include="blt.h" />
     <ClInclude Include="common.h" />
     <ClInclude Include="dd.h" />
     <ClInclude Include="ddp.h" />
@@ -29,6 +30,7 @@
     <ClInclude Include="iddp.h" />
     <ClInclude Include="idds.h" />
     <ClInclude Include="intfc.h" />
+    <ClInclude Include="lock.h" />
     <ClInclude Include="logger.h" />
     <ClInclude Include="sugar.h" />
     <ClInclude Include="utilities.h" />
@@ -36,6 +38,7 @@
   <ItemGroup>
     <ClCompile Include="allocator.c" />
     <ClCompile Include="arr.c" />
+    <ClCompile Include="blt.c" />
     <ClCompile Include="common.c" />
     <ClCompile Include="dd.c" />
     <ClCompile Include="ddp.c" />
@@ -44,6 +47,7 @@
     <ClCompile Include="iddp.c" />
     <ClCompile Include="idds.c" />
     <ClCompile Include="intfc.c" />
+    <ClCompile Include="lock.c" />
     <ClCompile Include="logger.c" />
     <ClCompile Include="sugar.c" />
     <ClCompile Include="utilities.c" />

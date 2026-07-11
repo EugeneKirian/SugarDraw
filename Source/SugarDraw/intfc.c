@@ -10,7 +10,7 @@ typedef struct intf {
 
 struct intfc {
     allocator*          allocator;
-    int                 count, capacity;
+    s32                 count, capacity;
     intf*               items;
     CRITICAL_SECTION    lock;
 };
@@ -55,7 +55,7 @@ void intfc_release(intfc* self) {
     }
 }
 
-HRESULT intfc_get_item(intfc* self, int index, void** object) {
+HRESULT intfc_get_item(intfc* self, s32 index, void** object) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
@@ -87,7 +87,7 @@ HRESULT intfc_query_item(intfc* self, const GUID* riid, void** object) {
     HRESULT hr = E_NOINTERFACE;
     EnterCriticalSection(&self->lock);
 
-    for (int i = 0; i < self->count; i++) {
+    for (s32 i = 0; i < self->count; i++) {
         if (IsEqualGUID(riid, &self->items[i].id)) {
             hr = DD_OK;
             *object = self->items[i].item;
@@ -143,9 +143,9 @@ HRESULT intfc_remove_item(intfc* self, const GUID* riid) {
 
     EnterCriticalSection(&self->lock);
 
-    for (int i = 0; i < self->count; i++) {
+    for (s32 i = 0; i < self->count; i++) {
         if (IsEqualGUID(riid, &self->items[i].id)) {
-            for (int k = i; k < self->count - 1; k++) {
+            for (s32 k = i; k < self->count - 1; k++) {
                 CopyMemory(&self->items[k], &self->items[k + 1], sizeof(intf));
             }
 
@@ -160,7 +160,7 @@ HRESULT intfc_remove_item(intfc* self, const GUID* riid) {
     return DD_OK;
 }
 
-int intfc_get_count(intfc* self) {
+s32 intfc_get_count(intfc* self) {
     return self == NULL ? 0 : self->count;
 }
 

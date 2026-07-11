@@ -1,4 +1,5 @@
 #pragma once
+
 #include "common.h"
 
 typedef enum memory_tag {

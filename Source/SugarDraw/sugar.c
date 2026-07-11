@@ -47,8 +47,8 @@ void sugar_release(sugar* self) {
         logger_log(self->logger, LOG_LEVEL_TRACE, "SugarDraw is shutting down.");
 
         if (self->items != NULL) {
-            const int item_count = arr_get_count(self->items);
-            for (int i = 0; i < item_count; i++) {
+            const s32 item_count = arr_get_count(self->items);
+            for (s32 i = 0; i < item_count; i++) {
                 dd* instance = NULL;
                 if (SUCCEEDED(arr_get_item(self->items, i, &instance))) {
                     dd_release(instance, RELEASE_NONE);
@@ -117,12 +117,12 @@ HRESULT sugar_remove_direct_draw(sugar* self, dd* object) {
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
-    const int item_count = arr_get_count(self->items);
-    for (int i = 0; i < item_count; i++) {
+    const s32 item_count = arr_get_count(self->items);
+    for (s32 i = 0; i < item_count; i++) {
         dd* instance = NULL;
         if (SUCCEEDED(hr = arr_get_item(self->items, i, &instance))) {
             if (instance == object) {
-                hr = arr_remove_item(self->items, i, NULL);
+                hr = arr_remove_item(self->items, i);
                 goto exit;
             }
         }

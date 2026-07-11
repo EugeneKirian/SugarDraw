@@ -1,6 +1,7 @@
-#include "idd.h"
-#include "idds.h"
 #include "dds.h"
+#include "idd.h"
+#include "iddp.h"
+#include "idds.h"
 
 static HRESULT SUGARCALL idds_add_attached_surface1(idds*, LPDIRECTDRAWSURFACE);
 static HRESULT SUGARCALL idds_add_overlay_dirty_rect(idds*, LPRECT);
@@ -771,7 +772,15 @@ HRESULT SUGARCALL idds_get_palette(idds* self, LPDIRECTDRAWPALETTE* lplpDDPalett
         return DDERR_INVALIDPARAMS;
     }
 
-    return dds_get_palette(self->instance, (iddp**)lplpDDPalette);
+    iddpconn connector;
+    ZeroMemory(&connector, sizeof(iddpconn));
+
+    HRESULT hr = DD_OK;
+    if (SUCCEEDED(hr = dds_get_palette(self->instance, &connector))) {
+        hr = dds_query_interface(self->instance, &connector.id, lplpDDPalette);
+    }
+
+    return hr;
 }
 
 HRESULT SUGARCALL idds_get_pixel_format(idds* self, LPDDPIXELFORMAT lpDDPixelFormat) {
@@ -913,7 +922,16 @@ HRESULT SUGARCALL idds_set_palette(idds* self, LPDIRECTDRAWPALETTE lpDDPalette) 
         return DDERR_INVALIDOBJECT;
     }
 
-    return dds_set_palette(self->instance, (iddp*)lpDDPalette);
+    iddpconn connector;
+    ZeroMemory(&connector, sizeof(iddpconn));
+
+    if (lpDDPalette != NULL) {
+        iddp* palette = (iddp*)lpDDPalette;
+        connector.instance = palette->instance;
+        CopyMemory(&connector.id, &palette->id, sizeof(GUID));
+    }
+
+    return dds_set_palette(self->instance, &connector);
 }
 
 HRESULT SUGARCALL idds_unlock(idds* self, LPRECT lpRect) {
@@ -951,7 +969,17 @@ HRESULT SUGARCALL idds_update_overlay1(idds* self, LPRECT lpSrcRect, LPDIRECTDRA
         }
     }
 
-    return dds_update_overlay(self->instance, lpSrcRect, ((idds*)lpDDDestSurface)->instance, lpDestRect, dwFlags, lpDDOverlayFx);
+    iddsconn connector;
+    ZeroMemory(&connector, sizeof(iddsconn));
+
+    if (lpDDDestSurface != NULL) {
+        idds* surface = (idds*)lpDDDestSurface;
+        connector.instance = surface->instance;
+        CopyMemory(&connector.id, &surface->id, sizeof(GUID));
+    }
+
+    return dds_update_overlay(self->instance, &self->id,
+        lpSrcRect, &connector, lpDestRect, dwFlags, lpDDOverlayFx);
 }
 
 HRESULT SUGARCALL idds_update_overlay_display(idds* self, DWORD dwFlags) {
@@ -1045,7 +1073,17 @@ HRESULT SUGARCALL idds_update_overlay2(idds* self, LPRECT lpSrcRect, LPDIRECTDRA
         }
     }
 
-    return dds_update_overlay(self->instance, lpSrcRect, ((idds*)lpDDDestSurface)->instance, lpDestRect, dwFlags, lpDDOverlayFx);
+    iddsconn connector;
+    ZeroMemory(&connector, sizeof(iddsconn));
+
+    if (lpDDDestSurface != NULL) {
+        idds* surface = (idds*)lpDDDestSurface;
+        connector.instance = surface->instance;
+        CopyMemory(&connector.id, &surface->id, sizeof(GUID));
+    }
+
+    return dds_update_overlay(self->instance, &self->id,
+        lpSrcRect, &connector, lpDestRect, dwFlags, lpDDOverlayFx);
 }
 
 HRESULT SUGARCALL idds_update_overlay_z_order2(idds* self, DWORD dwFlags, LPDIRECTDRAWSURFACE2 lpDDSReference) {
@@ -1147,7 +1185,17 @@ HRESULT SUGARCALL idds_update_overlay3(idds* self, LPRECT lpSrcRect, LPDIRECTDRA
         }
     }
 
-    return dds_update_overlay(self->instance, lpSrcRect, ((idds*)lpDDDestSurface)->instance, lpDestRect, dwFlags, lpDDOverlayFx);
+    iddsconn connector;
+    ZeroMemory(&connector, sizeof(iddsconn));
+
+    if (lpDDDestSurface != NULL) {
+        idds* surface = (idds*)lpDDDestSurface;
+        connector.instance = surface->instance;
+        CopyMemory(&connector.id, &surface->id, sizeof(GUID));
+    }
+
+    return dds_update_overlay(self->instance, &self->id,
+        lpSrcRect, &connector, lpDestRect, dwFlags, lpDDOverlayFx);
 }
 
 HRESULT SUGARCALL idds_update_overlay_z_order3(idds* self, DWORD dwFlags, LPDIRECTDRAWSURFACE3 lpDDSReference) {
@@ -1303,7 +1351,17 @@ HRESULT SUGARCALL idds_update_overlay4(idds* self, LPRECT lpSrcRect, LPDIRECTDRA
         }
     }
 
-    return dds_update_overlay(self->instance, lpSrcRect, ((idds*)lpDDDestSurface)->instance, lpDestRect, dwFlags, lpDDOverlayFx);
+    iddsconn connector;
+    ZeroMemory(&connector, sizeof(iddsconn));
+
+    if (lpDDDestSurface != NULL) {
+        idds* surface = (idds*)lpDDDestSurface;
+        connector.instance = surface->instance;
+        CopyMemory(&connector.id, &surface->id, sizeof(GUID));
+    }
+
+    return dds_update_overlay(self->instance, &self->id,
+        lpSrcRect, &connector, lpDestRect, dwFlags, lpDDOverlayFx);
 }
 
 HRESULT SUGARCALL idds_update_overlay_z_order4(idds* self, DWORD dwFlags, LPDIRECTDRAWSURFACE4 lpDDSReference) {
@@ -1424,7 +1482,17 @@ HRESULT SUGARCALL idds_update_overlay7(idds* self, LPRECT lpSrcRect, LPDIRECTDRA
         }
     }
 
-    return dds_update_overlay(self->instance, lpSrcRect, ((idds*)lpDDDestSurface)->instance, lpDestRect, dwFlags, lpDDOverlayFx);
+    iddsconn connector;
+    ZeroMemory(&connector, sizeof(iddsconn));
+
+    if (lpDDDestSurface != NULL) {
+        idds* surface = (idds*)lpDDDestSurface;
+        connector.instance = surface->instance;
+        CopyMemory(&connector.id, &surface->id, sizeof(GUID));
+    }
+
+    return dds_update_overlay(self->instance, &self->id,
+        lpSrcRect, &connector, lpDestRect, dwFlags, lpDDOverlayFx);
 }
 
 HRESULT SUGARCALL idds_update_overlay_z_order7(idds* self, DWORD dwFlags, LPDIRECTDRAWSURFACE7 lpDDSReference) {

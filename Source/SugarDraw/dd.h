@@ -1,4 +1,5 @@
 #pragma once
+
 #include "intfc.h"
 #include "sugar.h"
 
@@ -25,6 +26,7 @@ typedef struct dd {
 
 HRESULT dd_create(sugar* manager, const GUID* rclsid, dd** object);
 void dd_release(dd* self, u32 flags);
+HRESULT dd_get_interface(dd* self, const GUID* riid, void** object);
 
 HRESULT dd_query_interface(dd* self, const GUID* riid, void** object);
 HRESULT dd_add_ref(dd* self, idd* object);

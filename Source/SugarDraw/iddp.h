@@ -1,4 +1,5 @@
 #pragma once
+
 #include "sugar.h"
 
 typedef struct ddp ddp;
@@ -10,6 +11,11 @@ typedef struct iddp {
     s32         refs;
     ddp*        instance;
 } iddp;
+
+typedef struct iddpconn {
+    GUID                id;
+    ddp*                instance;
+} iddpconn;
 
 typedef HRESULT(SUGARCALL* IDDPQUERYINTERFACE)(iddp*, REFIID, LPVOID*);
 typedef ULONG(SUGARCALL* IDDPADDREF)(iddp*);

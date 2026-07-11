@@ -110,7 +110,7 @@ HRESULT logger_log(logger* self, log_level level, const char* format, ...) {
 
         va_list args;
         va_start(args, format);
-        int length = vsprintf_s(buffer, LOGGER_MAX_LOG_MESSAGE_LENGTH - 1, prefix, args);
+        s32 length = vsprintf_s(buffer, LOGGER_MAX_LOG_MESSAGE_LENGTH - 1, prefix, args);
         va_end(args);
 
         if (length < 0) {

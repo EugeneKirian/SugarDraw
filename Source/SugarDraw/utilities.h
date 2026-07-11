@@ -1,4 +1,5 @@
 #pragma once
+
 #include "logger.h"
 
 const char* log_level_to_string(log_level level);

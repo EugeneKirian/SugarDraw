@@ -5,7 +5,7 @@
 
 struct lock {
     allocator*          allocator;
-    int                 count, capacity;
+    s32                 count, capacity;
     RECT*               items;
     CRITICAL_SECTION    lock;
 };
@@ -52,7 +52,7 @@ void lock_release(lock* self) {
     }
 }
 
-HRESULT lock_get_item(lock* self, int index, RECT* rect) {
+HRESULT lock_get_item(lock* self, s32 index, RECT* rect) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
@@ -87,7 +87,7 @@ HRESULT lock_acquire(lock* self, const RECT* rect) {
     RECT overlap;
     ZeroMemory(&overlap, sizeof(RECT));
 
-    for (int i = 0; i < self->count; i++) {
+    for (s32 i = 0; i < self->count; i++) {
         if (IntersectRect(&overlap, rect, &self->items[i])) {
             hr = DDERR_SURFACEBUSY;
             goto exit;
@@ -118,7 +118,7 @@ HRESULT lock_unacquire(lock* self, const RECT* rect) {
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
-    for (int i = 0; i < self->count; i++) {
+    for (s32 i = 0; i < self->count; i++) {
         if (CompareMemory(rect, &self->items[i], sizeof(RECT))) {
             hr = lock_remove_item(self, rect);
             goto exit;
@@ -174,9 +174,9 @@ HRESULT lock_remove_item(lock* self, const RECT* rect) {
 
     EnterCriticalSection(&self->lock);
 
-    for (int i = 0; i < self->count; i++) {
+    for (s32 i = 0; i < self->count; i++) {
         if (CompareMemory(&self->items[i], rect, sizeof(RECT))) {
-            for (int k = i; k < self->count - 1; k++) {
+            for (s32 k = i; k < self->count - 1; k++) {
                 CopyMemory(&self->items[k], &self->items[k + 1], sizeof(RECT));
             }
 
@@ -191,7 +191,7 @@ HRESULT lock_remove_item(lock* self, const RECT* rect) {
     return DD_OK;
 }
 
-int lock_get_count(lock* self) {
+s32 lock_get_count(lock* self) {
     return self == NULL ? 0 : self->count;
 }
 

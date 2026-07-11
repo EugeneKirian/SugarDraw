@@ -1,18 +1,23 @@
-#include "arr.h"
+#include "connector.h"
 
 #define DEFAULT_CAPACITY            8
 #define DEFAULT_CAPACITY_MULTIPLIER 2
 
-struct arr {
+typedef struct conn {
+    GUID                id;
+    void*               instance;
+} conn;
+
+struct connector {
     allocator*          allocator;
     s32                 count, capacity;
-    void**              items;
+    conn*               items;
     CRITICAL_SECTION    lock;
 };
 
-static HRESULT arr_resize(arr* self);
+static HRESULT connector_resize(connector* self);
 
-HRESULT arr_create(allocator* allocator, memory_tag tag, arr** object) {
+HRESULT connector_create(allocator* allocator, memory_tag tag, connector** object) {
     if (allocator == NULL || object == NULL) {
         return DDERR_INVALIDPARAMS;
     }
@@ -22,26 +27,26 @@ HRESULT arr_create(allocator* allocator, memory_tag tag, arr** object) {
     }
 
     HRESULT hr = DD_OK;
-    arr* instance = NULL;
+    connector* instance = NULL;
 
-    if (SUCCEEDED(hr = allocator_allocate(allocator, tag, sizeof(arr), &instance))) {
+    if (SUCCEEDED(hr = allocator_allocate(allocator, tag, sizeof(connector), &instance))) {
         instance->allocator = allocator;
         instance->count = 0;
         instance->capacity = DEFAULT_CAPACITY;
         if (SUCCEEDED(hr = allocator_allocate(allocator, tag,
-            instance->capacity * sizeof(void*), (void**)&instance->items))) {
+            instance->capacity * sizeof(conn), (void**)&instance->items))) {
             InitializeCriticalSection(&instance->lock);
             *object = instance;
             return hr;
         }
 
-        arr_release(instance);
+        connector_release(instance);
     }
 
     return hr;
 }
 
-void arr_release(arr* self) {
+void connector_release(connector* self) {
     if (self != NULL) {
         DeleteCriticalSection(&self->lock);
 
@@ -50,7 +55,7 @@ void arr_release(arr* self) {
     }
 }
 
-HRESULT arr_add_item(arr* self, void* item) {
+HRESULT connector_add_item(connector* self, void* item) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
@@ -63,12 +68,12 @@ HRESULT arr_add_item(arr* self, void* item) {
     EnterCriticalSection(&self->lock);
 
     if (self->capacity < self->count + 1) {
-        if (SUCCEEDED(hr = arr_resize(self))) {
+        if (SUCCEEDED(hr = connector_resize(self))) {
             goto exit;
         }
     }
 
-    self->items[self->count++] = item;
+    CopyMemory(&self->items[self->count++], item, sizeof(conn));
 
 exit:
     LeaveCriticalSection(&self->lock);
@@ -76,7 +81,7 @@ exit:
     return hr;
 }
 
-HRESULT arr_get_item(arr* self, s32 index, void** object) {
+HRESULT connector_get_item(connector* self, s32 index, void* object) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
@@ -86,13 +91,13 @@ HRESULT arr_get_item(arr* self, s32 index, void** object) {
     }
 
     EnterCriticalSection(&self->lock);
-    *object = self->items[index];
+    CopyMemory(object, &self->items[index], sizeof(conn));
     LeaveCriticalSection(&self->lock);
 
     return DD_OK;
 }
 
-HRESULT arr_remove_item(arr* self, s32 index) {
+HRESULT connector_remove_item(connector* self, s32 index) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
@@ -105,7 +110,7 @@ HRESULT arr_remove_item(arr* self, s32 index) {
 
     if (self->count != index + 1) {
         MoveMemory(&self->items[index],
-            &self->items[index + 1], (self->count - index - 1) * sizeof(void*));
+            &self->items[index + 1], (self->count - index - 1) * sizeof(conn));
     }
 
     self->count--;
@@ -114,22 +119,23 @@ HRESULT arr_remove_item(arr* self, s32 index) {
     return DD_OK;
 }
 
-s32 arr_get_count(arr* self) {
+s32 connector_get_count(connector* self) {
     return self == NULL ? 0 : self->count;
 }
 
-HRESULT arr_resize(arr* self) {
+HRESULT connector_resize(connector* self) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
 
     HRESULT hr = DD_OK;
     const size_t capacity = max(self->capacity, 1) * DEFAULT_CAPACITY_MULTIPLIER;
-    const size_t size = capacity * sizeof(void*);
+    const size_t size = capacity * sizeof(conn);
 
-    if (SUCCEEDED(hr = allocator_reallocate(self->allocator, self->items, size, (void**)&self->items))) {
+    if (SUCCEEDED(hr = allocator_reallocate(self->allocator, self->items, size, &self->items))) {
         self->capacity = capacity;
     }
 
     return hr;
 }
+

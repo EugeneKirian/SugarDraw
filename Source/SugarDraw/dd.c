@@ -43,8 +43,8 @@ void dd_release(dd* self, u32 flags) {
         EnterCriticalSection(&self->lock);
 
         if (self->interfaces != NULL) {
-            const int count = intfc_get_count(self->interfaces);
-            for (int i = 0; i < count; i++) {
+            const s32 count = intfc_get_count(self->interfaces);
+            for (s32 i = 0; i < count; i++) {
                 idd* instance = NULL;
                 if (SUCCEEDED(intfc_get_item(self->interfaces, i, &instance))) {
                     idd_release(instance);
@@ -55,8 +55,8 @@ void dd_release(dd* self, u32 flags) {
         }
 
         if (self->surfaces != NULL) {
-            const int item_count = arr_get_count(self->surfaces);
-            for (int i = 0; i < item_count; i++) {
+            const s32 item_count = arr_get_count(self->surfaces);
+            for (s32 i = 0; i < item_count; i++) {
                 dds* instance = NULL;
                 if (SUCCEEDED(arr_get_item(self->surfaces, i, &instance))) {
                     dds_release(instance, RELEASE_NONE);
@@ -67,8 +67,8 @@ void dd_release(dd* self, u32 flags) {
         }
 
         if (self->palettes != NULL) {
-            const int item_count = arr_get_count(self->palettes);
-            for (int i = 0; i < item_count; i++) {
+            const s32 item_count = arr_get_count(self->palettes);
+            for (s32 i = 0; i < item_count; i++) {
                 ddp* instance = NULL;
                 if (SUCCEEDED(arr_get_item(self->palettes, i, &instance))) {
                     ddp_release(instance, RELEASE_NONE);
@@ -87,6 +87,27 @@ void dd_release(dd* self, u32 flags) {
 
         allocator_free(self->manager->allocator, self);
     }
+}
+
+HRESULT dd_get_interface(dd* self, const GUID* riid, void** object) {
+    HRESULT hr = E_NOINTERFACE;
+    EnterCriticalSection(&self->lock);
+
+    const s32 item_count = intfc_get_count(self->interfaces);
+    for (s32 i = 0; i < item_count; i++) {
+        idd* instance = NULL;
+        if (SUCCEEDED(hr = intfc_get_item(self->interfaces, i, &instance))) {
+            if (IsEqualGUID(riid, &instance->id)) {
+                *object = instance;
+                goto exit;
+            }
+        }
+    }
+
+exit:
+    LeaveCriticalSection(&self->lock);
+
+    return hr;
 }
 
 HRESULT dd_query_interface(dd* self, const GUID* riid, void** object) {
@@ -350,12 +371,12 @@ HRESULT dd_remove_surface(dd* self, dds* object) {
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
-    const int item_count = arr_get_count(self->surfaces);
-    for (int i = 0; i < item_count; i++) {
+    const s32 item_count = arr_get_count(self->surfaces);
+    for (s32 i = 0; i < item_count; i++) {
         dds* instance = NULL;
         if (SUCCEEDED(hr = arr_get_item(self->surfaces, i, &instance))) {
             if (instance == object) {
-                hr = arr_remove_item(self->surfaces, i, NULL);
+                hr = arr_remove_item(self->surfaces, i);
                 if (self->primary == object) {
                     self->primary = NULL;
                 }
@@ -411,13 +432,13 @@ HRESULT dd_create_palette(dd* self, u32 flags, PALETTEENTRY* entries, void** obj
                 if (SUCCEEDED(hr = arr_add_item(self->palettes, instance))) {
                     u32 start = 0, count = 0;
                     if (flags & DDPCAPS_1BIT) {
-                        count = 2;
+                        count = 1 << 1;
                     }
                     else if (flags & DDPCAPS_2BIT) {
-                        count = 4;
+                        count = 1 << 2;
                     }
                     else if (flags & DDPCAPS_4BIT) {
-                        count = 16;
+                        count = 1 << 4;
                     }
                     else if (flags & DDPCAPS_8BIT) {
                         count = PALETTE_MAX_ENTRY_COUNT;
@@ -455,12 +476,12 @@ HRESULT dd_remove_palette(dd* self, ddp* object) {
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
-    const int item_count = arr_get_count(self->palettes);
-    for (int i = 0; i < item_count; i++) {
+    const s32 item_count = arr_get_count(self->palettes);
+    for (s32 i = 0; i < item_count; i++) {
         ddp* instance = NULL;
         if (SUCCEEDED(hr = arr_get_item(self->palettes, i, &instance))) {
             if (instance == object) {
-                hr = arr_remove_item(self->palettes, i, NULL);
+                hr = arr_remove_item(self->palettes, i);
                 goto exit;
             }
         }

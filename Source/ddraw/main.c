@@ -12,7 +12,7 @@ DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {
         ZeroMemory(path, MAX_PATH);
         if (GetModuleFileNameA(hModule, path, MAX_PATH) != 0) {
             if (strcat_s(path, MAX_PATH, ".log") == 0) {
-                for (int i = 0; path[i] != '\0'; i++) {
+                for (u32 i = 0; path[i] != '\0'; i++) {
                     path[i] = tolower(path[i]);
                 }
 

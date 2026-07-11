@@ -1,4 +1,5 @@
 #pragma once
+
 #include "allocator.h"
 
 typedef enum log_level {

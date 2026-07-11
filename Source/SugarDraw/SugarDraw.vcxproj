@@ -23,6 +23,7 @@
     <ClInclude Include="arr.h" />
     <ClInclude Include="blt.h" />
     <ClInclude Include="common.h" />
+    <ClInclude Include="connector.h" />
     <ClInclude Include="dd.h" />
     <ClInclude Include="ddp.h" />
     <ClInclude Include="dds.h" />
@@ -40,6 +41,7 @@
     <ClCompile Include="arr.c" />
     <ClCompile Include="blt.c" />
     <ClCompile Include="common.c" />
+    <ClCompile Include="connector.c" />
     <ClCompile Include="dd.c" />
     <ClCompile Include="ddp.c" />
     <ClCompile Include="dds.c" />

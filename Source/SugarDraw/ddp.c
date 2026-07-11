@@ -34,8 +34,8 @@ void ddp_release(ddp* self, u32 flags) {
         EnterCriticalSection(&self->lock);
 
         if (self->interfaces != NULL) {
-            const int count = intfc_get_count(self->interfaces);
-            for (int i = 0; i < count; i++) {
+            const s32 count = intfc_get_count(self->interfaces);
+            for (s32 i = 0; i < count; i++) {
                 iddp* instance = NULL;
                 if (SUCCEEDED(intfc_get_item(self->interfaces, i, &instance))) {
                     iddp_release(instance);
@@ -47,8 +47,8 @@ void ddp_release(ddp* self, u32 flags) {
 
         if (self->surfaces != NULL) {
             // This should never happen...
-            const int item_count = arr_get_count(self->surfaces);
-            for (int i = 0; i < item_count; i++) {
+            const s32 item_count = arr_get_count(self->surfaces);
+            for (s32 i = 0; i < item_count; i++) {
                 dds* instance = NULL;
                 if (SUCCEEDED(arr_get_item(self->surfaces, i, &instance))) {
                     dds_remove_palette(instance);
@@ -67,6 +67,27 @@ void ddp_release(ddp* self, u32 flags) {
 
         allocator_free(self->manager->allocator, self);
     }
+}
+
+HRESULT ddp_get_interface(ddp* self, const GUID* riid, void** object) {
+    HRESULT hr = E_NOINTERFACE;
+    EnterCriticalSection(&self->lock);
+
+    const s32 item_count = intfc_get_count(self->interfaces);
+    for (s32 i = 0; i < item_count; i++) {
+        iddp* instance = NULL;
+        if (SUCCEEDED(hr = intfc_get_item(self->interfaces, i, &instance))) {
+            if (IsEqualGUID(riid, &instance->id)) {
+                *object = instance;
+                goto exit;
+            }
+        }
+    }
+
+exit:
+    LeaveCriticalSection(&self->lock);
+
+    return hr;
 }
 
 HRESULT ddp_query_interface(ddp* self, const GUID* riid, void** object) {
@@ -236,8 +257,8 @@ HRESULT ddp_set_entries(ddp* self, u32 flags, u32 start, u32 count, PALETTEENTRY
     }
 
     if (SUCCEEDED(hr = palette_entry_to_rgb_quad(&self->entries[start], count, &self->quads[start]))) {
-        const int item_count = arr_get_count(self->surfaces);
-        for (int i = 0; i < item_count; i++) {
+        const s32 item_count = arr_get_count(self->surfaces);
+        for (s32 i = 0; i < item_count; i++) {
             dds* instance = NULL;
             if (SUCCEEDED(arr_get_item(self->surfaces, i, &instance))) {
                 dds_update_palette_entries(instance);
@@ -281,12 +302,12 @@ HRESULT ddp_unregister_surface(ddp* self, dds* surface) {
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
-    const int item_count = arr_get_count(self->surfaces);
-    for (int i = 0; i < item_count; i++) {
+    const s32 item_count = arr_get_count(self->surfaces);
+    for (s32 i = 0; i < item_count; i++) {
         dds* instance = NULL;
         if (SUCCEEDED(arr_get_item(self->surfaces, i, &instance))) {
             if (instance == surface) {
-                hr = arr_remove_item(self->surfaces, i, NULL);
+                hr = arr_remove_item(self->surfaces, i);
                 goto exit;
             }
         }

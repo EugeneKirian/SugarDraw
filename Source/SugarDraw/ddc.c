@@ -1,3 +1,4 @@
+#include "dd.h"
 #include "ddc.h"
 #include "iddc.h"
 
@@ -48,7 +49,12 @@ void ddc_release(ddc* self, u32 flags) {
         DeleteCriticalSection(&self->lock);
 
         if (flags & RELEASE_NOTIFY) {
-            sugar_remove_ddc(self->manager, self);
+            if (self->instance == NULL) {
+                sugar_remove_ddc(self->manager, self);
+            }
+            else {
+                dd_remove_clipper(self->instance, self);
+            }
         }
 
         allocator_free(self->manager->allocator, self);
@@ -228,13 +234,17 @@ HRESULT ddc_initialize(ddc* self, dd* object) {
         return DDERR_ALREADYINITIALIZED;
     }
 
+    HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
-    self->instance = object;
+    if (SUCCEEDED(hr = dd_attach_clipper(object, self))) {
+        sugar_remove_ddc(self->manager, self);
+        self->instance = object;
+    }
 
     LeaveCriticalSection(&self->lock);
 
-    return DD_OK;
+    return hr;
 }
 
 HRESULT ddc_is_clip_list_changed(ddc* self, bool* changed) {

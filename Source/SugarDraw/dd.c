@@ -22,14 +22,18 @@ HRESULT dd_create(sugar* manager, const GUID* rclsid, driver* driver, dd** objec
         instance->driver = driver;
         CopyMemory(&instance->id, rclsid, sizeof(GUID));
         if (SUCCEEDED(hr = intfc_create(manager->allocator, MEM_TAG_DIRECTDRAW, &instance->interfaces))) {
-            if (SUCCEEDED(hr = arr_create(manager->allocator, MEM_TAG_DIRECTDRAW, &instance->surfaces))) {
+            if (SUCCEEDED(hr = arr_create(manager->allocator, MEM_TAG_DIRECTDRAW, &instance->clippers))) {
                 if (SUCCEEDED(hr = arr_create(manager->allocator, MEM_TAG_DIRECTDRAW, &instance->palettes))) {
-                    InitializeCriticalSection(&instance->lock);
-                    *object = instance;
-                    return hr;
+                    if (SUCCEEDED(hr = arr_create(manager->allocator, MEM_TAG_DIRECTDRAW, &instance->surfaces))) {
+                        InitializeCriticalSection(&instance->lock);
+                        *object = instance;
+                        return hr;
+                    }
+
+                    arr_release(instance->palettes);
                 }
 
-                arr_release(instance->surfaces);
+                arr_release(instance->clippers);
             }
 
             intfc_release(instance->interfaces);
@@ -79,6 +83,18 @@ void dd_release(dd* self, u32 flags) {
             }
 
             arr_release(self->palettes);
+        }
+
+        if (self->clippers != NULL) {
+            const s32 item_count = arr_get_count(self->clippers);
+            for (s32 i = 0; i < item_count; i++) {
+                ddc* instance = NULL;
+                if (SUCCEEDED(arr_get_item(self->clippers, i, &instance))) {
+                    ddc_release(instance, RELEASE_NONE);
+                }
+            }
+
+            arr_release(self->clippers);
         }
 
         if (self->graphics != NULL) {
@@ -1138,6 +1154,56 @@ HRESULT dd_set_driver(dd* self, driver* driver) {
         self->driver = driver;
     }
 
+    LeaveCriticalSection(&self->lock);
+
+    return hr;
+}
+
+HRESULT dd_attach_clipper(dd* self, ddc* clipper) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (clipper == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    HRESULT hr = DD_OK;
+    EnterCriticalSection(&self->lock);
+
+    hr = arr_add_item(self->clippers, clipper);
+
+    LeaveCriticalSection(&self->lock);
+
+    return hr;
+}
+
+HRESULT dd_remove_clipper(dd* self, ddc* clipper) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (clipper == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    HRESULT hr = DD_OK;
+    EnterCriticalSection(&self->lock);
+
+    const s32 item_count = arr_get_count(self->clippers);
+    for (s32 i = 0; i < item_count; i++) {
+        ddc* instance = NULL;
+        if (SUCCEEDED(hr = arr_get_item(self->clippers, i, &instance))) {
+            if (instance == clipper) {
+                hr = arr_remove_item(self->clippers, i);
+                goto exit;
+            }
+        }
+    }
+
+    hr = DDERR_NOTFOUND;
+
+exit:
     LeaveCriticalSection(&self->lock);
 
     return hr;

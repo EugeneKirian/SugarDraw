@@ -22,8 +22,9 @@ typedef struct dd {
     } cooperation;
 
     dds*                primary;
-    arr*                surfaces;
+    arr*                clippers;
     arr*                palettes;
+    arr*                surfaces;
 } dd;
 
 HRESULT dd_create(sugar* manager, const GUID* rclsid, driver* driver, dd** object);
@@ -63,6 +64,9 @@ HRESULT dd_start_mode_test(dd* self, SIZE* modes, u32 count, u32 flags);
 HRESULT dd_evaluate_mode(dd* self, u32 flags, u32* timeout);
 
 HRESULT dd_set_driver(dd* self, driver* driver);
+
+HRESULT dd_attach_clipper(dd* self, ddc* clipper);
+HRESULT dd_remove_clipper(dd* self, ddc* clipper);
 
 HRESULT dd_remove_palette(dd* self, ddp* palette);
 HRESULT dd_remove_surface(dd* self, dds* surface);

@@ -9,6 +9,7 @@ typedef struct iddc iddc;
 typedef struct ddc {
     sugar*              manager;
     GUID                id;
+    bool                initialized;
     dd*                 instance;
     intfc*              interfaces;
     CRITICAL_SECTION    lock;

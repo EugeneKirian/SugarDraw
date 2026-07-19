@@ -204,7 +204,7 @@ HRESULT ddc_get_hwnd(ddc* self, HWND* hwnd) {
         return DDERR_INVALIDPARAMS;
     }
 
-    if (self->instance == NULL) {
+    if (!self->initialized) {
         return DDERR_NOTINITIALIZED;
     }
 
@@ -226,20 +226,27 @@ HRESULT ddc_initialize(ddc* self, dd* object) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (object == NULL) {
-        return DDERR_INVALIDPARAMS;
-    }
-
-    if (self->instance != NULL) {
+    if (self->initialized) {
         return DDERR_ALREADYINITIALIZED;
     }
 
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
-    if (SUCCEEDED(hr = dd_attach_clipper(object, self))) {
-        sugar_remove_ddc(self->manager, self);
-        self->instance = object;
+    // According to the documentation, see:
+    // Creating DirectDrawClipper Objects with CoCreateInstance
+    // the object passed in can be NULL, in which case it is a driver-independent object.
+
+    if (object != NULL) {
+        // Change ownership of the clipper.
+        if (SUCCEEDED(hr = dd_attach_clipper(object, self))) {
+            sugar_remove_ddc(self->manager, self);
+            self->instance = object;
+        }
+    }
+
+    if (SUCCEEDED(hr)) {
+        self->initialized = TRUE;
     }
 
     LeaveCriticalSection(&self->lock);
@@ -256,7 +263,7 @@ HRESULT ddc_is_clip_list_changed(ddc* self, bool* changed) {
         return DDERR_INVALIDPARAMS;
     }
 
-    if (self->instance == NULL) {
+    if (!self->initialized) {
         return DDERR_NOTINITIALIZED;
     }
 
@@ -270,7 +277,7 @@ HRESULT ddc_set_clip_list(ddc* self, RGNDATA* region) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (self->instance == NULL) {
+    if (!self->initialized) {
         return DDERR_NOTINITIALIZED;
     }
 
@@ -329,7 +336,7 @@ HRESULT ddc_set_hwnd(ddc* self, HWND hwnd) {
         }
     }
 
-    if (self->instance == NULL) {
+    if (!self->initialized) {
         return DDERR_NOTINITIALIZED;
     }
 

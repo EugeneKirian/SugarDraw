@@ -255,10 +255,7 @@ DWORD WINAPI ddg_worker(ddg* self) {
                                     dds* overlay = connector.instance;
                                     if (overlay->desc.ddsCaps.dwCaps & DDSCAPS_VISIBLE) {
                                         // TODO proper implementation
-                                        RECT rect;
-                                        if (SUCCEEDED(hr = ddsd_get_rect(overlay->surface, &rect))) {
-                                            hr = ddsd_blt_fast(self->surface, &overlay->overlay.dst, overlay->surface, &rect, DDBLTFAST_NOCOLORKEY); // TODO color keys..
-                                        }
+                                        hr = ddsd_blt_fast(self->surface, &overlay->overlay.dst, overlay->surface, &overlay->overlay.src, DDBLTFAST_NOCOLORKEY); // TODO color keys..
                                     }
                                 }
                             }

@@ -1141,7 +1141,7 @@ HRESULT SUGARCALL idds_update_overlay1(idds* self, LPRECT lpSrcRect, LPDIRECTDRA
         return DDERR_INVALIDOBJECT;
     }
 
-    if (lpSrcRect == NULL || lpDDDestSurface == NULL || lpDestRect == NULL) {
+    if (lpDDDestSurface == NULL || lpDestRect == NULL) {
         LEAVE(DDERR_INVALIDPARAMS);
     }
 
@@ -1304,7 +1304,7 @@ HRESULT SUGARCALL idds_update_overlay2(idds* self, LPRECT lpSrcRect, LPDIRECTDRA
         return DDERR_INVALIDOBJECT;
     }
 
-    if (lpSrcRect == NULL || lpDDDestSurface == NULL || lpDestRect == NULL) {
+    if (lpDDDestSurface == NULL || lpDestRect == NULL) {
         LEAVE(DDERR_INVALIDPARAMS);
     }
 
@@ -1489,7 +1489,7 @@ HRESULT SUGARCALL idds_update_overlay3(idds* self, LPRECT lpSrcRect, LPDIRECTDRA
         return DDERR_INVALIDOBJECT;
     }
 
-    if (lpSrcRect == NULL || lpDDDestSurface == NULL || lpDestRect == NULL) {
+    if (lpDDDestSurface == NULL || lpDestRect == NULL) {
         LEAVE(DDERR_INVALIDPARAMS);
     }
 
@@ -1755,7 +1755,7 @@ HRESULT SUGARCALL idds_update_overlay4(idds* self, LPRECT lpSrcRect, LPDIRECTDRA
         return DDERR_INVALIDOBJECT;
     }
 
-    if (lpSrcRect == NULL || lpDDDestSurface == NULL || lpDestRect == NULL) {
+    if (lpDDDestSurface == NULL || lpDestRect == NULL) {
         LEAVE(DDERR_INVALIDPARAMS);
     }
 
@@ -1984,7 +1984,7 @@ HRESULT SUGARCALL idds_update_overlay7(idds* self, LPRECT lpSrcRect, LPDIRECTDRA
         return DDERR_INVALIDOBJECT;
     }
 
-    if (lpSrcRect == NULL || lpDDDestSurface == NULL || lpDestRect == NULL) {
+    if (lpDDDestSurface == NULL || lpDestRect == NULL) {
         LEAVE(DDERR_INVALIDPARAMS);
     }
 

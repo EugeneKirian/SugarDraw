@@ -2,6 +2,9 @@
 
 #include <wchar.h>
 
+// TODO driver managemnt
+#include <gdi.h>
+
 static sugar* manager;
 
 BOOL APIENTRY
@@ -16,11 +19,20 @@ DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {
                     path[i] = tolower(path[i]);
                 }
 
+                // TODO driver management
+                // For now just GDI driver
+                gdi* g = NULL;
+                gdi_create(&g);
+
+                driver* driver = NULL;
+                gdi_get_driver(g, &driver);
+                // TODO driver management + memory leaks
+
                 allocator* allocator = NULL;
                 if (SUCCEEDED(allocator_create(&allocator))) {
                     logger* logger = NULL;
                     if (SUCCEEDED(logger_create(allocator, path, LOG_LEVEL_TRACE, &logger))) {
-                        if (SUCCEEDED(sugar_create(allocator, logger, &manager))) {
+                        if (SUCCEEDED(sugar_create(allocator, logger, driver, &manager))) {
                             return TRUE;
                         }
 
@@ -47,91 +59,100 @@ DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {
 }
 
 VOID WINAPI
-AcquireDDThreadLock() {
+acquire_dd_thread_lock() {
 
 }
 
 BOOL WINAPI
-CompleteCreateSysmemSurface(LPVOID lcl) {
+complete_create_sysmem_surface(LPVOID lcl) {
     return FALSE;
 }
 
 HRESULT WINAPI
-D3DParseUnknownCommand(LPVOID lpvCommands, LPVOID* lplpvReturnedCommand) {
+d3d_parse_unknown_command(LPVOID lpvCommands, LPVOID* lplpvReturnedCommand) {
     return DDERR_UNSUPPORTED;
 }
 
 HRESULT WINAPI
-DDGetAttachedSurfaceLcl(LPVOID lcl, LPDDSCAPS2 lpDDSCaps, LPVOID* lplpDDAttachedSurfaceLcl) {
+dd_get_attached_surface_lcl(LPVOID lcl, LPDDSCAPS2 lpDDSCaps, LPVOID* lplpDDAttachedSurfaceLcl) {
     return DDERR_UNSUPPORTED;
 }
 
 HRESULT WINAPI
-DDInternalLock(LPVOID lcl, LPVOID* lpBits) {
+dd_internal_lock(LPVOID lcl, LPVOID* lpBits) {
     return DDERR_UNSUPPORTED;
 }
 
 HRESULT WINAPI
-DDInternalUnlock(LPVOID lcl) {
+dd_internal_unlock(LPVOID lcl) {
     return DDERR_UNSUPPORTED;
 }
 
 HRESULT WINAPI
-DSoundHelp(HWND hWnd, WNDPROC lpWndProc, DWORD pid) {
+dsound_help(HWND hWnd, WNDPROC lpWndProc, DWORD pid) {
     return DDERR_UNSUPPORTED;
 }
 
-// Creates an instance of a DirectDraw object.
 HRESULT WINAPI
-DirectDrawCreate(LPGUID lpGUID, LPDIRECTDRAW* lplpDD, LPUNKNOWN pUnkOuter) {
+direct_draw_create(LPGUID lpGUID, LPDIRECTDRAW* lplpDD, LPUNKNOWN pUnkOuter) {
+    LOGENTER(manager->logger, "%s, 0x%p, 0x%p", guid_to_string(lpGUID), lplpDD, pUnkOuter);
+
     if (lplpDD == NULL || pUnkOuter != NULL) {
-        return DDERR_INVALIDPARAMS;
+        LOGLEAVE(manager->logger, DDERR_INVALIDPARAMS);
     }
 
     if (lpGUID != NULL && lpGUID != (LPGUID)DDCREATE_HARDWAREONLY
         && lpGUID != (LPGUID)DDCREATE_EMULATIONONLY) {
         if (!IsEqualGUID(&SUGARDRAW_DEVICE_GUID, lpGUID)) {
-            return DDERR_INVALIDDIRECTDRAWGUID;
+            LOGLEAVE(manager->logger, DDERR_INVALIDDIRECTDRAWGUID);
         }
     }
 
-    return sugar_create_direct_draw(manager, &CLSID_DirectDraw, &IID_IDirectDraw, lplpDD);
+    LOGLEAVE(manager->logger,
+        sugar_create_dd(manager, &CLSID_DirectDraw, &IID_IDirectDraw, lplpDD));
 }
 
-// Creates an instance of a DirectDrawClipper object not associated with a DirectDraw object.
 HRESULT WINAPI
-DirectDrawCreateClipper(DWORD dwFlags, LPDIRECTDRAWCLIPPER* lplpDDClipper, LPUNKNOWN pUnkOuter) {
-    return DDERR_UNSUPPORTED;
+direct_draw_create_clipper(DWORD dwFlags, LPDIRECTDRAWCLIPPER* lplpDDClipper, LPUNKNOWN pUnkOuter) {
+    LOGENTER(manager->logger, "0x%p, 0x%p", lplpDDClipper, pUnkOuter);
+
+    if (lplpDDClipper == NULL || pUnkOuter != NULL) {
+        LOGLEAVE(manager->logger, DDERR_INVALIDPARAMS);
+    }
+
+    LOGLEAVE(manager->logger,
+        sugar_create_ddc(manager, &CLSID_DirectDrawClipper, &IID_IDirectDrawClipper, lplpDDClipper));
 }
 
-// Creates an instance of a DirectDraw object that supports the set of Direct3D interfaces in DirectX 7.0.
 HRESULT WINAPI
-DirectDrawCreateEx(LPGUID lpGUID, LPVOID* lplpDD, REFIID riid, LPUNKNOWN pUnkOuter) {
+direct_draw_create_ex(LPGUID lpGUID, LPVOID* lplpDD, REFIID riid, LPUNKNOWN pUnkOuter) {
+    LOGENTER(manager->logger, "%s, 0x%p, 0x%p", guid_to_string(lpGUID), lplpDD, pUnkOuter);
+
     if (lplpDD == NULL || pUnkOuter != NULL) {
-        return DDERR_INVALIDPARAMS;
+        LOGLEAVE(manager->logger, DDERR_INVALIDPARAMS);
     }
 
     if (lpGUID != NULL && lpGUID != (LPGUID)DDCREATE_HARDWAREONLY
         && lpGUID != (LPGUID)DDCREATE_EMULATIONONLY) {
         if (!IsEqualGUID(&SUGARDRAW_DEVICE_GUID, lpGUID)) {
-            return DDERR_INVALIDDIRECTDRAWGUID;
+            LOGLEAVE(manager->logger, DDERR_INVALIDDIRECTDRAWGUID);
         }
     }
 
     if (!IsEqualGUID(&IID_IDirectDraw7, riid)) {
-        return DDERR_INVALIDPARAMS;
+        LOGLEAVE(manager->logger, DDERR_INVALIDPARAMS);
     }
 
-    return sugar_create_direct_draw(manager, &CLSID_DirectDraw7, &IID_IDirectDraw7, lplpDD);
+    LOGLEAVE(manager->logger,
+        sugar_create_dd(manager, &CLSID_DirectDraw7, &IID_IDirectDraw7, lplpDD));
 }
 
-// Enumerates the primary DirectDraw display device and a non-display device
-// (such as a 3-D accelerator that has no 2-D capabilities) if one is installed.
-// The NULL entry always identifies the primary display device shared with GDI.
 HRESULT WINAPI
-DirectDrawEnumerateA(LPDDENUMCALLBACKA lpCallback, LPVOID lpContext) {
+direct_draw_enumerate_ansi(LPDDENUMCALLBACKA lpCallback, LPVOID lpContext) {
+    LOGENTER(manager->logger, "0x%p, 0x%p", lpCallback, lpContext);
+
     if (lpCallback == NULL) {
-        return DDERR_INVALIDPARAMS;
+        LOGLEAVE(manager->logger, DDERR_INVALIDPARAMS);
     }
 
     GUID device;
@@ -145,19 +166,19 @@ DirectDrawEnumerateA(LPDDENUMCALLBACKA lpCallback, LPVOID lpContext) {
 
     lpCallback(&device, name, description, lpContext);
 
-    return DD_OK;
+    LOGLEAVE(manager->logger, DD_OK);
 }
 
-// Enumerates all DirectDraw devices installed on the system.
-// The NULL entry always identifies the primary display device shared with GDI.
 HRESULT WINAPI
-DirectDrawEnumerateExA(LPDDENUMCALLBACKEXA lpCallback, LPVOID lpContext, DWORD dwFlags) {
+direct_draw_enumerate_ex_ansi(LPDDENUMCALLBACKEXA lpCallback, LPVOID lpContext, DWORD dwFlags) {
+    LOGENTER(manager->logger, "0x%p, 0x%p, %s", lpCallback, lpContext, ddenum_to_string(dwFlags));
+
     if (lpCallback == NULL) {
-        return DDERR_INVALIDPARAMS;
+        LOGLEAVE(manager->logger, DDERR_INVALIDPARAMS);
     }
 
     if ((dwFlags == DDENUM_NONE) || (dwFlags & ~DDENUM_VALID)) {
-        return DDERR_INVALIDPARAMS;
+        LOGLEAVE(manager->logger, DDERR_INVALIDPARAMS);
     }
 
     GUID device;
@@ -171,19 +192,19 @@ DirectDrawEnumerateExA(LPDDENUMCALLBACKEXA lpCallback, LPVOID lpContext, DWORD d
 
     lpCallback(&device, name, description, lpContext, NULL);
 
-    return DD_OK;
+    LOGLEAVE(manager->logger, DD_OK);
 }
 
-// Enumerates all DirectDraw devices installed on the system.
-// The NULL entry always identifies the primary display device shared with GDI.
 HRESULT WINAPI
-DirectDrawEnumerateExW(LPDDENUMCALLBACKEXW lpCallback, LPVOID lpContext, DWORD dwFlags) {
+direct_draw_enumerate_ex_wide(LPDDENUMCALLBACKEXW lpCallback, LPVOID lpContext, DWORD dwFlags) {
+    LOGENTER(manager->logger, "0x%p, 0x%p, %s", lpCallback, lpContext, ddenum_to_string(dwFlags));
+
     if (lpCallback == NULL) {
-        return DDERR_INVALIDPARAMS;
+        LOGLEAVE(manager->logger, DDERR_INVALIDPARAMS);
     }
 
     if ((dwFlags == DDENUM_NONE) || (dwFlags & ~DDENUM_VALID)) {
-        return DDERR_INVALIDPARAMS;
+        LOGLEAVE(manager->logger, DDERR_INVALIDPARAMS);
     }
 
     GUID device;
@@ -197,16 +218,15 @@ DirectDrawEnumerateExW(LPDDENUMCALLBACKEXW lpCallback, LPVOID lpContext, DWORD d
 
     lpCallback(&device, name, description, lpContext, NULL);
 
-    return DD_OK;
+    LOGLEAVE(manager->logger, DD_OK);
 }
 
-// Enumerates the primary DirectDraw display device and a non-display device
-// (such as a 3-D accelerator that has no 2-D capabilities) if one is installed.
-// The NULL entry always identifies the primary display device shared with GDI.
 HRESULT WINAPI
-DirectDrawEnumerateW(LPDDENUMCALLBACKW lpCallback, LPVOID lpContext) {
+direct_draw_enumerate_wide(LPDDENUMCALLBACKW lpCallback, LPVOID lpContext) {
+    LOGENTER(manager->logger, "0x%p, 0x%p", lpCallback, lpContext);
+
     if (lpCallback == NULL) {
-        return DDERR_INVALIDPARAMS;
+        LOGLEAVE(manager->logger, DDERR_INVALIDPARAMS);
     }
 
     GUID device;
@@ -220,45 +240,53 @@ DirectDrawEnumerateW(LPDDENUMCALLBACKW lpCallback, LPVOID lpContext) {
 
     lpCallback(&device, name, description, lpContext);
 
-    return DD_OK;
+    LOGLEAVE(manager->logger, DD_OK);
 }
 
 HRESULT WINAPI
-DllCanUnloadNow() {
-    return DDERR_UNSUPPORTED;
+dll_can_unload_now() {
+    // TODO
+
+    LOGLEAVE(manager->logger, DDERR_UNSUPPORTED);
 }
 
 HRESULT WINAPI
-DllGetClassObject(REFCLSID rclsid, REFIID riid, LPVOID* ppv) {
-    return DDERR_UNSUPPORTED;
+dll_get_class_object(REFCLSID rclsid, REFIID riid, LPVOID* ppv) {
+    LOGENTER(manager->logger, "0x%p, 0x%p", guid_to_string(rclsid), guid_to_string(riid), ppv);
+
+    // TODO
+
+    LOGLEAVE(manager->logger, DDERR_UNSUPPORTED);
 }
 
 LPVOID WINAPI
-GetDDSurfaceLocal(LPVOID lcl, DWORD handle, BOOL* isnew) {
+get_dd_surface_local(LPVOID lcl, DWORD handle, BOOL* isnew) {
     return NULL;
 }
 
 ULONG_PTR WINAPI
-GetOLEThunkData(ULONG_PTR dwOrdinal) {
+get_ole_thunk_data(ULONG_PTR dwOrdinal) {
     return DDERR_UNSUPPORTED;
 }
 
 HRESULT WINAPI
-GetSurfaceFromDC(HDC hDC, LPDIRECTDRAWSURFACE* ppDDS, HDC* phDCDriver) {
-    return DDERR_UNSUPPORTED;
+get_surface_from_dc(HDC hDC, LPDIRECTDRAWSURFACE* ppDDS, HDC* phDCDriver) {
+    // TODO
+
+    LOGLEAVE(manager->logger, DDERR_UNSUPPORTED);
 }
 
 HRESULT WINAPI
-RegisterSpecialCase(DWORD dwParam1, DWORD dwParam2, DWORD dwParam3, DWORD dwParam4) {
+register_special_case(DWORD dwParam1, DWORD dwParam2, DWORD dwParam3, DWORD dwParam4) {
     return DDERR_UNSUPPORTED;
 }
 
 VOID WINAPI
-ReleaseDDThreadLock() {
+release_dd_thread_lock() {
 
 }
 
 HRESULT WINAPI
-SetAppCompatData(DWORD dwType, DWORD dwValue) {
+set_app_compat_data(DWORD dwType, DWORD dwValue) {
     return DDERR_UNSUPPORTED;
 }

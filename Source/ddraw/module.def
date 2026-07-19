@@ -1,24 +1,24 @@
 LIBRARY
 EXPORTS
-    AcquireDDThreadLock			@1	PRIVATE
-    CompleteCreateSysmemSurface	@2	PRIVATE
-    D3DParseUnknownCommand		@3	PRIVATE
-    DDGetAttachedSurfaceLcl		@4
-    DDInternalLock				@5
-    DDInternalUnlock			@6
-    DSoundHelp					@7
-    DirectDrawCreate			@8
-    DirectDrawCreateClipper		@9
-    DirectDrawCreateEx			@10
-    DirectDrawEnumerateA		@11
-    DirectDrawEnumerateExA		@12
-    DirectDrawEnumerateExW		@13
-    DirectDrawEnumerateW		@14
-    DllCanUnloadNow				@15	PRIVATE
-    DllGetClassObject			@16	PRIVATE
-    GetDDSurfaceLocal			@17
-    GetOLEThunkData				@18	PRIVATE
-    GetSurfaceFromDC			@19
-    RegisterSpecialCase			@20	PRIVATE
-    ReleaseDDThreadLock			@21	PRIVATE
-    SetAppCompatData			@22
+    AcquireDDThreadLock			= acquire_dd_thread_lock            @1	PRIVATE
+    CompleteCreateSysmemSurface	= complete_create_sysmem_surface    @2	PRIVATE
+    D3DParseUnknownCommand		= d3d_parse_unknown_command         @3	PRIVATE
+    DDGetAttachedSurfaceLcl		= dd_get_attached_surface_lcl       @4
+    DDInternalLock				= dd_internal_lock                  @5
+    DDInternalUnlock			= dd_internal_unlock                @6
+    DSoundHelp					= dsound_help                       @7
+    DirectDrawCreate			= direct_draw_create                @8
+    DirectDrawCreateClipper		= direct_draw_create_clipper        @9
+    DirectDrawCreateEx			= direct_draw_create_ex             @10
+    DirectDrawEnumerateA		= direct_draw_enumerate_ansi        @11
+    DirectDrawEnumerateExA		= direct_draw_enumerate_ex_ansi     @12
+    DirectDrawEnumerateExW		= direct_draw_enumerate_ex_wide     @13
+    DirectDrawEnumerateW		= direct_draw_enumerate_wide        @14
+    DllCanUnloadNow				= dll_can_unload_now                @15	PRIVATE
+    DllGetClassObject			= dll_get_class_object              @16	PRIVATE
+    GetDDSurfaceLocal			= get_dd_surface_local              @17
+    GetOLEThunkData				= get_ole_thunk_data                @18	PRIVATE
+    GetSurfaceFromDC			= get_surface_from_dc               @19
+    RegisterSpecialCase			= register_special_case             @20	PRIVATE
+    ReleaseDDThreadLock			= release_dd_thread_lock            @21	PRIVATE
+    SetAppCompatData			= set_app_compat_data               @22

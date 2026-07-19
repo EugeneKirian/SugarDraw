@@ -1,5 +1,6 @@
-#include "blt.h"
 #include "dd.h"
+#include "ddc.h"
+#include "ddg.h"
 #include "ddp.h"
 #include "dds.h"
 #include "utilities.h"
@@ -13,26 +14,18 @@ HRESULT dds_create(sugar* manager, dds** object) {
     dds* instance = NULL;
     if (SUCCEEDED(hr = allocator_allocate(manager->allocator, MEM_TAG_DIRECTDRAWSURFACE, sizeof(dds), &instance))) {
         instance->manager = manager;
-        if (SUCCEEDED(hr = allocator_allocate(manager->allocator, MEM_TAG_DIRECTDRAWSURFACE, sizeof(ddsinfo), &instance->surface))) {
-            if (SUCCEEDED(hr = intfc_create(manager->allocator, MEM_TAG_DIRECTDRAWSURFACE, &instance->interfaces))) {
-                if (SUCCEEDED(hr = arr_create(manager->allocator, MEM_TAG_DIRECTDRAWSURFACE, &instance->attachments))) {
-                    if (SUCCEEDED(hr = lock_create(manager->allocator, MEM_TAG_DIRECTDRAWSURFACE, &instance->locks))) {
-                        if (SUCCEEDED(hr = connector_create(manager->allocator, MEM_TAG_DIRECTDRAWSURFACE, &instance->overlays))) {
-                            InitializeCriticalSection(&instance->lock);
-                            *object = instance;
-                            return hr;
-                        }
-
-                        lock_release(instance->locks);
-                    }
-
-                    arr_release(instance->attachments);
+        if (SUCCEEDED(hr = intfc_create(manager->allocator, MEM_TAG_DIRECTDRAWSURFACE, &instance->interfaces))) {
+            if (SUCCEEDED(hr = connector_create(manager->allocator, MEM_TAG_DIRECTDRAWSURFACE, &instance->attachments))) {
+                if (SUCCEEDED(hr = connector_create(manager->allocator, MEM_TAG_DIRECTDRAWSURFACE, &instance->overlays))) {
+                    InitializeCriticalSection(&instance->lock);
+                    *object = instance;
+                    return hr;
                 }
 
-                intfc_release(instance->interfaces);
+                connector_release(instance->attachments);
             }
 
-            allocator_free(manager->allocator, instance->surface);
+            intfc_release(instance->interfaces);
         }
 
         allocator_free(manager->allocator, instance);
@@ -58,19 +51,11 @@ void dds_release(dds* self, u32 flags) {
         }
 
         if (self->surface != NULL) {
-            // TODO bitmap, mapping, hdc
-
-            if (self->surface->info != NULL) {
-                allocator_free(self->manager->allocator, self->surface->info);
-            }
-
-            allocator_free(self->manager->allocator, self->surface);
+            ddsd_remove_ref(self->surface);
         }
 
-        // TODO attachments
-
-        if (self->locks != NULL) {
-            lock_release(self->locks);
+        if (self->attachments != NULL) {
+            // TODO attachments
         }
 
         if (self->overlay.target.instance != NULL) {
@@ -79,12 +64,21 @@ void dds_release(dds* self, u32 flags) {
 
         if (self->overlays != NULL) {
             // TODO overlays
-            
+        }
+
+        if (self->clipper.instance != NULL) {
+            iddc* intfc = NULL;
+            if (SUCCEEDED(ddc_get_interface(self->clipper.instance, &self->clipper.id, &intfc))) {
+                iddc_remove_ref(intfc);
+            }
         }
 
         if (self->palette.instance != NULL) {
+            ddp* instance = self->palette.instance;
+            ddp_unregister_surface(instance, self);
+
             iddp* intfc = NULL;
-            if (SUCCEEDED(ddp_get_interface(self->palette.instance, &self->palette.id, &intfc))) {
+            if (SUCCEEDED(ddp_get_interface(instance, &self->palette.id, &intfc))) {
                 iddp_remove_ref(intfc);
             }
         }
@@ -93,7 +87,9 @@ void dds_release(dds* self, u32 flags) {
         DeleteCriticalSection(&self->lock);
 
         if (flags & RELEASE_NOTIFY) {
-            dd_remove_surface(self->instance, self);
+            if (self->instance != NULL) {
+                dd_remove_surface(self->instance, self);
+            }
         }
 
         allocator_free(self->manager->allocator, self);
@@ -174,6 +170,71 @@ HRESULT dds_remove_ref(dds* self, idds* object) {
     return hr;
 }
 
+HRESULT dds_add_attached_surface(dds* self, iddsconn* surface) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (surface == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if (self->instance != surface->instance->instance) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if (self->instance == NULL) {
+        return DDERR_NOTINITIALIZED;
+    }
+
+    // TODO proper implementation
+
+    // TODO increment ref count on the interface
+
+    // TODO DDERR_SURFACEALREADYATTACHED
+    // TODO DDERR_SURFACEALREADYDEPENDENT
+
+    return DDERR_UNSUPPORTED; // TODO
+}
+
+HRESULT dds_add_overlay_dirty_rect(dds* self, RECT* rect) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (rect == NULL) {
+        return DDERR_INVALIDPARAMS; // Can rect be NULL?
+    }
+
+    if (self->instance == NULL) {
+        return DDERR_NOTINITIALIZED;
+    }
+    
+    // TODO proper implementation
+
+    return DDERR_UNSUPPORTED; // TODO
+}
+
+HRESULT dds_blt(dds* self, RECT* dst, dds* surface, RECT* src, u32 flags, DDBLTFX* effects) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    // TODO proper implementation
+
+    return DD_OK; // TODO
+}
+
+HRESULT dds_blt_batch(dds* self, DDBLTBATCH* batch, u32 count, u32 flags) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    // TODO proper implementation
+
+    return DDERR_UNSUPPORTED;
+}
+
 HRESULT dds_blt_fast(dds* self, u32 x, u32 y, dds* surface, RECT* rect, u32 transfer) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
@@ -183,8 +244,12 @@ HRESULT dds_blt_fast(dds* self, u32 x, u32 y, dds* surface, RECT* rect, u32 tran
         return DDERR_NOTINITIALIZED;
     }
 
-    if (self->clipper != NULL) {
-        return DDERR_UNSUPPORTED;
+    if (self->instance != surface->instance) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if (surface->clipper.instance != NULL) {
+        return DDERR_BLTFASTCANTCLIP;
     }
 
     if (!(self->desc.ddsCaps.dwCaps & DDSCAPS_SYSTEMMEMORY)
@@ -192,9 +257,11 @@ HRESULT dds_blt_fast(dds* self, u32 x, u32 y, dds* surface, RECT* rect, u32 tran
         return DDERR_UNSUPPORTED; // TODO verify
     }
 
-    if ((transfer != DDBLTFAST_NONE) && (transfer & ~DDBLTFAST_VALID)) {
+    if (transfer != DDBLTFAST_NONE && (transfer & ~DDBLTFAST_VALID)) {
         return DDERR_INVALIDPARAMS;
     }
+
+    // TODO adjust rrectangles or bail if no/incomplete overlap?
 
     // TODO proper implementation, at least a good refactor...
     // TODO: for now handle the most simplest cases...
@@ -212,31 +279,22 @@ HRESULT dds_blt_fast(dds* self, u32 x, u32 y, dds* surface, RECT* rect, u32 tran
             return DDERR_INVALIDCAPS; // TODO error code
         }
     }
-    
+
     // TODO can transfer be both DDBLTFAST_SRCCOLORKEY and DDBLTFAST_DESTCOLORKEY?
 
     if (self->desc.ddpfPixelFormat.dwRGBBitCount != surface->desc.ddpfPixelFormat.dwRGBBitCount) {
         return DDERR_UNSUPPORTED; // TODO
     }
 
-    s32 dst_x = x;
-    s32 dst_y = y;
-    s32 dst_w = (s32)self->desc.dwWidth;
-    s32 dst_h = (s32)self->desc.dwHeight;
-
-    // Check if the destination starting point (x,y) is within the surface boundaries.
-    if (dst_w < dst_x || dst_h < dst_y) {
-        return DDERR_INVALIDPARAMS;
-    }
-
-    s32 src_x = rect == NULL ? 0 : rect->left;
-    s32 src_y = rect == NULL ? 0 : rect->top;
-    s32 src_w = rect == NULL ? (s32)surface->desc.dwWidth : rect->right - rect->left;
-    s32 src_h = rect == NULL ? (s32)surface->desc.dwHeight : rect->bottom - rect->top;
-
     // TODO adjust dimensions for partial or no overlaps?
     // do it gracefully, or fails with DDERR_INVALIDRECT ?
     // below is clipping. Need tests!
+
+    // Source rectangle
+    s32 src_x = rect == NULL ? 0 : rect->left;
+    s32 src_y = rect == NULL ? 0 : rect->top;
+    s32 src_w = rect == NULL ? (s32)surface->desc.dwWidth : rect->right;
+    s32 src_h = rect == NULL ? (s32)surface->desc.dwHeight : rect->bottom;
 
     // Clip the source rectangle to the source surface boundaries.
     if (src_x < 0) {
@@ -259,68 +317,73 @@ HRESULT dds_blt_fast(dds* self, u32 x, u32 y, dds* surface, RECT* rect, u32 tran
         src_h = surface->desc.dwHeight;
     }
 
-    // Adjust destination rectangle width and height to source rectangle width and height.
-    //if (src_w < dst_w) {
-    //    src_w = dst_w;
-    //}
+    // Destination rectangle
+    s32 dst_x = x;
+    s32 dst_y = y;
+    s32 dst_w = x + src_w - src_x;
+    s32 dst_h = y + src_h - src_y;
 
-    //if (src_h < dst_h) {
-    //    src_h = dst_h;
-    //}
+    // Check if the destination starting point (x,y) is within the surface boundaries.
+    if (dst_w < dst_x || dst_h < dst_y) {
+        return DDERR_INVALIDPARAMS;
+    }
 
-    // TODO DDERR_INVALIDRECT
+    RECT dst;
+    dst.left = dst_x;
+    dst.top = dst_y;
+    dst.right = dst_w;
+    dst.bottom = dst_h;
 
-    // TODO lock checks DDERR_SURFACEBUSY and DDERR_LOCKEDSURFACES
-    // TODO self->uniqueness++;
+    RECT src;
+    src.left = src_x;
+    src.top = src_y;
+    src.right = src_w;
+    src.bottom = src_h;
 
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
-    if (self == surface) {
-        // TODO handle case when source and destination surfaces are the same...
-        hr = DDERR_UNSUPPORTED;
-        goto exit;
-    }
-    else {
-        if (transfer & DDBLTFAST_SRCCOLORKEY) {
-            blt_color_key(self->surface->data, dst_x, dst_y, dst_w, dst_h,
-                self->desc.ddpfPixelFormat.dwRGBBitCount, self->surface->stride,
-                surface->surface->data, src_x, src_y, src_w, src_h,
-                surface->desc.ddpfPixelFormat.dwRGBBitCount, surface->surface->stride,
-                surface->desc.ddckCKSrcBlt.dwColorSpaceLowValue,
-                surface->desc.ddckCKSrcBlt.dwColorSpaceHighValue);
-        }
-        else if (transfer & DDBLTFAST_DESTCOLORKEY) {
-            // TODO not suported
-            // TODO both flags?
-        }
-        else {
-            blt_blit(self->surface->data, dst_x, dst_y, dst_w, dst_h,
-                self->desc.ddpfPixelFormat.dwRGBBitCount, self->surface->stride,
-                surface->surface->data, src_x, src_y, src_w, src_h,
-                surface->desc.ddpfPixelFormat.dwRGBBitCount, surface->surface->stride);
+    if (SUCCEEDED(hr = ddg_can_update(self->graphics, transfer & DDBLTFAST_WAIT))) {
+        if (SUCCEEDED(hr = ddsd_blt_fast(self->surface, &dst, surface->surface, &src, transfer))) {
+            if (self->desc.ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACE) {
+                hr = ddg_signal_update(self->graphics);
+            }
         }
     }
 
-    if (self->desc.ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACE) {
-        if (self->desc.ddsCaps.dwCaps & DDSCAPS_FRONTBUFFER) {
-            // TODO blit is done into the non-flippable front buffer (i.e. windowed mode)
-
-            // TODO proper implementation
-            //HWND wnd = self->instance->cooperative_level.hwnd;
-            //HDC hdc = GetDC(wnd);
-            //RECT rect;
-            //GetClientRect(wnd, &rect);
-            //BitBlt(hdc, 0, 0, rect.right, rect.bottom, self->surface->hdc, 0, 0, SRCCOPY);
-            //ReleaseDC(wnd, hdc);
-            //InvalidateRect(wnd, &rect, FALSE);
-        }
-    }
-
-exit:
     LeaveCriticalSection(&self->lock);
 
     return hr;
+}
+
+HRESULT dds_delete_attached_surface(dds* self, iddsconn* surface) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (surface == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if (self->instance == NULL) {
+        return DDERR_NOTINITIALIZED;
+    }
+
+    // TODO proper implementation
+    // TODO Address of the IDirectDrawSurface7 interface for the DirectDrawSurface object to be detached.
+    // If this parameter is NULL, all attached surfaces are detached.
+
+    // TODO decrement refs
+
+    return DDERR_UNSUPPORTED;
+}
+
+HRESULT dds_enum_attached_surfaces(dds* self) {
+    return DDERR_UNSUPPORTED; // TODO
+}
+
+HRESULT dds_enum_overlay_z_orders(dds* self) {
+    return DDERR_UNSUPPORTED; // TODO
 }
 
 HRESULT dds_flip(dds* self, dds* override, u32 flags) {
@@ -334,6 +397,8 @@ HRESULT dds_flip(dds* self, dds* override, u32 flags) {
 
     // TODO validate flags
 
+    // TODO can override be self?
+
     if (!(self->desc.ddsCaps.dwCaps & DDSCAPS_FLIP)) {
         return DDERR_NOTFLIPPABLE;
     }
@@ -346,11 +411,12 @@ HRESULT dds_flip(dds* self, dds* override, u32 flags) {
     dds* target = NULL;
     if (override != NULL) {
         // Validate that the override surface is one of the back buffers.
-        const s32 item_count = arr_get_count(self->attachments);
+        const s32 item_count = connector_get_count(self->attachments);
         for (s32 i = 0; i < item_count; i++) {
-            dds* instance = NULL;
-            if (SUCCEEDED(arr_get_item(self->attachments, i, &instance))) {
-                if (instance == override) {
+            iddsconn connector;
+            ZeroMemory(&connector, sizeof(iddsconn));
+            if (SUCCEEDED(connector_get_item(self->attachments, i, &connector))) {
+                if (connector.instance == override) {
                     target = override;
                     break;
                 }
@@ -364,12 +430,13 @@ HRESULT dds_flip(dds* self, dds* override, u32 flags) {
     }
     else {
         // Search for the first available back buffer.
-        const s32 item_count = arr_get_count(self->attachments);
+        const s32 item_count = connector_get_count(self->attachments);
         for (s32 i = 0; i < item_count; i++) {
-            dds* instance = NULL;
-            if (SUCCEEDED(arr_get_item(self->attachments, i, &instance))) {
-                if (instance->desc.ddsCaps.dwCaps & DDSCAPS_BACKBUFFER) {
-                    target = instance;
+            iddsconn connector;
+            ZeroMemory(&connector, sizeof(iddsconn));
+            if (SUCCEEDED(connector_get_item(self->attachments, i, &connector))) {
+                if (connector.instance->desc.ddsCaps.dwCaps & DDSCAPS_BACKBUFFER) {
+                    target = connector.instance;
                     break;
                 }
             }
@@ -383,37 +450,13 @@ HRESULT dds_flip(dds* self, dds* override, u32 flags) {
         goto exit;
     }
 
-    target->surface = InterlockedExchangePointer(&self->surface, target->surface);
+    if (SUCCEEDED(hr = ddg_can_update(self->graphics, flags & DDFLIP_WAIT))) {
+        target->surface = InterlockedExchangePointer(&self->surface, target->surface);
 
-    if (self->desc.ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACE) {
-        // TODO proper implementation
-        HWND wnd = self->instance->cooperative_level.hwnd;
-        HDC hdc = GetDC(wnd);
-        RECT rect;
-        GetClientRect(wnd, &rect);
-        BitBlt(hdc, 0, 0, rect.right, rect.bottom, self->surface->dc, 0, 0, SRCCOPY);
-
-        // TODO correct implementation
-        {
-            const s32 item_count = connector_get_count(self->overlays);
-            for (s32 i = 0; i < item_count; i++) {
-                iddsconn connector;
-                ZeroMemory(&connector, sizeof(iddsconn));
-                if (SUCCEEDED(connector_get_item(self->overlays, i, &connector))) {
-                    dds* instance = connector.instance;
-                    if (instance->desc.ddsCaps.dwCaps & DDSCAPS_VISIBLE) {
-                        HDC dc = NULL;
-                        if (SUCCEEDED(dds_get_dc(instance, &dc))) {
-                            BitBlt(hdc, 0, 0, rect.right, rect.bottom, dc, 0, 0, SRCCOPY);
-                            dds_release_dc(instance, dc);
-                        }
-                    }
-                }
-            }
+        if ((self->desc.ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACE)
+            || (self->desc.ddsCaps.dwCaps & (DDSCAPS_OVERLAY | DDSCAPS_VISIBLE))) {
+            hr = ddg_signal_update(self->graphics);
         }
-
-        ReleaseDC(wnd, hdc);
-        InvalidateRect(wnd, &rect, FALSE);
     }
 
 exit:
@@ -444,31 +487,34 @@ HRESULT dds_get_attached_surface(dds* self, DDSCAPS2* caps, dds** surface) {
     EnterCriticalSection(&self->lock);
 
     dds* match = NULL;
-    const s32 item_count = arr_get_count(self->attachments);
+    const s32 item_count = connector_get_count(self->attachments);
     for (s32 i = 0; i < item_count; i++) {
-        dds* instance = NULL;
-        if (SUCCEEDED(hr = arr_get_item(self->attachments, i, &instance))) {
+        iddsconn connector;
+        ZeroMemory(&connector, sizeof(iddsconn));
+        if (SUCCEEDED(hr = connector_get_item(self->attachments, i, &connector))) {
+            const DDSURFACEDESC2* desc = &connector.instance->desc;
+
             // TODO proper search
             bool criteria = TRUE;
             if (caps->dwCaps != DDSCAPS_NONE) {
-                criteria = criteria && (instance->desc.ddsCaps.dwCaps & caps->dwCaps);
+                criteria = criteria && (desc->ddsCaps.dwCaps & caps->dwCaps);
             }
 
             if (caps->dwCaps2 != DDSCAPS2_NONE) {
-                criteria = criteria && (instance->desc.ddsCaps.dwCaps2 & caps->dwCaps2);
+                criteria = criteria && (desc->ddsCaps.dwCaps2 & caps->dwCaps2);
             }
 
             if (caps->dwCaps3 != DDSCAPS3_NONE) {
-                criteria = criteria && (instance->desc.ddsCaps.dwCaps3 & caps->dwCaps3);
+                criteria = criteria && (desc->ddsCaps.dwCaps3 & caps->dwCaps3);
             }
 
             if (caps->dwCaps4 != DDSCAPS4_NONE) {
-                criteria = criteria && (instance->desc.ddsCaps.dwCaps4 & caps->dwCaps4);
+                criteria = criteria && (desc->ddsCaps.dwCaps4 & caps->dwCaps4);
             }
 
             if (criteria) {
                 if (match == NULL) {
-                    match = instance;
+                    match = connector.instance;
                 }
                 else {
                     hr = DDERR_INVALIDPARAMS; // TODO correct error code. Multiple matches are not allowed?
@@ -482,7 +528,7 @@ HRESULT dds_get_attached_surface(dds* self, DDSCAPS2* caps, dds** surface) {
         *surface = match;
     }
     else {
-        hr = DDERR_NOTFOUND;
+        hr = DDERR_SURFACENOTATTACHED; // TODO proper error
     }
 
 exit:
@@ -491,9 +537,95 @@ exit:
     return hr;
 }
 
+HRESULT dds_get_blt_status(dds* self, u32 flags) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (self->instance == NULL) {
+        return DDERR_NOTINITIALIZED;
+    }
+
+    if (flags != DDGBS_CANBLT && flags != DDGBS_ISBLTDONE) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if (self->instance == NULL) {
+        return DDERR_NOTINITIALIZED;
+    }
+
+    HRESULT hr = DD_OK;
+
+    if (flags & DDGBS_CANBLT) {
+        u32 count = 0;
+        if (SUCCEEDED(hr = ddsd_get_lock_count(self->surface, &count))) {
+            if (count == 0) {
+                if (self->desc.ddsCaps.dwCaps & DDPCAPS_PRIMARYSURFACE) {
+                    return ddg_can_update(self->graphics, FALSE);
+                }
+
+                return DD_OK;
+            }
+
+            return DDERR_SURFACEBUSY;
+        }
+    }
+    else if (flags & DDGBS_ISBLTDONE) {
+        if (self->desc.ddsCaps.dwCaps & DDPCAPS_PRIMARYSURFACE) {
+            return ddg_can_update(self->graphics, FALSE);
+        }
+    }
+
+    return hr;
+}
+
+HRESULT dds_get_caps(dds* self, DDSCAPS2* caps) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (caps == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if (self->instance == NULL) {
+        return DDERR_NOTINITIALIZED;
+    }
+
+    CopyMemory(caps, &self->desc.ddsCaps, sizeof(DDSCAPS2));
+
+    return DD_OK;
+}
+
+HRESULT dds_get_clipper(dds* self, iddcconn* clipper) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (clipper == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if (self->instance == NULL) {
+        return DDERR_NOTINITIALIZED;
+    }
+
+    if (self->clipper.instance == NULL) {
+        return DDERR_NOCLIPPERATTACHED;
+    }
+
+    CopyMemory(clipper, &self->clipper, sizeof(iddcconn));
+
+    return DD_OK;
+}
+
 HRESULT dds_get_color_key(dds* self, u32 flags, DDCOLORKEY* key) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
+    }
+
+    if (self->instance == NULL) {
+        return DDERR_NOTINITIALIZED;
     }
 
     if (flags & DDCKEY_DESTBLT) {
@@ -558,21 +690,15 @@ HRESULT dds_get_dc(dds* self, HDC* hdc) {
         return DDERR_ISOPTIMIZEDSURFACE;
     }
 
-    if (self->surface->exposed) {
-        return DDERR_DCALREADYCREATED;
-    }
-
     // TODO validate surface bit count (1,2,4,8) and normal argb color bit masks for (15,16,24,32)
     // TODO DDLOCK_READONLY
 
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
-    RECT lock;
-    if (SUCCEEDED(hr = dds_get_surface_rect(self, &lock))) {
-        if (SUCCEEDED(hr = lock_acquire(self->locks, &lock))) {
-            self->surface->exposed = TRUE;
-
+    if (SUCCEEDED(hr = ddg_can_update(self->graphics, FALSE))) {
+        HDC dc;
+        if (SUCCEEDED(hr = ddsd_get_dc(self->surface, &dc))) {
             if (self->desc.ddsCaps.dwCaps & DDSCAPS_PALETTE) {
                 // It is not explicitly stated in the documentation,
                 // however, palettized surfaces that have no explicitly attached palette
@@ -586,21 +712,55 @@ HRESULT dds_get_dc(dds* self, HDC* hdc) {
                 if (palette != NULL) {
                     // TODO what about 1,2,4,8 bits of palette caps?
                     const u32 count = 1 << self->desc.ddpfPixelFormat.dwRGBBitCount;
-                    SetDIBColorTable(self->surface->dc, 0, count, palette->quads);
+                    SetDIBColorTable(dc, 0, count, palette->quads);
                 }
             }
 
-            if (self->desc.ddsCaps.dwCaps & DDSCAPS_OWNDC) {
-                self->surface->checkpoint = SaveDC(self->surface->dc);
-            }
-
-            *hdc = self->surface->dc;
+            *hdc = dc;
         }
     }
 
     LeaveCriticalSection(&self->lock);
 
     return hr;
+}
+
+HRESULT dds_get_flip_status(dds* self, u32 flags) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (self->instance == NULL) {
+        return DDERR_NOTINITIALIZED;
+    }
+
+    // TODO proper implementation - check for locks
+
+    return DD_OK;
+}
+
+HRESULT dds_get_overlay_position(dds* self, s32* x, s32* y) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (self->instance == NULL) {
+        return DDERR_NOTINITIALIZED;
+    }
+
+    // TODO
+    // DDERR_GENERIC
+    // DDERR_INVALIDOBJECT
+    // DDERR_INVALIDPARAMS
+    // DDERR_INVALIDPOSITION
+    // DDERR_NOOVERLAYDEST
+    // DDERR_NOTAOVERLAYSURFACE
+    // DDERR_OVERLAYNOTVISIBLE
+    // DDERR_SURFACELOST
+    // 
+    // TODO proper implementation - check for locks
+
+    return DD_OK;
 }
 
 HRESULT dds_get_palette(dds* self, iddpconn* palette) {
@@ -631,6 +791,28 @@ HRESULT dds_get_palette(dds* self, iddpconn* palette) {
     return DD_OK;
 }
 
+HRESULT dds_get_pixel_format(dds* self, DDPIXELFORMAT* format) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (format == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if (format->dwSize != sizeof(DDPIXELFORMAT)) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if (self->instance == NULL) {
+        return DDERR_NOTINITIALIZED;
+    }
+
+    CopyMemory(format, &self->desc.ddpfPixelFormat, sizeof(DDPIXELFORMAT));
+
+    return DD_OK;
+}
+
 HRESULT dds_get_surface_desc(dds* self, DDSURFACEDESC2* desc) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
@@ -654,6 +836,10 @@ HRESULT dds_get_surface_desc(dds* self, DDSURFACEDESC2* desc) {
 
     if (desc->dwFlags & DDSD_HEIGHT) {
         desc->dwHeight = self->desc.dwHeight;
+    }
+
+    if (desc->dwFlags & DDSD_PIXELFORMAT) {
+        CopyMemory(&desc->ddpfPixelFormat, &self->desc.ddpfPixelFormat, sizeof(DDPIXELFORMAT));
     }
 
     // TODO other flags!
@@ -682,150 +868,67 @@ HRESULT dds_initialize(dds* self, dd* object, DDSURFACEDESC2* desc) {
     EnterCriticalSection(&self->lock);
 
     self->instance = object;
+    self->graphics = object->graphics;
     CopyMemory(&self->desc, desc, sizeof(DDSURFACEDESC2));
 
     // TODO: use validation rules from dds_create (refactoring needed).
 
-    // TODO handle custom buffer, i.e. DDSD_LPSURFACE from DD4/7
+    // TODO DDERR_DDSCAPSCOMPLEXREQUIRED
 
-    if (self->desc.dwFlags & DDSD_LPSURFACE) {
-        // TODO not implemented - custom memory...
-        hr = DDERR_UNSUPPORTED;
-        goto exit;
-    }
-    else {
-        self->surface->dc = CreateCompatibleDC(NULL); // TODO: From where? exclusive mode hwnd, or cliper?
-        if (self->surface->dc == NULL) {
-            hr = DDERR_OUTOFMEMORY;
-            goto exit;
-        }
+    ddsd* surface = NULL;
+    if (SUCCEEDED(hr = ddsd_create(self->manager->allocator, &surface))) {
+        if (SUCCEEDED(hr = ddsd_initialize(surface, &self->desc))) {
+            self->surface = surface;
 
-        const u32 bpp = self->desc.ddpfPixelFormat.dwRGBBitCount;
-        const u32 stride = ((self->desc.dwWidth * bpp + 63) & ~63) >> 3; // TODO
-        const u32 size = stride * self->desc.dwHeight;
-        const u32 aligned_width = stride / (bpp / 8); // TODO
+            if (self->desc.ddsCaps.dwCaps & (DDSCAPS_PRIMARYSURFACE | DDSCAPS_PRIMARYSURFACELEFT)) {
+                u32 flags = DDPCAPS_NONE;
 
-        if (SUCCEEDED(hr = allocator_allocate(self->manager->allocator,
-            MEM_TAG_DIRECTDRAWSURFACE, sizeof(ddsbmp), &self->surface->info))) {
-            BITMAPINFOHEADER* header = &self->surface->info->header;
-            header->biSize = sizeof(BITMAPINFOHEADER);
-            header->biWidth = (LONG)aligned_width;
-            header->biHeight = -(LONG)self->desc.dwHeight;
-            header->biPlanes = 1;
-            header->biBitCount = bpp;
-            header->biCompression = (bpp == 15 || bpp == 16) ? BI_BITFIELDS : BI_RGB;
+                switch (self->desc.ddpfPixelFormat.dwRGBBitCount) {
+                case 1:
+                case 2:
+                case 4: {
+                    // TODO clean-up...
+                    hr = DDERR_UNSUPPORTED;
+                    goto exit;
+                }break;
+                case 8: {
+                    flags = DDPCAPS_8BIT | DDPCAPS_ALLOW256;
+                    //if (self->desc.ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACE) {
+                    //    flags |= DDPCAPS_PRIMARYSURFACE;
+                    //}
+                    //if (self->desc.ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACELEFT) {
+                    //    flags |= DDPCAPS_PRIMARYSURFACELEFT;
+                    //}
 
-            switch (bpp) {
-            case 1:
-            case 2:
-            case 4: {
-                hr = DDERR_UNSUPPORTED;
-                allocator_free(self->manager->allocator, self->surface->info);
-                goto exit;
-            }break;
-            case 8: {
-                header->biClrUsed = PALETTE_MAX_ENTRY_COUNT;
-                RGBQUAD* palette = self->surface->info->palette;
-
-                bool is_set = FALSE;
-                if (GetDeviceCaps(self->surface->dc, RASTERCAPS) & RC_PALETTE) {
+                    // TODO handle non-HDC surfaces...
+                    RGBQUAD quads[PALETTE_MAX_ENTRY_COUNT];
                     PALETTEENTRY entries[PALETTE_MAX_ENTRY_COUNT];
-                    is_set = GetSystemPaletteEntries(self->surface->dc,
-                        0, PALETTE_MAX_ENTRY_COUNT, entries) == PALETTE_MAX_ENTRY_COUNT;
-
-                    if (is_set) {
-                        palette_entry_to_rgb_quad(entries, PALETTE_MAX_ENTRY_COUNT, palette);
+                    const u32 count = 1 << self->desc.ddpfPixelFormat.dwRGBBitCount;
+                    if (SUCCEEDED(hr = ddsd_get_palette(self->surface, 0, count, quads))) {
+                        if (SUCCEEDED(hr = rgb_quad_to_palette_entry(quads, count, entries))) {
+                            iddp* instance = NULL;
+                            if (SUCCEEDED(hr = dd_create_palette(self->instance, flags, entries, &instance))) {
+                                self->palette.instance = instance->instance;
+                                CopyMemory(&self->palette.id, &instance->id, sizeof(GUID));
+                                ddp_register_surface(self->palette.instance, self);
+                            }
+                        }
                     }
+
+                    // TODO handle failure of palette creation
+                }break;
                 }
-
-                if (!is_set) {
-                    // Default palette to gray scale.
-                    for (s32 i = 0; i < PALETTE_MAX_ENTRY_COUNT; i++) {
-                        palette[i].rgbRed = i;
-                        palette[i].rgbGreen = i;
-                        palette[i].rgbBlue = i;
-                    }
-                }
-            }break;
-            case 15:
-            case 16: {
-                header->biClrUsed = 3;
-                ((DWORD*)self->surface->info->palette)[0]
-                    = self->desc.ddpfPixelFormat.dwRBitMask;
-                ((DWORD*)self->surface->info->palette)[1]
-                    = self->desc.ddpfPixelFormat.dwGBitMask;
-                ((DWORD*)self->surface->info->palette)[2]
-                    = self->desc.ddpfPixelFormat.dwBBitMask;
-            }break;
-            case 24:
-            case 32: {
-                ((DWORD*)self->surface->info->palette)[0]
-                    = self->desc.ddpfPixelFormat.dwRBitMask;
-                ((DWORD*)self->surface->info->palette)[1]
-                    = self->desc.ddpfPixelFormat.dwGBitMask;
-                ((DWORD*)self->surface->info->palette)[2]
-                    = self->desc.ddpfPixelFormat.dwBBitMask;
-            }break;
             }
-
-            header->biSizeImage = ((aligned_width * bpp + 63) & ~63) / 8 * self->desc.dwHeight; // TODO
-
-            self->surface->mapping = CreateFileMappingA(INVALID_HANDLE_VALUE,
-                NULL, PAGE_READWRITE | SEC_COMMIT, 0, size, NULL);
-            if (self->surface->mapping == NULL) {
-                // TODO clean-up...
-                hr = DDERR_OUTOFMEMORY;
-                goto exit;
-            }
-
-            self->surface->stride = stride;
-            self->surface->bitmap = CreateDIBSection(self->surface->dc,
-                (BITMAPINFO*)self->surface->info, DIB_RGB_COLORS,
-                &self->surface->data, self->surface->mapping, 0);
-            if (self->surface->bitmap == NULL) {
-                // TODO clean-up...
-                hr = DDERR_OUTOFMEMORY;
-                goto exit;
-            }
-
-            SelectObject(self->surface->dc, self->surface->bitmap);
         }
     }
 
-    if (self->desc.ddsCaps.dwCaps & (DDSCAPS_PRIMARYSURFACE | DDSCAPS_PRIMARYSURFACELEFT)) {
-        u32 flags = DDPCAPS_NONE;
-
-        switch (self->desc.ddpfPixelFormat.dwRGBBitCount) {
-        case 1:
-        case 2:
-        case 4: {
-            // TODO clean-up...
-            hr = DDERR_UNSUPPORTED;
-            goto exit;
-        }break;
-        case 8: {
-            flags = DDPCAPS_8BIT | DDPCAPS_ALLOW256;
-            //if (self->desc.ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACE) {
-            //    flags |= DDPCAPS_PRIMARYSURFACE;
-            //}
-            //if (self->desc.ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACELEFT) {
-            //    flags |= DDPCAPS_PRIMARYSURFACELEFT;
-            //}
-
-            // TODO handle non-HDC surfaces...
-            const u32 count = 1 << self->desc.ddpfPixelFormat.dwRGBBitCount;
-            PALETTEENTRY entries[PALETTE_MAX_ENTRY_COUNT];
-            if (SUCCEEDED(hr = rgb_quad_to_palette_entry(self->surface->info->palette, count, entries))) {
-                iddp* instance = NULL;
-                if (SUCCEEDED(hr = dd_create_palette(self->instance, flags, entries, &instance))) {
-                    self->palette.instance = instance->instance;
-                    CopyMemory(&self->palette.id, &instance->id, sizeof(GUID));
-                    ddp_register_surface(self->palette.instance, self);
-                    dds_update_palette_entries(self);
-                }
-            }
-        }break;
+    // TODO better code...
+    if (FAILED(hr)) {
+        if (surface != NULL) {
+            ddsd_release(surface);
         }
+
+        goto exit;
     }
 
     if (self->desc.dwFlags & DDSD_BACKBUFFERCOUNT) {
@@ -836,6 +939,8 @@ HRESULT dds_initialize(dds* self, dd* object, DDSURFACEDESC2* desc) {
         back.ddsCaps.dwCaps |= DDSCAPS_BACKBUFFER;
         back.dwBackBufferCount = 0;
 
+        // TODO set implicit ?
+
         for (u32 i = 0; i < self->desc.dwBackBufferCount; i++) {
             dds* instance = NULL;
             // TODO. Should this be done using dd_create_surface?
@@ -843,14 +948,18 @@ HRESULT dds_initialize(dds* self, dd* object, DDSURFACEDESC2* desc) {
             if (SUCCEEDED(hr = dds_create(self->manager, &instance))) {
                 if (SUCCEEDED(hr = dds_initialize(instance, self->instance, &back))) {
                     idds* intfc = NULL;
+                    // TODO pick proper interface. Tests needed.
                     if (SUCCEEDED(hr = dds_query_interface(instance, &IID_IDirectDrawSurface, &intfc))) {
-                        if (SUCCEEDED(hr = arr_add_item(self->attachments, instance))) {
+                        iddsconn connector;
+                        connector.instance = instance;
+                        CopyMemory(&connector.id, &IID_IDirectDrawSurface, sizeof(GUID));
+                        if (SUCCEEDED(hr = connector_add_item(self->attachments, &connector))) {
                             continue;
                         }
                     }
-
-                    dds_release(instance, RELEASE_NONE);
                 }
+
+                dds_release(instance, RELEASE_NONE);
             }
 
             if (FAILED(hr)) {
@@ -866,34 +975,49 @@ exit:
     return hr;
 }
 
+HRESULT dds_is_lost(dds* self) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (self->instance == NULL) {
+        return DDERR_NOTINITIALIZED;
+    }
+
+    return DD_OK;
+}
+
 HRESULT dds_lock(dds* self, RECT* rect, DDSURFACEDESC2* desc, u32 flags) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
 
-    RECT lock;
+    if (desc == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if (desc->dwSize != sizeof(DDSURFACEDESC2)) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if (self->instance == NULL) {
+        return DDERR_NOTINITIALIZED;
+    }
+
     HRESULT hr = DD_OK;
-    if (SUCCEEDED(hr = dds_get_rect(self, rect, &lock))) {
-        if (!IsValidRect(&lock)) {
-            return DDERR_INVALIDRECT;
+    if (SUCCEEDED(hr = ddg_can_update(self->graphics, flags & DDLOCK_WAIT))) {
+        RECT lock;
+        if (SUCCEEDED(hr = dds_get_rect(self, rect, &lock))) {
+            if (!IsValidRect(&lock)) {
+                return DDERR_INVALIDRECT;
+            }
+
+            EnterCriticalSection(&self->lock);
+
+            hr = ddsd_lock(self->surface, &lock, desc);
+
+            LeaveCriticalSection(&self->lock);
         }
-
-        // TODO validate intersection DDERR_INVALIDRECT
-
-        EnterCriticalSection(&self->lock);
-
-        if (SUCCEEDED(hr = lock_acquire(self->locks, &lock))) {
-            // TODO properly fill in desc
-            const u32 bytes =
-                (self->desc.ddpfPixelFormat.dwRGBBitCount == 15
-                    ? 16 : self->desc.ddpfPixelFormat.dwRGBBitCount) / 8;
-            CopyMemory(desc, &self->desc, desc->dwSize);
-            desc->lpSurface = self->surface->data
-                + lock.left * bytes + lock.top * self->surface->stride; // TODO proper offset calculation
-            desc->lPitch = self->surface->stride;
-        }
-
-        LeaveCriticalSection(&self->lock);
     }
 
     return hr;
@@ -916,30 +1040,84 @@ HRESULT dds_release_dc(dds* self, HDC hdc) {
         return DDERR_UNSUPPORTED;
     }
 
-    if (!self->surface->exposed) {
-        return DDERR_INVALIDPARAMS; // TODO proper error
+    HRESULT hr = DD_OK;
+    EnterCriticalSection(&self->lock);
+
+    if (SUCCEEDED(hr = ddsd_release_dc(self->surface, hdc))) {
+        if (self->desc.ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACE) {
+            hr = ddg_signal_update(self->graphics);
+        }
     }
 
-    if (self->surface->dc != hdc) {
+    LeaveCriticalSection(&self->lock);
+
+    return hr;
+}
+
+HRESULT dds_restore(dds* self) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (self->instance == NULL) {
+        return DDERR_NOTINITIALIZED;
+    }
+
+    return DD_OK;
+}
+
+HRESULT dds_set_clipper(dds* self, iddcconn* clipper) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (clipper == NULL) {
         return DDERR_INVALIDPARAMS;
+    }
+
+    if (self->instance == NULL) {
+        return DDERR_NOTINITIALIZED;
+    }
+
+    if (self->desc.ddsCaps.dwCaps & DDSCAPS_OPTIMIZED) {
+        return DDERR_INVALIDSURFACETYPE;
     }
 
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
-
-    self->surface->exposed = FALSE;
-
-    if (self->desc.ddsCaps.dwCaps & DDSCAPS_OWNDC) {
-        RestoreDC(self->surface->dc, self->surface->checkpoint);
+    if (clipper->instance == NULL) {
+        if (self->clipper.instance != NULL) {
+            iddc* intfc = NULL;
+            if (SUCCEEDED(ddc_get_interface(self->clipper.instance, &self->clipper.id, &intfc))) {
+                iddc_remove_ref(intfc);
+            }
+        }
     }
+    else if (self->clipper.instance != NULL) {
+        ddc* instance = self->clipper.instance;
+        if (instance == clipper->instance) {
+            if (!IsEqualGUID(&self->clipper.id, &clipper->id)) {
+                CopyMemory(&self->clipper.id, &clipper->id, sizeof(GUID));
+            }
 
-    RECT lock;
-    if (SUCCEEDED(hr = dds_get_surface_rect(self, &lock))) {
-        if (SUCCEEDED(hr = lock_unacquire(self->locks, &lock))) {
-            self->uniqueness++;
+            goto exit;
+        }
+
+        iddc* intfc = NULL;
+        if (SUCCEEDED(ddc_get_interface(instance, &self->clipper.id, &intfc))) {
+            iddc_remove_ref(intfc);
         }
     }
 
+    CopyMemory(&self->clipper, clipper, sizeof(iddcconn));
+
+    if (self->clipper.instance != NULL) {
+        iddc* intfc = NULL;
+        ddc* instance = self->clipper.instance;
+        ddc_query_interface(instance, &self->clipper.id, &intfc);
+    }
+
+exit:
     LeaveCriticalSection(&self->lock);
 
     return hr;
@@ -1010,6 +1188,20 @@ HRESULT dds_set_color_key(dds* self, u32 flags, DDCOLORKEY* key) {
     return DD_OK;
 }
 
+HRESULT dds_set_overlay_position(dds* self, s32 x, s32 y) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (self->instance == NULL) {
+        return DDERR_NOTINITIALIZED;
+    }
+
+    // TODO
+
+    return DDERR_UNSUPPORTED;
+}
+
 HRESULT dds_set_palette(dds* self, iddpconn* palette) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
@@ -1049,7 +1241,8 @@ HRESULT dds_set_palette(dds* self, iddpconn* palette) {
     }
 
     // TODO Other checks...
-    // TODO DDERR_NOT8BITCOLOR 
+    // TODO DDERR_NOT8BITCOLOR
+    // TODO DDERR_NOTONMIPMAPSUBLEVEL
 
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
@@ -1088,21 +1281,27 @@ HRESULT dds_set_palette(dds* self, iddpconn* palette) {
         ddp* instance = self->palette.instance;
         ddp_query_interface(instance, &self->palette.id, &intfc);
         ddp_register_surface(instance, self);
-        dds_update_palette_entries(self);
+
+        // TODO validate palette capabillities
+        // TODO handle flags
+
+        ddsd_set_palette(self->surface,
+            0, 1 << self->desc.ddpfPixelFormat.dwRGBBitCount, self->palette.instance->quads);
     }
 
-    self->uniqueness++;
+    ddsd_change_uniqueness_value(self->surface);
 
     // TODO: how to handle backbuffers? propagate the palette? Need tests...
     // What if backbuffer has it's own palete... Is it posible?
 
     if (self->desc.ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACE) {
-        const s32 item_count = arr_get_count(self->attachments);
+        const s32 item_count = connector_get_count(self->attachments);
         for (s32 i = 0; i < item_count; i++) {
-            dds* instance = NULL;
-            if (SUCCEEDED(arr_get_item(self->attachments, i, &instance))) {
-                if (instance->desc.ddsCaps.dwCaps & DDSCAPS_BACKBUFFER) {
-                    dds_set_palette(instance, palette);
+            iddsconn connector;
+            ZeroMemory(&connector, sizeof(iddsconn));
+            if (SUCCEEDED(connector_get_item(self->attachments, i, &connector))) {
+                if (connector.instance->desc.ddsCaps.dwCaps & DDSCAPS_BACKBUFFER) {
+                    dds_set_palette(connector.instance, palette);
                 }
             }
         }
@@ -1119,6 +1318,10 @@ HRESULT dds_unlock(dds* self, RECT* rect) {
         return DDERR_INVALIDOBJECT;
     }
 
+    if (self->instance == NULL) {
+        return DDERR_NOTINITIALIZED;
+    }
+
     RECT lock;
     HRESULT hr = DD_OK;
     if (SUCCEEDED(hr = dds_get_rect(self, rect, &lock))) {
@@ -1126,33 +1329,32 @@ HRESULT dds_unlock(dds* self, RECT* rect) {
             return DDERR_INVALIDRECT;
         }
 
-        // TODO validate against intersection DDERR_INVALIDRECT
-
         EnterCriticalSection(&self->lock);
 
-        if (lock_get_count(self->locks) == 0) {
-            hr = DDERR_NOTLOCKED;
-            goto exit;
+        if (SUCCEEDED(hr = ddsd_unlock(self->surface, &lock))) {
+            if (self->desc.ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACE) {
+                hr = ddg_signal_update(self->graphics);
+            }
         }
 
-        if (SUCCEEDED(hr = lock_unacquire(self->locks, &lock))) {
-            self->uniqueness++;
-        }
-
-    exit:
         LeaveCriticalSection(&self->lock);
     }
 
     return hr;
 }
 
-HRESULT dds_update_overlay(dds* self, const GUID* riid, RECT* src, iddsconn* surface, RECT* dst, u32 flags, DDOVERLAYFX* effects) {
+HRESULT dds_update_overlay(dds* self, const GUID* riid,
+    RECT* src, iddsconn* surface, RECT* dst, u32 flags, DDOVERLAYFX* effects) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
 
     if (riid == NULL || surface == NULL) {
         return DDERR_INVALIDPARAMS;
+    }
+
+    if (self->instance == NULL) {
+        return DDERR_NOTINITIALIZED;
     }
 
     if (!(self->desc.ddsCaps.dwCaps & DDSCAPS_OVERLAY)) {
@@ -1171,23 +1373,23 @@ HRESULT dds_update_overlay(dds* self, const GUID* riid, RECT* src, iddsconn* sur
 
     // TODO check DDOVER_HIDE and DDOVER_SHOW vs DDSCAPS_VISIBLE ?
 
+    HRESULT hr = DD_OK;
     if (flags & DDOVER_HIDE) {
         self->desc.ddsCaps.dwCaps &= ~DDSCAPS_VISIBLE;
-        return DD_OK;
+        if (self->instance->primary == surface->instance) {
+            hr = ddg_signal_update(self->graphics);
+        }
+
+        return hr;
     }
 
     iddsconn connector;
     connector.instance = self;
     CopyMemory(&connector.id, riid, sizeof(GUID));
 
-    HRESULT hr = DD_OK;
     RECT source, destination;
     if (SUCCEEDED(hr = dds_get_rect(self, src, &source))) {
         if (SUCCEEDED(hr = dds_get_rect(surface->instance, dst, &destination))) {
-            // Adjust destination rectangle
-            destination.right = max(destination.left + source.right - source.left, 0);
-            destination.bottom = max(destination.top + source.bottom - source.top, 0);
-
             if (!IsValidRect(&source) || !IsValidRect(&destination)) {
                 return DDERR_INVALIDRECT;
             }
@@ -1237,63 +1439,179 @@ HRESULT dds_update_overlay(dds* self, const GUID* riid, RECT* src, iddsconn* sur
 
             if (self->overlay.target.instance != NULL) {
                 idds* intfc = NULL;
-                dds* instance = self->overlay.target.instance;
-                dds_query_interface(instance, &self->overlay.target.id, &intfc);
-                dds_register_overlay(surface->instance, &connector);
-            }
-
-            if (flags & DDOVER_SHOW) {
-                self->desc.ddsCaps.dwCaps |= DDSCAPS_VISIBLE;
+                dds* target = self->overlay.target.instance;
+                dds_query_interface(target, &self->overlay.target.id, &intfc);
+                dds_register_overlay(target, &connector);
             }
 
         exit:
+            if (flags & DDOVER_SHOW) {
+                self->desc.ddsCaps.dwCaps |= DDSCAPS_VISIBLE;
+                if (self->overlay.target.instance == self->instance->primary) {
+                    hr = ddg_signal_update(self->graphics);
+                }
+            }
+
             LeaveCriticalSection(&self->lock);
         }
     }
 
-    // TODO
-    if (self->instance->primary == surface->instance) {
-        // TODO proper implementation
-        HWND wnd = self->instance->cooperative_level.hwnd;
-        HDC hdc = GetDC(wnd);
-        RECT rect;
-        GetClientRect(wnd, &rect);
-        BitBlt(hdc, 0, 0, rect.right, rect.bottom, self->instance->primary->surface->dc, 0, 0, SRCCOPY);
+    return hr;
+}
 
-        // TODO correct implementation
-        {
-            const s32 item_count = connector_get_count(self->instance->primary->overlays);
-            for (s32 i = 0; i < item_count; i++) {
-                iddsconn connector;
-                ZeroMemory(&connector, sizeof(iddsconn));
-                if (SUCCEEDED(connector_get_item(self->instance->primary->overlays, i, &connector))) {
-                    dds* instance = connector.instance;
-                    if (instance->desc.ddsCaps.dwCaps & DDSCAPS_VISIBLE) {
-                        HDC dc = NULL;
-                        if (SUCCEEDED(dds_get_dc(instance, &dc))) {
-                            StretchBlt(hdc,
-                                instance->overlay.dst.left, instance->overlay.dst.top,
-                                instance->overlay.dst.right, instance->overlay.dst.bottom,
-                                dc,
-                                instance->overlay.src.left, instance->overlay.src.top,
-                                instance->overlay.src.right, instance->overlay.src.bottom,
-                                SRCCOPY);
-                            //BitBlt(hdc,
-                            //    instance->overlay.dst.left, instance->overlay.dst.top,
-                            //    instance->overlay.dst.right, instance->overlay.dst.bottom,
-                            //    dc, instance->overlay.src.left, instance->overlay.src.top, SRCCOPY);
-                            dds_release_dc(instance, dc);
-                        }
-                    }
-                }
-            }
-        }
-
-        ReleaseDC(wnd, hdc);
-        InvalidateRect(wnd, &rect, FALSE);
+HRESULT dds_update_overlay_display(dds* self) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
     }
 
-    return hr;
+    if (self->instance == NULL) {
+        return DDERR_NOTINITIALIZED;
+    }
+
+    // TODO
+
+    return DDERR_UNSUPPORTED;
+}
+
+HRESULT dds_update_overlay_z_order(dds* self, u32 flags, iddsconn* surface) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (surface == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if (self->instance == NULL) {
+        return DDERR_NOTINITIALIZED;
+    }
+
+    // TODO
+
+    return DDERR_UNSUPPORTED;
+}
+
+HRESULT dds_get_dd_interface(dds* self, void** object) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (object == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if (self->instance == NULL) {
+        return DDERR_NOTINITIALIZED;
+    }
+
+    return dd_query_interface(self->instance, &IID_IUnknown, object);
+}
+
+HRESULT dds_page_lock(dds* self) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (self->instance == NULL) {
+        return DDERR_NOTINITIALIZED;
+    }
+
+    // TODO validate caps
+
+    return ddsd_page_lock(self->surface);
+}
+
+HRESULT dds_page_unlock(dds* self) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (self->instance == NULL) {
+        return DDERR_NOTINITIALIZED;
+    }
+
+    // TODO validate caps
+
+    return ddsd_page_unlock(self->surface);
+}
+
+HRESULT dds_set_surface_desc(dds* self, DDSURFACEDESC2* desc) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (desc == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if (desc->dwSize != sizeof(DDSURFACEDESC2)) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if (self->instance == NULL) {
+        return DDERR_NOTINITIALIZED;
+    }
+
+    // TODO
+
+    return ddsd_set_surface_desc(self->surface, desc);
+}
+
+HRESULT dds_set_private_data(dds* self, const GUID* tag, void* data, u32 size, u32 flags) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (tag == NULL || data == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    // TODO validate size
+    // TODO validate flags
+
+    if (self->instance == NULL) {
+        return DDERR_NOTINITIALIZED;
+    }
+
+    // TODO
+
+    return DDERR_UNSUPPORTED;
+}
+
+HRESULT dds_get_private_data(dds* self, const GUID* tag, void* buffer, u32* size) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (tag == NULL || size == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if (self->instance == NULL) {
+        return DDERR_NOTINITIALIZED;
+    }
+
+    // TODO
+
+    return DDERR_UNSUPPORTED;
+}
+
+HRESULT dds_free_private_data(dds* self, const GUID* tag) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (tag == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if (self->instance == NULL) {
+        return DDERR_NOTINITIALIZED;
+    }
+
+    // TODO
+
+    return DDERR_UNSUPPORTED;
 }
 
 HRESULT dds_get_uniqueness_value(dds* self, u32* value) {
@@ -1305,9 +1623,11 @@ HRESULT dds_get_uniqueness_value(dds* self, u32* value) {
         return DDERR_INVALIDPARAMS;
     }
 
-    *value = self->uniqueness;
+    if (self->instance == NULL) {
+        return DDERR_NOTINITIALIZED;
+    }
 
-    return DD_OK;
+    return ddsd_get_uniqueness_value(self->surface, value);
 }
 
 HRESULT dds_change_uniqueness_value(dds* self) {
@@ -1315,9 +1635,75 @@ HRESULT dds_change_uniqueness_value(dds* self) {
         return DDERR_INVALIDOBJECT;
     }
 
-    self->uniqueness++;
+    if (self->instance == NULL) {
+        return DDERR_NOTINITIALIZED;
+    }
 
-    return DD_OK;
+    return ddsd_change_uniqueness_value(self->surface);
+}
+
+HRESULT dds_set_priority(dds* self, u32 priority) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (self->instance == NULL) {
+        return DDERR_NOTINITIALIZED;
+    }
+
+    // TODO
+
+    return DDERR_UNSUPPORTED;
+}
+
+HRESULT dds_get_priority(dds* self, u32* priority) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (priority == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if (self->instance == NULL) {
+        return DDERR_NOTINITIALIZED;
+    }
+
+    // TODO
+
+    return DDERR_UNSUPPORTED;
+}
+
+HRESULT dds_set_lod(dds* self, u32 lod) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (self->instance == NULL) {
+        return DDERR_NOTINITIALIZED;
+    }
+
+    // TODO
+
+    return DDERR_UNSUPPORTED;
+}
+
+HRESULT dds_get_lod(dds* self, u32* lod) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (lod == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if (self->instance == NULL) {
+        return DDERR_NOTINITIALIZED;
+    }
+
+    // TODO
+
+    return DDERR_UNSUPPORTED;
 }
 
 HRESULT dds_get_rect(dds* self, RECT* rect, RECT* result) {
@@ -1337,49 +1723,12 @@ HRESULT dds_get_rect(dds* self, RECT* rect, RECT* result) {
     return DD_OK;
 }
 
-HRESULT dds_get_surface_rect(dds* self, RECT* rect) {
-    if (self == NULL) {
-        return DDERR_INVALIDOBJECT;
-    }
-
-    if (rect == NULL) {
-        return DDERR_INVALIDPARAMS;
-    }
-
-    rect->left = 0;
-    rect->top = 0;
-    rect->right = self->desc.dwWidth;
-    rect->bottom = self->desc.dwHeight;
-
-    return DD_OK;
-}
-
 HRESULT dds_remove_palette(dds* self) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
 
     ZeroMemory(&self->palette, sizeof(iddpconn));
-
-    return DD_OK;
-}
-
-HRESULT dds_update_palette_entries(dds* self) {
-    if (self == NULL) {
-        return DDERR_INVALIDOBJECT;
-    }
-
-    if (self->palette.instance != NULL) {
-        if (self->surface->dc != NULL) {
-            // TODO what about 1,2,4,8 bits of palette caps?
-            const u32 count = 1 << self->desc.ddpfPixelFormat.dwRGBBitCount;
-            SetDIBColorTable(self->surface->dc, 0, count, self->palette.instance->quads);
-
-            // TODO update bm info?
-        }
-    }
-
-    // TODO what to do for custom memory that does not have HDC?
 
     return DD_OK;
 }

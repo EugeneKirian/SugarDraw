@@ -1,18 +1,5 @@
 #include "utilities.h"
 
-#include <stdio.h>
-
-const char* log_level_to_string(log_level level) {
-    switch (level) {
-    case LOG_LEVEL_ERROR: { return "ERROR"; }break;
-    case LOG_LEVEL_WARNING: { return "WARNING"; }break;
-    case LOG_LEVEL_INFO: { return "INFO"; }break;
-    case LOG_LEVEL_TRACE: { return "TRACE"; }break;
-    }
-
-    return "None";
-}
-
 u32 next_power_of_2(u32 n) {
     if (n == 0) {
         return 1;
@@ -28,12 +15,12 @@ u32 next_power_of_2(u32 n) {
     return (n + 1);
 }
 
-const char* hresult_to_string(HRESULT hr) {
-    return "TODO"; // TODO
-}
-
 HRESULT rgb_quad_to_palette_entry(const RGBQUAD* quads, u32 count, PALETTEENTRY* entries) {
     if (quads == NULL || entries == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if (count > PALETTE_MAX_ENTRY_COUNT) {
         return DDERR_INVALIDPARAMS;
     }
 
@@ -50,6 +37,10 @@ HRESULT rgb_quad_to_palette_entry(const RGBQUAD* quads, u32 count, PALETTEENTRY*
 
 HRESULT palette_entry_to_rgb_quad(const PALETTEENTRY* entries, u32 count, RGBQUAD* quads) {
     if (quads == NULL || entries == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if (count > PALETTE_MAX_ENTRY_COUNT) {
         return DDERR_INVALIDPARAMS;
     }
 

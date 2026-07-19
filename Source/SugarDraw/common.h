@@ -9,6 +9,9 @@
 #include <ddraw.h>
 #include <dvp.h>
 
+#undef DDPCAPS_INITIALIZE
+#undef DDSCAPS_PRIMARYSURFACELEFT
+
 #define SUGARCALL __stdcall
 
 #define RELEASE_NONE                            0x00000000
@@ -36,15 +39,20 @@
                                                     | DDSD_CKDESTBLT | DDSD_CKSRCOVERLAY | DDSD_CKSRCBLT | DDSD_MIPMAPCOUNT | DDSD_REFRESHRATE \
                                                     | DDSD_LINEARSIZE | DDSD_TEXTURESTAGE | DDSD_FVF | DDSD_SRCVBHANDLE | DDSD_DEPTH)
 
+#define DDCCAPS_NONE                            0x00000000L
+#define DDCSCL_NONE                             0x00000000L
+#define DDCSHWND_NONE                           0x00000000L
+
 #define DDSCAPS_NONE							0x00000000L
 #define DDSCAPS_3D								0x00000001L
 #define	DDSCAPS_DATAEXCHANGE					(DDSCAPS_SYSTEMMEMORY|DDSCAPS_VIDEOMEMORY)
 #define DDSCAPS_SHAREDZBUFFER                   0x01000000L
 #define DDSCAPS_SHAREDBACKBUFFER                0x02000000L
 
+#define DDSCAPS_PRIMARYSURFACELEFT              0x00000400L
 #define DDSCAPS_VALID							(DDSCAPS_3D | DDSCAPS_ALPHA | DDSCAPS_BACKBUFFER | DDSCAPS_COMPLEX | DDSCAPS_FLIP \
                                                     | DDSCAPS_FRONTBUFFER | DDSCAPS_OFFSCREENPLAIN | DDSCAPS_OVERLAY | DDSCAPS_PALETTE \
-                                                    | DDSCAPS_PRIMARYSURFACE | DDSCAPS_RESERVED3 | DDSCAPS_SYSTEMMEMORY | DDSCAPS_TEXTURE \
+                                                    | DDSCAPS_PRIMARYSURFACE | DDSCAPS_PRIMARYSURFACELEFT | DDSCAPS_SYSTEMMEMORY | DDSCAPS_TEXTURE \
                                                     | DDSCAPS_3DDEVICE | DDSCAPS_VIDEOMEMORY | DDSCAPS_VISIBLE | DDSCAPS_WRITEONLY \
                                                     | DDSCAPS_ZBUFFER | DDSCAPS_OWNDC | DDSCAPS_LIVEVIDEO | DDSCAPS_HWCODEC | DDSCAPS_MODEX \
                                                     | DDSCAPS_MIPMAP | DDSCAPS_RESERVED2 | DDSCAPS_SHAREDZBUFFER | DDSCAPS_SHAREDBACKBUFFER \
@@ -62,9 +70,11 @@
 
 #define PALETTE_MAX_ENTRY_COUNT                 256
 
-#define DDPFLAGS_NONE							0x0000000L
+#define DDPFLAGS_NONE							0x00000000L
 
-#define DDPCAPS_NONE							0x0000000L
+#define DDPCAPS_NONE							0x00000000L
+
+#define DDPCAPS_INITIALIZE                      0x00000008L
 #define DDPCAPS_VALID							(DDPCAPS_4BIT | DDPCAPS_8BITENTRIES | DDPCAPS_8BIT | DDPCAPS_INITIALIZE \
                                                     | DDPCAPS_PRIMARYSURFACE | DDPCAPS_PRIMARYSURFACELEFT | DDPCAPS_ALLOW256 \
                                                     | DDPCAPS_VSYNC | DDPCAPS_1BIT | DDPCAPS_2BIT | DDPCAPS_ALPHA)
@@ -129,8 +139,13 @@ typedef double f64;
 typedef char s8;
 typedef unsigned char u8;
 
+typedef short s16;
+typedef unsigned short u16;
+
 const extern GUID SUGARDRAW_DEVICE_GUID;
 
+#define DDERR_UNRECOGNIZEDGUID                  MAKE_DDHRESULT( 650 )
+#define DDERR_NOTANOPTIMIZEDSURFACE             MAKE_DDHRESULT( 652 )
 #define DDERR_ISOPTIMIZEDSURFACE                MAKE_DDHRESULT( 655 )
 
 #define SUGARDRAW_DEVICE_FILE		            "sugar.dll"

@@ -1,6 +1,5 @@
 #include "allocator.h"
-#include "logger.h"
-#include "utilities.h"
+#include "converter.h"
 
 #include <stdio.h>
 #include <stdarg.h>
@@ -48,6 +47,8 @@ HRESULT logger_create(allocator* allocator, const char* path, log_level level, l
     if (SUCCEEDED(hr = logger_allocate(allocator, path, &instance))) {
         instance->allocator = allocator;
         instance->level = level;
+        InitializeCriticalSection(&instance->lock);
+
         instance->handle = CreateFileA(path, GENERIC_WRITE,
             FILE_SHARE_READ, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
 
@@ -57,7 +58,6 @@ HRESULT logger_create(allocator* allocator, const char* path, log_level level, l
         }
 
         strcpy(instance->path, path);
-        InitializeCriticalSection(&instance->lock);
 
         *object = instance;
     }
@@ -102,7 +102,7 @@ HRESULT logger_log(logger* self, log_level level, const char* format, ...) {
     if (level <= self->level) {
         SYSTEMTIME time;
         GetLocalTime(&time);
-        if (sprintf_s(prefix, LOGGER_MAX_LOG_MESSAGE_LENGTH, "[%s][%d-%02d-%02d %02d:%02d:%02d:%02d] %s\r\n",
+        if (sprintf_s(prefix, LOGGER_MAX_LOG_MESSAGE_LENGTH, "[%s][%d-%02d-%02d %02d:%02d:%02d:%03d] %s\r\n",
             log_level_to_string(level), time.wYear, time.wMonth, time.wDay,
             time.wHour, time.wMinute, time.wSecond, time.wMilliseconds, format) < 0) {
             return DDERR_GENERIC;

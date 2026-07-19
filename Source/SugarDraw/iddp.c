@@ -40,13 +40,17 @@ const static iddp_vft iddp_self = {
 };
 
 HRESULT SUGARCALL iddp_create(sugar* manager, const GUID* riid, iddp** object) {
-    if (manager == NULL || riid == NULL || object == NULL) {
+    if (manager == NULL) {
         return DDERR_INVALIDPARAMS;
+    }
+
+    if (riid == NULL || object == NULL) {
+        LOGLEAVE(manager->logger, DDERR_INVALIDPARAMS);
     }
 
     if (!IsEqualGUID(&IID_IUnknown, riid)
         && !IsEqualGUID(&IID_IDirectDrawPalette, riid)) {
-        return E_NOINTERFACE;
+        LOGLEAVE(manager->logger, E_NOINTERFACE);
     }
 
     HRESULT hr = DD_OK;
@@ -60,13 +64,14 @@ HRESULT SUGARCALL iddp_create(sugar* manager, const GUID* riid, iddp** object) {
         }
 
         instance->manager = manager;
+        instance->logger = manager->logger;
         CopyMemory(&instance->id, riid, sizeof(GUID));
         instance->refs = 1;
 
         *object = instance;
     }
 
-    return hr;
+    LOGLEAVESELF(manager->logger, hr, instance);
 }
 
 void SUGARCALL iddp_release(iddp* self) {
@@ -80,11 +85,7 @@ HRESULT SUGARCALL iddp_query_interface(iddp* self, const GUID* riid, void** obje
         return DDERR_INVALIDOBJECT;
     }
 
-    if (riid == NULL || object == NULL) {
-        return DDERR_INVALIDPARAMS;
-    }
-
-    return ddp_query_interface(self->instance, riid, object);
+    LEAVE(ddp_query_interface(self->instance, riid, object));
 }
 
 ULONG SUGARCALL iddp_add_ref(iddp* self) {
@@ -117,18 +118,18 @@ ULONG SUGARCALL iddp_remove_ref(iddp* self) {
 
 HRESULT SUGARCALL iddp_get_caps(iddp* self, LPDWORD lpdwCaps) {
     if (self == NULL) {
-        return DDERR_INVALIDPARAMS;
+        return DDERR_INVALIDOBJECT;
     }
 
-    return ddp_get_caps(self->instance, lpdwCaps);
+    LEAVE(ddp_get_caps(self->instance, lpdwCaps));
 }
 
 HRESULT SUGARCALL iddp_get_entries(iddp* self, DWORD dwFlags, DWORD dwBase, DWORD dwNumEntries, LPPALETTEENTRY lpEntries) {
     if (self == NULL) {
-        return DDERR_INVALIDPARAMS;
+        return DDERR_INVALIDOBJECT;
     }
 
-    return ddp_get_entries(self->instance, dwFlags, dwBase, dwNumEntries, lpEntries);
+    LEAVE(ddp_get_entries(self->instance, dwFlags, dwBase, dwNumEntries, lpEntries));
 }
 
 HRESULT SUGARCALL iddp_initialize(iddp* self, LPDIRECTDRAW lpDD, DWORD dwFlags, LPPALETTEENTRY lpDDColorTable) {
@@ -136,19 +137,11 @@ HRESULT SUGARCALL iddp_initialize(iddp* self, LPDIRECTDRAW lpDD, DWORD dwFlags, 
         return DDERR_INVALIDOBJECT;
     }
 
-    if (lpDD == NULL) {
-        return DDERR_INVALIDPARAMS;
+    if (lpDD == NULL || dwFlags != DDPCAPS_NONE || lpDDColorTable != NULL) {
+        LEAVE(DDERR_INVALIDPARAMS);
     }
 
-    if (dwFlags != DDPCAPS_NONE) {
-        return DDERR_INVALIDPARAMS;
-    }
-
-    if (lpDDColorTable != NULL) {
-        return DDERR_INVALIDPARAMS;
-    }
-
-    return ddp_initialize(self->instance, ((idd*)lpDD)->instance, DDPCAPS_NONE);
+    LEAVE(ddp_initialize(self->instance, ((idd*)lpDD)->instance, DDPCAPS_NONE));
 }
 
 HRESULT SUGARCALL iddp_set_entries(iddp* self, DWORD dwFlags, DWORD dwStartingEntry, DWORD dwCount, LPPALETTEENTRY lpEntries) {
@@ -156,5 +149,5 @@ HRESULT SUGARCALL iddp_set_entries(iddp* self, DWORD dwFlags, DWORD dwStartingEn
         return DDERR_INVALIDOBJECT;
     }
 
-    return ddp_set_entries(self->instance, dwFlags, dwStartingEntry, dwCount, lpEntries);
+    LEAVE(ddp_set_entries(self->instance, dwFlags, dwStartingEntry, dwCount, lpEntries));
 }

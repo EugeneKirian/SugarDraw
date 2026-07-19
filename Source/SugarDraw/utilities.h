@@ -1,9 +1,6 @@
 #pragma once
 
-#include "logger.h"
-
-const char* log_level_to_string(log_level level);
-const char* hresult_to_string(HRESULT hr);
+#include "common.h"
 
 u32 next_power_of_2(u32 n);
 

@@ -62,7 +62,9 @@ void ddp_release(ddp* self, u32 flags) {
         DeleteCriticalSection(&self->lock);
 
         if (flags & RELEASE_NOTIFY) {
-            dd_remove_palette(self->instance, self);
+            if (self->instance != NULL) {
+                dd_remove_palette(self->instance, self);
+            }
         }
 
         allocator_free(self->manager->allocator, self);
@@ -91,6 +93,14 @@ exit:
 }
 
 HRESULT ddp_query_interface(ddp* self, const GUID* riid, void** object) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (riid == NULL || object == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
     HRESULT hr = E_NOINTERFACE;
     EnterCriticalSection(&self->lock);
 
@@ -261,7 +271,7 @@ HRESULT ddp_set_entries(ddp* self, u32 flags, u32 start, u32 count, PALETTEENTRY
         for (s32 i = 0; i < item_count; i++) {
             dds* instance = NULL;
             if (SUCCEEDED(arr_get_item(self->surfaces, i, &instance))) {
-                dds_update_palette_entries(instance);
+                hr = ddsd_set_palette(instance->surface, start, count, self->quads);
             }
         }
     }
@@ -283,6 +293,8 @@ HRESULT ddp_register_surface(ddp* self, dds* surface) {
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
+    // TODO update caps with DDPCAPS_PRIMARYSURFACE, DDPCAPS_PRIMARYSURFACELEFT
+
     hr = arr_add_item(self->surfaces, surface);
 
     LeaveCriticalSection(&self->lock);
@@ -301,6 +313,8 @@ HRESULT ddp_unregister_surface(ddp* self, dds* surface) {
 
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
+
+    // TODO update caps with DDPCAPS_PRIMARYSURFACE, DDPCAPS_PRIMARYSURFACELEFT
 
     const s32 item_count = arr_get_count(self->surfaces);
     for (s32 i = 0; i < item_count; i++) {

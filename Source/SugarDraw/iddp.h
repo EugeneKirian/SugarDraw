@@ -7,6 +7,7 @@ typedef struct ddp ddp;
 typedef struct iddp {
     const void* self;
     sugar*      manager;
+    logger*     logger;
     GUID        id;
     s32         refs;
     ddp*        instance;

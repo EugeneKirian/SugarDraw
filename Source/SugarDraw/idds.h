@@ -7,6 +7,7 @@ typedef struct dds dds;
 typedef struct idds {
     const void* self;
     sugar*      manager;
+    logger*     logger;
     GUID        id;
     s32         refs;
     dds*        instance;

@@ -63,6 +63,27 @@
     <ClInclude Include="connector.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="driver.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="gdi.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ddg.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ddsd.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="converter.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="iddc.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ddc.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="sugar.c">
@@ -111,6 +132,27 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="connector.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="driver.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="gdi.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ddg.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ddsd.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="converter.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ddc.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="iddc.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

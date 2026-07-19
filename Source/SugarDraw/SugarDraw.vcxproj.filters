@@ -84,6 +84,12 @@
     <ClInclude Include="ddc.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="iddcc.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ddcc.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="sugar.c">
@@ -153,6 +159,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="iddc.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="iddcc.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ddcc.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

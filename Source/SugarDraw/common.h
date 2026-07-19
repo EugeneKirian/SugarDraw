@@ -128,6 +128,9 @@
                                                     | DDOVER_DDFX | DDOVER_AUTOFLIP | DDOVER_BOB | DDOVER_OVERRIDEBOBWEAVE | DDOVER_INTERLEAVED | DDOVER_BOBHARDWARE \
                                                     | DDOVER_ARGBSCALEFACTORS | DDOVER_DEGRADEARGBSCALING)
 
+#define DDCOLOR_NONE                            0x00000000L
+#define DDCOLOR_VALID                           (DDCOLOR_BRIGHTNESS | DDCOLOR_CONTRAST | DDCOLOR_HUE | DDCOLOR_SATURATION | DDCOLOR_SHARPNESS | DDCOLOR_GAMMA | DDCOLOR_COLORENABLE)
+
 typedef int bool;
 
 typedef int s32;

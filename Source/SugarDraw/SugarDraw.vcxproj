@@ -27,6 +27,7 @@
     <ClInclude Include="converter.h" />
     <ClInclude Include="dd.h" />
     <ClInclude Include="ddc.h" />
+    <ClInclude Include="ddcc.h" />
     <ClInclude Include="ddg.h" />
     <ClInclude Include="ddp.h" />
     <ClInclude Include="dds.h" />
@@ -35,6 +36,7 @@
     <ClInclude Include="gdi.h" />
     <ClInclude Include="idd.h" />
     <ClInclude Include="iddc.h" />
+    <ClInclude Include="iddcc.h" />
     <ClInclude Include="iddp.h" />
     <ClInclude Include="idds.h" />
     <ClInclude Include="intfc.h" />
@@ -52,6 +54,7 @@
     <ClCompile Include="converter.c" />
     <ClCompile Include="dd.c" />
     <ClCompile Include="ddc.c" />
+    <ClCompile Include="ddcc.c" />
     <ClCompile Include="ddg.c" />
     <ClCompile Include="ddp.c" />
     <ClCompile Include="dds.c" />
@@ -60,6 +63,7 @@
     <ClCompile Include="gdi.c" />
     <ClCompile Include="idd.c" />
     <ClCompile Include="iddc.c" />
+    <ClCompile Include="iddcc.c" />
     <ClCompile Include="iddp.c" />
     <ClCompile Include="idds.c" />
     <ClCompile Include="intfc.c" />

@@ -673,6 +673,7 @@ HRESULT dd_get_display_mode(dd* self, DDSURFACEDESC2* desc) {
         desc->dwWidth = mode.dmPelsWidth;
         desc->dwHeight = mode.dmPelsHeight;
         desc->dwRefreshRate = mode.dmDisplayFrequency;
+        // TODO pixel format
     }
 
     LeaveCriticalSection(&self->lock);
@@ -899,15 +900,17 @@ HRESULT dd_set_cooperative_level(dd* self, HWND hwnd, u32 flags) {
         return DDERR_NOTINITIALIZED;
     }
 
-    // TODO Incomplete.
-    // TODO: all kind of validations and checks.
-    // Also, the manager has to know what object, if any has exclusive mode.
-    // Only one object can have exclusive mode at a time. TODO Tests...
+    // TODO ModeX
 
-    // TODO. It also seems that the mode cannot be changed if at least one surface or palette
-    // was created by DirectDraw instance and still exists. TODO Tests...
+    if (arr_get_count(self->surfaces) != 0 || arr_get_count(self->palettes) != 0) {
+        return DDERR_UNSUPPORTED; // TODO proper error code...
+    }
 
     // TODO DDERR_HWNDALREADYSET
+
+    // Restore display mode when user changes the mode from exclusive to normal.
+    const bool reset_display_mode = (flags & DDSCL_NORMAL)
+        && (self->cooperation.flags & (DDSCL_EXCLUSIVE | DDSCL_FULLSCREEN));
 
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
@@ -954,6 +957,13 @@ HRESULT dd_set_cooperative_level(dd* self, HWND hwnd, u32 flags) {
         }
     }
 
+    if (reset_display_mode) {
+        // See article Restoring Display Modes in the documentation.
+        // This behavior was first offered in the IDirectDraw2 interface,
+        // and is offered by all newer versions of the interface.
+        hr = sugar_restore_display_mode(self->manager);
+    }
+
 exit:
     LeaveCriticalSection(&self->lock);
 
@@ -976,6 +986,8 @@ HRESULT dd_set_display_mode(dd* self, u32 width, u32 height, u32 bpp, u32 rate, 
     if (!(self->cooperation.flags & (DDSCL_EXCLUSIVE | DDSCL_FULLSCREEN))) {
         return DDERR_NOEXCLUSIVEMODE;
     }
+
+    // TODO ModeX
 
     // TODO: Per documentation - check for locked surfaces, or still drawing...
 
@@ -1079,8 +1091,9 @@ HRESULT dd_test_cooperative_level(dd* self) {
     }
 
     // TODO proper implementation
+    // See Testing Cooperative Levels page in the documentation
 
-    return DDERR_UNSUPPORTED; // TODO
+    return DD_OK;
 }
 
 HRESULT dd_get_device_identifier(dd* self, DDDEVICEIDENTIFIER2* identifier) {

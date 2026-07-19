@@ -1,5 +1,6 @@
 #include "dd.h"
 #include "ddc.h"
+#include "ddcc.h"
 #include "ddg.h"
 #include "ddp.h"
 #include "dds.h"
@@ -48,6 +49,10 @@ void dds_release(dds* self, u32 flags) {
             }
 
             intfc_release(self->interfaces);
+        }
+
+        if (self->color != NULL) {
+            ddcc_release(self->color, RELEASE_NONE);
         }
 
         if (self->surface != NULL) {
@@ -120,6 +125,11 @@ exit:
 HRESULT dds_query_interface(dds* self, const GUID* riid, void** object) {
     HRESULT hr = E_NOINTERFACE;
     EnterCriticalSection(&self->lock);
+
+    if (IsEqualGUID(&IID_IDirectDrawGammaControl, riid)) {
+        hr = dds_query_color_control(self, riid, object);
+        goto exit;
+    }
 
     idds* instance = NULL;
     if (SUCCEEDED(hr = intfc_query_item(self->interfaces, riid, &instance))) {
@@ -219,6 +229,8 @@ HRESULT dds_blt(dds* self, RECT* dst, dds* surface, RECT* src, u32 flags, DDBLTF
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
+
+    // TODO ModeX
 
     // TODO proper implementation
 
@@ -690,6 +702,8 @@ HRESULT dds_get_dc(dds* self, HDC* hdc) {
         return DDERR_ISOPTIMIZEDSURFACE;
     }
 
+    // TODO ModeX
+
     // TODO validate surface bit count (1,2,4,8) and normal argb color bit masks for (15,16,24,32)
     // TODO DDLOCK_READONLY
 
@@ -1004,6 +1018,8 @@ HRESULT dds_lock(dds* self, RECT* rect, DDSURFACEDESC2* desc, u32 flags) {
         return DDERR_NOTINITIALIZED;
     }
 
+    // TODO ModeX
+
     HRESULT hr = DD_OK;
     if (SUCCEEDED(hr = ddg_can_update(self->graphics, flags & DDLOCK_WAIT))) {
         RECT lock;
@@ -1239,6 +1255,12 @@ HRESULT dds_set_palette(dds* self, iddpconn* palette) {
         }break;
         }
     }
+
+    // TODO:
+    // The normal cooperative level indicates that your DirectDraw application
+    // will operate as a windowed application. At this cooperative level
+    // you won't be able to change the primary surface's palette or perform page flipping.
+
 
     // TODO Other checks...
     // TODO DDERR_NOT8BITCOLOR
@@ -1719,6 +1741,46 @@ HRESULT dds_get_rect(dds* self, RECT* rect, RECT* result) {
     result->top = rect == NULL ? 0 : rect->top;
     result->right = rect == NULL ? self->desc.dwWidth : rect->right;
     result->bottom = rect == NULL ? self->desc.dwHeight : rect->bottom;
+
+    return DD_OK;
+}
+
+HRESULT dds_query_color_control(dds* self, const GUID* riid, void** object) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (riid == NULL || object == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if (self->color != NULL) {
+        return ddcc_query_interface(self->color, riid, object);
+    }
+
+    ddcc* color = NULL;
+    HRESULT hr = DD_OK;
+    if (SUCCEEDED(hr = ddcc_create(self->manager, &color))) {
+        if (SUCCEEDED(hr = ddcc_initialize(color, self))) {
+            if (SUCCEEDED(hr = ddcc_query_interface(color, riid, object))) {
+                // TODO what is ref count here? Should be 2?
+                self->color = color;
+                return hr;
+            }
+        }
+
+        ddcc_release(color, RELEASE_NONE);
+    }
+
+    return hr;
+}
+
+HRESULT dds_remove_color_control(dds* self) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    self->color = NULL;
 
     return DD_OK;
 }

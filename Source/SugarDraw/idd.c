@@ -26,6 +26,8 @@ static HRESULT SUGARCALL idd_wait_for_vertical_blank(idd*, DWORD, HANDLE);
 static HRESULT SUGARCALL idd_set_display_mode2(idd*, DWORD, DWORD, DWORD, DWORD, DWORD);
 static HRESULT SUGARCALL idd_get_available_vid_mem2(idd*, LPDDSCAPS, LPDWORD, LPDWORD);
 
+static HRESULT SUGARCALL idd_get_surface_from_dc3(idd*, HDC, LPDIRECTDRAWSURFACE*);
+
 static HRESULT SUGARCALL idd_create_surface4(idd*, LPDDSURFACEDESC2, LPDIRECTDRAWSURFACE4*, IUnknown*);
 static HRESULT SUGARCALL idd_duplicate_surface4(idd*, LPDIRECTDRAWSURFACE4, LPDIRECTDRAWSURFACE4*);
 static HRESULT SUGARCALL idd_enum_display_modes4(idd*, DWORD, LPDDSURFACEDESC2, LPVOID, LPDDENUMMODESCALLBACK2);
@@ -163,6 +165,62 @@ const static idd2_vft idd2_self = {
     idd_set_display_mode2,
     idd_wait_for_vertical_blank,
     idd_get_available_vid_mem2
+};
+
+typedef struct idd3_vft {
+    IDDQUERYINTERFACE           QueryInterface;
+    IDDADDREF                   AddRef;
+    IDDRELEASE                  Release;
+    IDDCOMPACT                  Compact;
+    IDDCREATECLIPPER            CreateClipper;
+    IDDCREATEPALETTE            CreatePalette;
+    IDDCREATESURFACE1           CreateSurface;
+    IDDDUPLICATESURFACE1        DuplicateSurface;
+    IDDENUMDISPLAYMODES1        EnumDisplayModes;
+    IDDENUMSURFACES1            EnumSurfaces;
+    IDDFLIPTOGDISURFACE         FlipToGDISurface;
+    IDDGETCAPS                  GetCaps;
+    IDDGETDISPLAYMODE1          GetDisplayMode;
+    IDDGETFOURCCCODES           GetFourCCCodes;
+    IDDGETGDISURFACE1           GetGDISurface;
+    IDDGETMONITORFREQUENCY      GetMonitorFrequency;
+    IDDGETSCANLINE              GetScanLine;
+    IDDGETVERTICALBLANKSTATUS   GetVerticalBlankStatus;
+    IDDINITIALIZE               Initialize;
+    IDDRESTOREDISPLAYMODE       RestoreDisplayMode;
+    IDDSETCOOPERATIVELEVEL      SetCooperativeLevel;
+    IDDSETDISPLAYMODE2          SetDisplayMode;
+    IDDWAITFORVERTICALBLANK     WaitForVerticalBlank;
+    IDDGETAVAILABLEVIDMEM2      GetAvailableVidMem;
+    IDDGETSURFACEFROMDC3        GetSurfaceFromDC;
+} idd3_vft;
+
+const static idd3_vft idd3_self = {
+    idd_query_interface,
+    idd_add_ref,
+    idd_remove_ref,
+    idd_compact,
+    idd_create_clipper,
+    idd_create_palette,
+    idd_create_surface1,
+    idd_duplicate_surface1,
+    idd_enum_display_modes1,
+    idd_enum_surfaces1,
+    idd_flip_to_gdi_surface,
+    idd_get_caps,
+    idd_get_display_mode1,
+    idd_get_fourcc_codes,
+    idd_get_gdi_surface1,
+    idd_get_monitor_frequency,
+    idd_get_scan_line,
+    idd_get_vertical_blank_status,
+    idd_initialize,
+    idd_restore_display_mode,
+    idd_set_cooperative_level,
+    idd_set_display_mode2,
+    idd_wait_for_vertical_blank,
+    idd_get_available_vid_mem2,
+    idd_get_surface_from_dc3,
 };
 
 typedef struct idd4_vft {
@@ -697,6 +755,16 @@ HRESULT SUGARCALL idd_get_available_vid_mem2(idd* self, LPDDSCAPS lpDDSCaps, LPD
     CopyMemory(&caps, lpDDSCaps, sizeof(DDSCAPS));
 
     LEAVE(dd_get_available_vid_mem(self->instance, &caps, lpdwTotal, lpdwFree));
+}
+
+HRESULT SUGARCALL idd_get_surface_from_dc3(idd* self, HDC hdc, LPDIRECTDRAWSURFACE* lpDDS) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    // TODO Enter
+
+    LEAVE(dd_get_surface_from_dc(self->instance, hdc, &IID_IDirectDrawSurface, lpDDS));
 }
 
 HRESULT SUGARCALL idd_create_surface4(idd* self, LPDDSURFACEDESC2 lpDDSurfaceDesc, LPDIRECTDRAWSURFACE4* lplpDDSurface, IUnknown* pUnkOuter) {

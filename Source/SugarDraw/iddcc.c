@@ -121,7 +121,7 @@ HRESULT SUGARCALL iddcc_get_color_controls(iddcc* self, LPDDCOLORCONTROL lpColor
 
     ENTER("0x%p", lpColorControl);
 
-    if (lpColorControl != DDCSHWND_NONE) {
+    if (lpColorControl == NULL) {
         LEAVE(DDERR_INVALIDPARAMS);
     }
 
@@ -139,7 +139,7 @@ HRESULT SUGARCALL iddcc_set_color_controls(iddcc* self, LPDDCOLORCONTROL lpColor
 
     ENTER("0x%p", lpColorControl);
 
-    if (lpColorControl != DDCSHWND_NONE) {
+    if (lpColorControl == NULL) {
         LEAVE(DDERR_INVALIDPARAMS);
     }
 

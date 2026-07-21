@@ -135,6 +135,8 @@ HRESULT ddsd_initialize(ddsd* self, DDSURFACEDESC2* desc) {
             goto exit;
         }
 
+        // TODO make stride aligned to a reasonable value for SIMD processing
+
         const u32 bpp = self->desc.ddpfPixelFormat.dwRGBBitCount;
         const u32 stride = ((self->desc.dwWidth * bpp + 63) & ~63) >> 3; // TODO
         const u32 size = stride * self->desc.dwHeight;

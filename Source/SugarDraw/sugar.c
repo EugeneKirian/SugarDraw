@@ -1,3 +1,4 @@
+#include "cf.h"
 #include "dd.h"
 #include "ddc.h"
 #include "converter.h"
@@ -20,12 +21,18 @@ HRESULT sugar_create(allocator* allocator, logger* logger, driver* driver, sugar
         if (SUCCEEDED(sugar_enumerate_dispaly_modes(instance))) {
             if (SUCCEEDED(hr = arr_create(allocator, MEM_TAG_SUGAR, &instance->clippers))) {
                 if (SUCCEEDED(hr = arr_create(allocator, MEM_TAG_SUGAR, &instance->items))) {
-                    logger_log(logger, LOG_LEVEL_TRACE, "SugarDraw started successfully.");
-                    InitializeCriticalSection(&instance->lock);
+                    if (SUCCEEDED(hr = arr_create(allocator, MEM_TAG_SUGAR, &instance->cfs))) {
+                        if (SUCCEEDED(hr = arr_create(allocator, MEM_TAG_SUGAR, &instance->ddfs))) {
+                            logger_log(logger, LOG_LEVEL_TRACE, "SugarDraw started successfully.");
+                            InitializeCriticalSection(&instance->lock);
 
-                    *object = instance;
+                            *object = instance;
 
-                    return hr;
+                            return hr;
+                        }
+                    }
+
+                    allocator_free(allocator, instance->cfs);
                 }
 
                 allocator_free(allocator, instance->clippers);
@@ -63,6 +70,32 @@ void sugar_release(sugar* self) {
             arr_release(self->items);
         }
 
+        if (self->cfs != NULL) {
+            const s32 item_count = arr_get_count(self->cfs);
+            for (s32 i = 0; i < item_count; i++) {
+                cf* instance = NULL;
+                if (SUCCEEDED(arr_get_item(self->cfs, i, &instance))) {
+                    cf_release(instance, RELEASE_NONE);
+                }
+            }
+
+            arr_release(self->cfs);
+        }
+
+        if (self->ddfs != NULL) {
+            const s32 item_count = arr_get_count(self->ddfs);
+            for (s32 i = 0; i < item_count; i++) {
+                cf* instance = NULL;
+                if (SUCCEEDED(arr_get_item(self->ddfs, i, &instance))) {
+                    cf_release(instance, RELEASE_NONE);
+                }
+            }
+
+            arr_release(self->ddfs);
+        }
+
+        // TODO driver
+
         // Restore display mode if needed.
         if (!CompareMemory(&self->modes.current, &self->modes.initial, sizeof(DEVMODEA))) {
             const s32 result = ChangeDisplaySettingsA(NULL, CDS_NONE);
@@ -74,8 +107,6 @@ void sugar_release(sugar* self) {
         if (self->modes.modes != NULL) {
             allocator_free(self->allocator, self->modes.modes);
         }
-
-        // TODO driver
 
         LeaveCriticalSection(&self->lock);
         DeleteCriticalSection(&self->lock);
@@ -102,7 +133,70 @@ HRESULT sugar_set_driver(sugar* self, driver* driver) {
     return DDERR_UNSUPPORTED;
 }
 
-HRESULT sugar_create_dd(sugar* self, const GUID* rclsid, const GUID* riid, void** object) {
+HRESULT sugar_create_cf(sugar* self, const GUID* rclsid, const GUID* riid, void** object) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (rclsid == NULL || riid == NULL || object == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    HRESULT hr = DD_OK;
+    EnterCriticalSection(&self->lock);
+
+    cf* instance = NULL;
+    if (SUCCEEDED(hr = cf_create(self, rclsid, &instance))) {
+        icf* intfc = NULL;
+        if (SUCCEEDED(hr = cf_query_interface(instance, riid, &intfc))) {
+            if (SUCCEEDED(hr = arr_add_item(self->cfs, instance))) {
+                *object = intfc;
+                goto exit;
+            }
+        }
+
+        cf_release(instance, RELEASE_NONE);
+    }
+
+exit:
+    LeaveCriticalSection(&self->lock);
+
+    return hr;
+}
+
+HRESULT sugar_remove_cf(sugar* self, cf* object) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (object == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    HRESULT hr = DD_OK;
+    EnterCriticalSection(&self->lock);
+
+    const s32 item_count = arr_get_count(self->cfs);
+    for (s32 i = 0; i < item_count; i++) {
+        cf* instance = NULL;
+        if (SUCCEEDED(hr = arr_get_item(self->cfs, i, &instance))) {
+            if (instance == object) {
+                if (SUCCEEDED(hr = arr_remove_item(self->cfs, i))) {
+                    goto exit;
+                }
+            }
+        }
+    }
+
+    hr = DDERR_NOTFOUND;
+
+exit:
+    LeaveCriticalSection(&self->lock);
+
+    return hr;
+}
+
+HRESULT sugar_create_dd(sugar* self, const GUID* device, const GUID* rclsid, const GUID* riid, void** object) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
@@ -113,18 +207,15 @@ HRESULT sugar_create_dd(sugar* self, const GUID* rclsid, const GUID* riid, void*
 
     if (!IsEqualGUID(&CLSID_DirectDraw, rclsid)
         && !IsEqualGUID(&CLSID_DirectDraw7, rclsid)) {
-        return E_NOINTERFACE;
+        return CLASS_E_CLASSNOTAVAILABLE;
     }
 
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
-    // TODO. Creation should be done via the COM class factory object
-    // TODO. Initialization should happen here...
-
     dd* instance = NULL;
     if (SUCCEEDED(hr = dd_create(self, rclsid, self->driver, &instance))) {
-        if (SUCCEEDED(hr = dd_initialize(instance, NULL))) {
+        if (SUCCEEDED(hr = dd_initialize(instance, device))) {
             idd* intfc = NULL;
             if (SUCCEEDED(hr = dd_query_interface(instance, riid, &intfc))) {
                 if (SUCCEEDED(hr = arr_add_item(self->items, instance))) {
@@ -189,21 +280,21 @@ HRESULT sugar_create_ddc(sugar* self, const GUID* rclsid, const GUID* riid, void
     }
 
     if (!IsEqualGUID(&CLSID_DirectDrawClipper, rclsid)) {
-        return E_NOINTERFACE;
+        return CLASS_E_CLASSNOTAVAILABLE;
     }
 
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
-    // TODO. Creation should be done via the COM class factory object
-
     ddc* instance = NULL;
     if (SUCCEEDED(hr = ddc_create(self, rclsid, &instance))) {
-        idd* intfc = NULL;
-        if (SUCCEEDED(hr = ddc_query_interface(instance, riid, &intfc))) {
-            if (SUCCEEDED(hr = arr_add_item(self->clippers, instance))) {
-                *object = intfc;
-                goto exit;
+        if (SUCCEEDED(hr = ddc_initialize(instance, NULL))) {
+            idd* intfc = NULL;
+            if (SUCCEEDED(hr = ddc_query_interface(instance, riid, &intfc))) {
+                if (SUCCEEDED(hr = arr_add_item(self->clippers, instance))) {
+                    *object = intfc;
+                    goto exit;
+                }
             }
         }
 
@@ -234,6 +325,38 @@ HRESULT sugar_remove_ddc(sugar* self, ddc* object) {
         if (SUCCEEDED(hr = arr_get_item(self->clippers, i, &instance))) {
             if (instance == object) {
                 if (SUCCEEDED(hr = arr_remove_item(self->clippers, i))) {
+                    goto exit;
+                }
+            }
+        }
+    }
+
+    hr = DDERR_NOTFOUND;
+
+exit:
+    LeaveCriticalSection(&self->lock);
+
+    return hr;
+}
+
+HRESULT sugar_remove_ddf(sugar* self, ddf* object) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (object == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    HRESULT hr = DD_OK;
+    EnterCriticalSection(&self->lock);
+
+    const s32 item_count = arr_get_count(self->ddfs);
+    for (s32 i = 0; i < item_count; i++) {
+        ddf* instance = NULL;
+        if (SUCCEEDED(hr = arr_get_item(self->ddfs, i, &instance))) {
+            if (instance == object) {
+                if (SUCCEEDED(hr = arr_remove_item(self->ddfs, i))) {
                     goto exit;
                 }
             }
@@ -415,6 +538,20 @@ HRESULT sugar_restore_display_mode(sugar* self) {
     LeaveCriticalSection(&self->lock);
 
     return hr;
+}
+
+HRESULT sugar_can_unload(sugar* self) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    const BOOL result =
+        arr_get_count(self->clippers) == 0
+        && arr_get_count(self->items) == 0
+        && arr_get_count(self->cfs) == 0
+        && arr_get_count(self->ddfs) == 0;
+
+    return result ? S_OK : S_FALSE;
 }
 
 HRESULT sugar_enumerate_dispaly_modes(sugar* self) {

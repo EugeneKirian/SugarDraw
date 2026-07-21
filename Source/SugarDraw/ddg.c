@@ -244,6 +244,12 @@ DWORD WINAPI ddg_worker(ddg* self) {
                 ddsd* surface = primary->surface;
                 if (SUCCEEDED(hr = ddsd_get_rect(self->surface, &dst))) {
                     if (SUCCEEDED(hr = ddsd_get_rect(surface, &src))) {
+                        // TODO: use gamma control if present - primary surface only
+                        // Use it only in exclusive full screen mode?
+
+                        // TODO: use color control if present - primary and overlay surfaces
+                        // How to aply those values? Need example!
+
                         // Blit the primary surface into the grahics surface.
                         if (SUCCEEDED(hr = ddsd_blt_fast(self->surface, &dst, surface, &src, DDBLTFAST_NOCOLORKEY))) {
                             // Blit all visible overlays on top of the primary surface into the graphics surface.

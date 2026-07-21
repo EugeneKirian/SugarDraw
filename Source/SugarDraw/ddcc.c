@@ -11,8 +11,7 @@ HRESULT ddcc_create(sugar* manager, ddcc** object) {
     ddcc* instance = NULL;
     if (SUCCEEDED(hr = allocator_allocate(manager->allocator, MEM_TAG_DIRECTDRAWCOLORCONTROL, sizeof(ddcc), &instance))) {
         instance->manager = manager;
-        if (SUCCEEDED(hr = intfc_create(manager->allocator,
-            MEM_TAG_DIRECTDRAWCOLORCONTROL, &instance->interfaces))) {
+        if (SUCCEEDED(hr = intfc_create(manager->allocator, MEM_TAG_DIRECTDRAWCOLORCONTROL, &instance->interfaces))) {
             InitializeCriticalSection(&instance->lock);
 
             instance->control.dwSize = sizeof(DDCOLORCONTROL);

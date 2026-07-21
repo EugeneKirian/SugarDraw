@@ -1,6 +1,7 @@
 #pragma once
 
 #include "connector.h"
+#include "ddgc.h"
 #include "ddsd.h"
 #include "iddc.h"
 #include "iddp.h"
@@ -28,11 +29,13 @@ typedef struct dds {
     DDSURFACEDESC2      desc;
     ddcc*               color;
     iddcconn            clipper;
+    ddgc*               gamma;
     iddpconn            palette;
     ddsd*               surface;
     overlayinfo         overlay;
     connector*          overlays;
     u32                 implicit; // TODO DDERR_IMPLICITLYCREATED
+    // TODO: see implicit documentation at Creating Complex Surfaces and Flipping Chains
 } dds;
 
 HRESULT dds_create(sugar* manager, dds** object);
@@ -94,8 +97,10 @@ HRESULT dds_get_lod(dds* self, u32* lod);
 HRESULT dds_get_rect(dds* self, RECT* rect, RECT* result);
 
 HRESULT dds_query_color_control(dds* self, const GUID* riid, void** object);
+HRESULT dds_query_gamma_control(dds* self, const GUID* riid, void** object);
 
 HRESULT dds_remove_color_control(dds* self);
+HRESULT dds_remove_gamma_control(dds* self);
 HRESULT dds_remove_palette(dds* self);
 
 HRESULT dds_register_overlay(dds* self, iddsconn* overlay);

@@ -4,8 +4,10 @@
 #include "converter.h"
 #include "driver.h"
 
+typedef struct cf cf;
 typedef struct dd dd;
 typedef struct ddc ddc;
+typedef struct ddf ddf;
 typedef struct dds dds;
 
 typedef struct sugar {
@@ -14,6 +16,8 @@ typedef struct sugar {
     driver*             driver;
     arr*                clippers;
     arr*                items;
+    arr*                cfs;
+    arr*                ddfs;
     CRITICAL_SECTION    lock;
     struct {
         DEVMODEA        initial, current;
@@ -28,11 +32,16 @@ void sugar_release(sugar* self);
 
 HRESULT sugar_set_driver(sugar* self, driver* driver);
 
-HRESULT sugar_create_dd(sugar* self, const GUID* rclsid, const GUID* riid, void** object);
+HRESULT sugar_create_cf(sugar* self, const GUID* rclsid, const GUID* riid, void** object);
+HRESULT sugar_remove_cf(sugar* self, cf* object);
+
+HRESULT sugar_create_dd(sugar* self, const GUID* device, const GUID* rclsid, const GUID* riid, void** object);
 HRESULT sugar_remove_dd(sugar* self, dd* object);
 
 HRESULT sugar_create_ddc(sugar* self, const GUID* rclsid, const GUID* riid, void** object);
 HRESULT sugar_remove_ddc(sugar* self, ddc* object);
+
+HRESULT sugar_remove_ddf(sugar* self, ddf* object);
 
 HRESULT sugar_get_exclusive(sugar* self, dd** object);
 HRESULT sugar_set_exclusive(sugar* self, dd* object);
@@ -42,3 +51,4 @@ HRESULT sugar_set_display_mode(sugar* self, u32 width, u32 height, u32 bpp, u32 
 HRESULT sugar_supports_display_mode(sugar* self, const DEVMODEA* mode);
 HRESULT sugar_restore_display_mode(sugar* self);
 
+HRESULT sugar_can_unload(sugar* self);

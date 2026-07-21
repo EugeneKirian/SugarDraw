@@ -13,6 +13,10 @@ HRESULT ddc_create(sugar* manager, const GUID* rclsid, ddc** object) {
         return DDERR_INVALIDPARAMS;
     }
 
+    if (!IsEqualGUID(&CLSID_DirectDrawClipper, rclsid)) {
+        return CLASS_E_CLASSNOTAVAILABLE;
+    }
+
     HRESULT hr = DD_OK;
     ddc* instance = NULL;
     if (SUCCEEDED(hr = allocator_allocate(manager->allocator, MEM_TAG_DIRECTDRAWCLIPPER, sizeof(ddc), &instance))) {

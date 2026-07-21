@@ -15,7 +15,7 @@ typedef struct flag {
     const char* name;
 } flag;
 
-#define DDID_COUNT                  20
+#define DDID_COUNT                  26
 static const identifier ddid[DDID_COUNT];
 
 #define DDENUM_FLAG_COUNT           3
@@ -35,6 +35,9 @@ static const flag ddscls[DDSCL_FLAG_COUNT];
 
 #define DDSD_FLAG_COUNT             20
 static const flag ddsds[DDSD_FLAG_COUNT];
+
+#define DDSGR_FLAG_COUNT            1
+static const flag ddsgrs[DDSGR_FLAG_COUNT];
 
 #define DDSDM_FLAG_COUNT            1
 static const flag ddsdms[DDSDM_FLAG_COUNT];
@@ -142,6 +145,10 @@ const char* ddscl_to_string(const u32 flags) {
 
 const char* ddsd_to_string(const u32 flags) {
     return flag_to_string(flags, DDSD_FLAG_COUNT, ddsds);
+}
+
+const char* ddsgr_to_string(const u32 flags) {
+    return flag_to_string(flags, DDSGR_FLAG_COUNT, ddsgrs);
 }
 
 const char* ddsdm_to_string(const u32 flags) {
@@ -417,20 +424,26 @@ const identifier ddid[DDID_COUNT] = {
     { &CLSID_DirectDraw,                "CLSID_DirectDraw" },
     { &CLSID_DirectDraw7,               "CLSID_DirectDraw7" },
     { &CLSID_DirectDrawClipper,         "CLSID_DirectDrawClipper" },
+    { &CLSID_DirectDrawFactory,         "CLSID_DirectDrawFactory" },
+    { &IID_IDDVideoPortContainer,       "IID_IDDVideoPortContainer" },
+    { &IID_IDirect3DHALDevice,          "IID_IDirect3DHALDevice" },
+    { &IID_IDirect3DRampDevice,         "IID_IDirect3DRampDevice" },
+    { &IID_IDirect3DRGBDevice,          "IID_IDirect3DRGBDevice" },
     { &IID_IDirectDraw,                 "IID_IDirectDraw" },
     { &IID_IDirectDraw2,                "IID_IDirectDraw2" },
+    { &IID_IDirectDraw3,                "IID_IDirectDraw3" },
     { &IID_IDirectDraw4,                "IID_IDirectDraw4" },
     { &IID_IDirectDraw7,                "IID_IDirectDraw7" },
+    { &IID_IDirectDrawClipper,          "IID_IDirectDrawClipper" },
+    { &IID_IDirectDrawColorControl,     "IID_IDirectDrawColorControl" },
+    { &IID_IDirectDrawFactory,          "IID_IDirectDrawFactory" },
+    { &IID_IDirectDrawGammaControl,     "IID_IDirectDrawGammaControl" },
+    { &IID_IDirectDrawPalette,          "IID_IDirectDrawPalette" },
     { &IID_IDirectDrawSurface,          "IID_IDirectDrawSurface" },
     { &IID_IDirectDrawSurface2,         "IID_IDirectDrawSurface2" },
     { &IID_IDirectDrawSurface3,         "IID_IDirectDrawSurface3" },
     { &IID_IDirectDrawSurface4,         "IID_IDirectDrawSurface4" },
     { &IID_IDirectDrawSurface7,         "IID_IDirectDrawSurface7" },
-    { &IID_IDirectDrawPalette,          "IID_IDirectDrawPalette" },
-    { &IID_IDirectDrawClipper,          "IID_IDirectDrawClipper" },
-    { &IID_IDirectDrawColorControl,     "IID_IDirectDrawColorControl" },
-    { &IID_IDirectDrawGammaControl,     "IID_IDirectDrawGammaControl" },
-    { &IID_IDDVideoPortContainer,       "IID_IDDVideoPortContainer" },
     { &IID_IDirectDrawVideoPort,        "IID_IDirectDrawVideoPort" },
     { &IID_IDirectDrawVideoPortNotify,  "IID_IDirectDrawVideoPortNotify" }
 };
@@ -528,6 +541,10 @@ const flag ddsds[DDSD_FLAG_COUNT] = {
     { DDSD_WIDTH,                       "DDSD_WIDTH" },
     { DDSD_HEIGHT,                      "DDSD_HEIGHT" },
     { DDSD_CAPS,                        "DDSD_CAPS" }
+};
+
+const flag ddsgrs[DDSGR_FLAG_COUNT] = {
+    { DDSGR_CALIBRATE,                  "DDSGR_CALIBRATE" }
 };
 
 const flag ddsdms[DDSDM_FLAG_COUNT] = {

@@ -55,6 +55,10 @@ void dds_release(dds* self, u32 flags) {
             ddcc_release(self->color, RELEASE_NONE);
         }
 
+        if (self->gamma != NULL) {
+            ddgc_release(self->gamma, RELEASE_NONE);
+        }
+
         if (self->surface != NULL) {
             ddsd_remove_ref(self->surface);
         }
@@ -126,8 +130,12 @@ HRESULT dds_query_interface(dds* self, const GUID* riid, void** object) {
     HRESULT hr = E_NOINTERFACE;
     EnterCriticalSection(&self->lock);
 
-    if (IsEqualGUID(&IID_IDirectDrawGammaControl, riid)) {
+    if (IsEqualGUID(&IID_IDirectDrawColorControl, riid)) {
         hr = dds_query_color_control(self, riid, object);
+        goto exit;
+    }
+    else if (IsEqualGUID(&IID_IDirectDrawGammaControl, riid)) {
+        hr = dds_query_gamma_control(self, riid, object);
         goto exit;
     }
 
@@ -384,6 +392,8 @@ HRESULT dds_delete_attached_surface(dds* self, iddsconn* surface) {
     // TODO proper implementation
     // TODO Address of the IDirectDrawSurface7 interface for the DirectDrawSurface object to be detached.
     // If this parameter is NULL, all attached surfaces are detached.
+
+    // See Creating Complex Surfaces and Flipping Chains for details on detachment of implicit surfaces
 
     // TODO decrement refs
 
@@ -1775,12 +1785,52 @@ HRESULT dds_query_color_control(dds* self, const GUID* riid, void** object) {
     return hr;
 }
 
+HRESULT dds_query_gamma_control(dds* self, const GUID* riid, void** object) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (riid == NULL || object == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if (self->gamma != NULL) {
+        return ddgc_query_interface(self->gamma, riid, object);
+    }
+
+    ddgc* gamma = NULL;
+    HRESULT hr = DD_OK;
+    if (SUCCEEDED(hr = ddgc_create(self->manager, &gamma))) {
+        if (SUCCEEDED(hr = ddgc_initialize(gamma, self))) {
+            if (SUCCEEDED(hr = ddgc_query_interface(gamma, riid, object))) {
+                // TODO what is ref count here? Should be 2?
+                self->gamma = gamma;
+                return hr;
+            }
+        }
+
+        ddgc_release(gamma, RELEASE_NONE);
+    }
+
+    return hr;
+}
+
 HRESULT dds_remove_color_control(dds* self) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
 
     self->color = NULL;
+
+    return DD_OK;
+}
+
+HRESULT dds_remove_gamma_control(dds* self) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    self->gamma = NULL;
 
     return DD_OK;
 }

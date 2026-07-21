@@ -90,6 +90,27 @@
     <ClInclude Include="ddcc.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="iddgc.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ddgc.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ddrawex.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="cf.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="icf.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="iddf.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ddf.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="sugar.c">
@@ -165,6 +186,24 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="ddcc.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="iddgc.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ddgc.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="icf.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="cf.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="iddf.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ddf.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

@@ -12,7 +12,7 @@ HRESULT dd_create(sugar* manager, const GUID* rclsid, driver* driver, dd** objec
 
     if (!IsEqualGUID(&CLSID_DirectDraw, rclsid)
         && !IsEqualGUID(&CLSID_DirectDraw7, rclsid)) {
-        return E_NOINTERFACE;
+        return CLASS_E_CLASSNOTAVAILABLE;
     }
 
     HRESULT hr = DD_OK;
@@ -142,6 +142,10 @@ HRESULT dd_query_interface(dd* self, const GUID* riid, void** object) {
         return DDERR_INVALIDPARAMS;
     }
 
+    if (IsEqualGUID(&IID_IDDVideoPortContainer, riid)) {
+        return E_NOINTERFACE;
+    }
+
     HRESULT hr = E_NOINTERFACE;
     EnterCriticalSection(&self->lock);
 
@@ -155,6 +159,7 @@ HRESULT dd_query_interface(dd* self, const GUID* riid, void** object) {
     if (IsEqualGUID(&IID_IUnknown, riid)
         || IsEqualGUID(&IID_IDirectDraw, riid)
         || IsEqualGUID(&IID_IDirectDraw2, riid)
+        || IsEqualGUID(&IID_IDirectDraw3, riid)
         || IsEqualGUID(&IID_IDirectDraw4, riid)
         || IsEqualGUID(&IID_IDirectDraw7, riid)) {
         if (SUCCEEDED(hr = idd_create(self->manager, riid, &instance))) {
@@ -181,6 +186,21 @@ HRESULT dd_add_ref(dd* self, idd* object) {
 HRESULT dd_remove_ref(dd* self, idd* object) {
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
+
+    // TODO Parent and Child Object Lifetimes page in the documentation
+
+    // Note: Earlier versions of the DirectDraw interface (IDirectDraw2 and IDirectDraw, to be exact) behave differently than the most recent interface.
+    // When using these early interfaces, DirectDraw automatically releases all child objects when the parent itself is released.
+    // As a result, if you use these older interfaces, the order in which you release objects is critical.
+    // In this case, you should release the children of a DirectDraw object before releasing the DirectDraw object itself
+    // (or not release them at all, counting on the parent to do cleanup for you).
+    // Because the DirectDraw object releases the child objects, if you release the parent before the children,
+    // you are very likely to incur a memory fault for attempting to dereference a pointer that was invalidated when the parent object released its children. 
+
+    // Some older applications relied on the automatic release of child objects and neglected to properly release some objects when no longer needed.At the time,
+    // this practice didn't cause any negative side effects, however doing so when using the IDirectDraw7 interface might result in memory leaks. 
+
+    // TODO Need tests for this, and likely need to track internal object use tracking...
 
     if (SUCCEEDED(hr = intfc_remove_item(self->interfaces, &object->id))) {
         if (intfc_get_count(self->interfaces) == 0) {
@@ -626,11 +646,23 @@ HRESULT dd_get_caps(dd* self, DDCAPS_DX7* caps) {
     }
 
     caps->dwCaps = DDCAPS_ALL;
-    // TODO
+    caps->dwCaps2 = DDCAPS2_ALL;
     caps->dwCKeyCaps = DDCKEYCAPS_ALL;
-    // TODO
-    caps->dwMaxVisibleOverlays = 256;
-    caps->dwCurrVisibleOverlays = 0; // TODO
+    caps->dwFXCaps = DDFXCAPS_ALL;
+    caps->dwFXAlphaCaps = DDFXALPHACAPS_ALL;
+    caps->dwPalCaps = DDPCAPS_ALL;
+    caps->dwSVCaps = DDSVCAPS_NONE;
+    caps->dwAlphaBltConstBitDepths = DDBD_2 | DDBD_4 | DDBD_8;
+    caps->dwAlphaBltPixelBitDepths = DDBD_1 | DDBD_2 | DDBD_4 | DDBD_8;
+    caps->dwAlphaBltSurfaceBitDepths = DDBD_1 | DDBD_2 | DDBD_4 | DDBD_8;
+    caps->dwAlphaOverlayConstBitDepths = DDBD_2 | DDBD_4 | DDBD_8;
+    caps->dwAlphaOverlayPixelBitDepths = DDBD_1 | DDBD_2 | DDBD_4 | DDBD_8;
+    caps->dwAlphaOverlaySurfaceBitDepths = DDBD_1 | DDBD_2 | DDBD_4 | DDBD_8;
+    caps->dwZBufferBitDepths = DDBD_8 | DDBD_16 | DDBD_24 | DDBD_32;
+    caps->dwVidMemTotal = DD_MAX_TOTAL_VIDEO_MEMORY;
+    caps->dwVidMemFree = DD_MAX_TOTAL_VIDEO_MEMORY; // TODO Calculate
+    caps->dwMaxVisibleOverlays = DD_MAX_VISIBLE_OVERLAY_COUNT;
+    caps->dwCurrVisibleOverlays = 0; // TODO Calculate
 
     // TODO
 

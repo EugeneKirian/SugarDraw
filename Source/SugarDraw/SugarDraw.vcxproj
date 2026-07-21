@@ -22,21 +22,28 @@
     <ClInclude Include="allocator.h" />
     <ClInclude Include="arr.h" />
     <ClInclude Include="blt.h" />
+    <ClInclude Include="cf.h" />
     <ClInclude Include="common.h" />
     <ClInclude Include="connector.h" />
     <ClInclude Include="converter.h" />
     <ClInclude Include="dd.h" />
     <ClInclude Include="ddc.h" />
     <ClInclude Include="ddcc.h" />
+    <ClInclude Include="ddf.h" />
     <ClInclude Include="ddg.h" />
+    <ClInclude Include="ddgc.h" />
     <ClInclude Include="ddp.h" />
+    <ClInclude Include="ddrawex.h" />
     <ClInclude Include="dds.h" />
     <ClInclude Include="ddsd.h" />
     <ClInclude Include="driver.h" />
     <ClInclude Include="gdi.h" />
+    <ClInclude Include="icf.h" />
     <ClInclude Include="idd.h" />
     <ClInclude Include="iddc.h" />
     <ClInclude Include="iddcc.h" />
+    <ClInclude Include="iddf.h" />
+    <ClInclude Include="iddgc.h" />
     <ClInclude Include="iddp.h" />
     <ClInclude Include="idds.h" />
     <ClInclude Include="intfc.h" />
@@ -49,21 +56,27 @@
     <ClCompile Include="allocator.c" />
     <ClCompile Include="arr.c" />
     <ClCompile Include="blt.c" />
+    <ClCompile Include="cf.c" />
     <ClCompile Include="common.c" />
     <ClCompile Include="connector.c" />
     <ClCompile Include="converter.c" />
     <ClCompile Include="dd.c" />
     <ClCompile Include="ddc.c" />
     <ClCompile Include="ddcc.c" />
+    <ClCompile Include="ddf.c" />
     <ClCompile Include="ddg.c" />
+    <ClCompile Include="ddgc.c" />
     <ClCompile Include="ddp.c" />
     <ClCompile Include="dds.c" />
     <ClCompile Include="ddsd.c" />
     <ClCompile Include="driver.c" />
     <ClCompile Include="gdi.c" />
+    <ClCompile Include="icf.c" />
     <ClCompile Include="idd.c" />
     <ClCompile Include="iddc.c" />
     <ClCompile Include="iddcc.c" />
+    <ClCompile Include="iddf.c" />
+    <ClCompile Include="iddgc.c" />
     <ClCompile Include="iddp.c" />
     <ClCompile Include="idds.c" />
     <ClCompile Include="intfc.c" />
@@ -84,27 +97,27 @@
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v145</PlatformToolset>
-    <CharacterSet>Unicode</CharacterSet>
+    <CharacterSet>NotSet</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v145</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
-    <CharacterSet>Unicode</CharacterSet>
+    <CharacterSet>NotSet</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v145</PlatformToolset>
-    <CharacterSet>Unicode</CharacterSet>
+    <CharacterSet>NotSet</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v145</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
-    <CharacterSet>Unicode</CharacterSet>
+    <CharacterSet>NotSet</CharacterSet>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">

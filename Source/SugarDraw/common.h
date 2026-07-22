@@ -13,6 +13,7 @@
 
 #undef DDPCAPS_INITIALIZE
 #undef DDSCAPS_PRIMARYSURFACELEFT
+#undef DDSCAPS2_HARDWAREDEINTERLACE
 
 #define SUGARCALL __stdcall
 
@@ -62,13 +63,22 @@
                                                     | DDSCAPS_STANDARDVGAMODE | DDSCAPS_OPTIMIZED)
 
 #define DDSCAPS2_NONE							0x00000000L
-#define DDSCAPS2_VALID                          0x3FFFFFFEL /* TODO */
+#define DDSCAPS2_PERSISTENTCONTENTS             0x00000001L
+#define DDSCAPS2_HARDWAREDEINTERLACE            0x00000002L
+#define DDSCAPS2_DEINTERLACE                    0x08000000L
+#define DDSCAPS2_VALID                          (DDSCAPS2_PERSISTENTCONTENTS | DDSCAPS2_HARDWAREDEINTERLACE | DDSCAPS2_HINTDYNAMIC | DDSCAPS2_HINTSTATIC \
+                                                    | DDSCAPS2_TEXTUREMANAGE | DDSCAPS2_RESERVED1 | DDSCAPS2_RESERVED2 | DDSCAPS2_OPAQUE \
+                                                    | DDSCAPS2_HINTANTIALIASING | DDSCAPS2_CUBEMAP | DDSCAPS2_CUBEMAP_ALLFACES | DDSCAPS2_MIPMAPSUBLEVEL \
+                                                    | DDSCAPS2_D3DTEXTUREMANAGE | DDSCAPS2_DONOTPERSIST | DDSCAPS2_STEREOSURFACELEFT | DDSCAPS2_VOLUME \
+                                                    | DDSCAPS2_NOTUSERLOCKABLE | DDSCAPS2_POINTS | DDSCAPS2_RTPATCHES | DDSCAPS2_NPATCHES | DDSCAPS2_RESERVED3 \
+                                                    | DDSCAPS2_DEINTERLACE | DDSCAPS2_DISCARDBACKBUFFER | DDSCAPS2_ENABLEALPHACHANNEL \
+                                                    | DDSCAPS2_EXTENDEDFORMATPRIMARY | DDSCAPS2_ADDITIONALPRIMARY)
 
 #define DDSCAPS3_NONE							0x00000000L
-#define DDSCAPS3_VALID                          DDSCAPS3_MULTISAMPLE_MASK /* TODO */
+#define DDSCAPS3_VALID                          (DDSCAPS3_MULTISAMPLE_MASK)
 
 #define DDSCAPS4_NONE							0x00000000L
-#define DDSCAPS4_VALID                          0x00000000L /* TODO */
+#define DDSCAPS4_VALID                          (DDSCAPS4_NONE)
 
 #define PALETTE_MAX_ENTRY_COUNT                 256
 
@@ -189,6 +199,10 @@
 #define DDGGR_NONE                              0x00000000L
 
 #define DDSGR_NONE                              0x00000000L
+
+#define DDWAITVB_NONE                           0x00000000L
+#define DDWAITVB_VALID                          (DDWAITVB_BLOCKBEGIN | DDWAITVB_BLOCKEND)
+#define DDWAITVB_ALL                            (DDWAITVB_BLOCKBEGIN | DDWAITVB_BLOCKBEGINEVENT | DDWAITVB_BLOCKEND)
 
 typedef int bool;
 

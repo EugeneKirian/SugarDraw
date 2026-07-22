@@ -21,6 +21,9 @@ static const identifier ddid[DDID_COUNT];
 #define DDENUM_FLAG_COUNT           3
 static const flag ddenums[DDENUM_FLAG_COUNT];
 
+#define DDFLIP_FLAG_COUNT           9
+static const flag ddflips[DDFLIP_FLAG_COUNT];
+
 #define DDLOCK_FLAG_COUNT           12
 static const flag ddlocks[DDLOCK_FLAG_COUNT];
 
@@ -30,17 +33,26 @@ static const flag ddpcapss[DDPCAPS_FLAG_COUNT];
 #define DDPF_FLAG_COUNT             19
 static const flag ddpfs[DDPF_FLAG_COUNT];
 
+#define DDSCAPS_FLAG_COUNT          29
+static const flag ddscapss[DDSCAPS_FLAG_COUNT];
+
+#define DDSCAPS2_FLAG_COUNT         28
+static const flag ddscaps2s[DDSCAPS2_FLAG_COUNT];
+
 #define DDSCL_FLAG_COUNT            12
 static const flag ddscls[DDSCL_FLAG_COUNT];
 
 #define DDSD_FLAG_COUNT             20
 static const flag ddsds[DDSD_FLAG_COUNT];
 
+#define DDSDM_FLAG_COUNT            1
+static const flag ddsdms[DDSDM_FLAG_COUNT];
+
 #define DDSGR_FLAG_COUNT            1
 static const flag ddsgrs[DDSGR_FLAG_COUNT];
 
-#define DDSDM_FLAG_COUNT            1
-static const flag ddsdms[DDSDM_FLAG_COUNT];
+#define DDWAITVB_FLAG_COUNT         3
+static const flag ddwvbs[DDWAITVB_FLAG_COUNT];
 
 #define DM_FLAG_COUNT               4
 static const flag dms[DM_FLAG_COUNT];
@@ -61,9 +73,9 @@ const char* devmodea_to_string(const DEVMODEA* mode) {
     // TODO incomplete
 
     sprintf(messages[result],
-        "{ dmSize = %d, dmFields = %s, "
-        "dmBitsPerPel = %d, dmPelsWidth = %d, "
-        "dmPelsHeight = %d, dmDisplayFrequency = %d }",
+        "{ dmSize = %u, dmFields = %s, "
+        "dmBitsPerPel = %u, dmPelsWidth = %u, "
+        "dmPelsHeight = %u, dmDisplayFrequency = %u }",
         mode->dmSize, dm_to_string(mode->dmFields),
         mode->dmBitsPerPel, mode->dmPelsWidth,
         mode->dmPelsHeight, mode->dmDisplayFrequency);
@@ -93,17 +105,71 @@ const char* ddpixelformat_to_string(const DDPIXELFORMAT* format) {
         index = (index + 1) % CONVERTER_MAX_MESSAGE_COUNT;
 
     // TODO incomplete
+    // TODO FourCC as string
 
     sprintf(messages[result],
-        "{ dwSize = %d, dwFlags = %s, "
-        "dwFourCC = %d, dwRGBBitCount = %d }",
+        "{ dwSize = %u, dwFlags = %s, "
+        "dwFourCC = %u, dwRGBBitCount = %u }",
         format->dwSize, ddpf_to_string(format->dwFlags),
         format->dwFourCC, format->dwRGBBitCount);
 
     return messages[result];
 }
 
-const char* ddsurfacedesc1_to_string(const DDSURFACEDESC* desc) {
+const char* ddscaps1_to_string(const DDSCAPS* caps) {
+    if (caps == NULL) {
+        return "NULL";
+    }
+
+    const u32 result =
+        index = (index + 1) % CONVERTER_MAX_MESSAGE_COUNT;
+
+    sprintf(messages[result], "{ dwCaps = %s }",
+        flag_to_string(caps->dwCaps, DDSCAPS_FLAG_COUNT, ddscapss));
+
+    return messages[result];
+}
+
+const char* ddscaps2_to_string(const DDSCAPS2* caps) {
+    if (caps == NULL) {
+        return "NULL";
+    }
+
+    const u32 result =
+        index = (index + 1) % CONVERTER_MAX_MESSAGE_COUNT;
+
+    sprintf(messages[result],
+        "{ dwCaps = %s, dwCaps2 = %s, dwCaps3 = 0x%08X, dwCaps4 = 0x%08X }",
+        flag_to_string(caps->dwCaps, DDSCAPS_FLAG_COUNT, ddscapss),
+        flag_to_string(caps->dwCaps2, DDSCAPS2_FLAG_COUNT, ddscaps2s),
+        caps->dwCaps3, caps->dwCaps4);
+
+    return messages[result];
+}
+
+const char* ddsurfacedesc_to_string(const DDSURFACEDESC* desc) {
+    if (desc == NULL) {
+        return "NULL";
+    }
+
+    const u32 result =
+        index = (index + 1) % CONVERTER_MAX_MESSAGE_COUNT;
+
+    // TODO incomplete, very incomplete!
+    // TODO caps
+
+    sprintf(messages[result],
+        "{ dwSize = %u, dwFlags = %s, "
+        "dwHeight = %u, dwWidth = %u, "
+        "ddpfPixelFormat = %s, ddsCaps = %s }",
+        desc->dwSize, ddsd_to_string(desc->dwFlags),
+        desc->dwHeight, desc->dwWidth,
+        ddpixelformat_to_string(&desc->ddpfPixelFormat), ddscaps1_to_string(&desc->ddsCaps));
+
+    return messages[result];
+}
+
+const char* ddsurfacedesc2_to_string(const DDSURFACEDESC2* desc) {
     if (desc == NULL) {
         return "NULL";
     }
@@ -116,15 +182,21 @@ const char* ddsurfacedesc1_to_string(const DDSURFACEDESC* desc) {
 
     sprintf(messages[result],
         "{ dwSize = %d, dwFlags = %s, "
-        "dwHeight = %d, dwWidth = %d }",
+        "dwHeight = %d, dwWidth = %d, "
+        "ddpfPixelFormat = %s, ddsCaps = %s }",
         desc->dwSize, ddsd_to_string(desc->dwFlags),
-        desc->dwHeight, desc->dwWidth);
+        desc->dwHeight, desc->dwWidth,
+        ddpixelformat_to_string(&desc->ddpfPixelFormat), ddscaps2_to_string(&desc->ddsCaps));
 
     return messages[result];
 }
 
 const char* ddenum_to_string(const u32 flags) {
     return flag_to_string(flags, DDENUM_FLAG_COUNT, ddenums);
+}
+
+const char* ddflip_to_string(const u32 flags) {
+    return flag_to_string(flags, DDFLIP_FLAG_COUNT, ddflips);
 }
 
 const char* ddlock_to_string(const u32 flags) {
@@ -147,12 +219,16 @@ const char* ddsd_to_string(const u32 flags) {
     return flag_to_string(flags, DDSD_FLAG_COUNT, ddsds);
 }
 
+const char* ddsdm_to_string(const u32 flags) {
+    return flag_to_string(flags, DDSDM_FLAG_COUNT, ddsdms);
+}
+
 const char* ddsgr_to_string(const u32 flags) {
     return flag_to_string(flags, DDSGR_FLAG_COUNT, ddsgrs);
 }
 
-const char* ddsdm_to_string(const u32 flags) {
-    return flag_to_string(flags, DDSDM_FLAG_COUNT, ddsdms);
+const char* ddwaitvb_to_string(const u32 flags) {
+    return flag_to_string(flags, DDWAITVB_FLAG_COUNT, ddwvbs);
 }
 
 const char* disp_change_to_string(const s32 result) {
@@ -454,6 +530,18 @@ const flag ddenums[DDENUM_FLAG_COUNT] = {
     { DDENUM_ATTACHEDSECONDARYDEVICES,  "DDENUM_ATTACHEDSECONDARYDEVICES" }
 };
 
+const flag ddflips[DDFLIP_FLAG_COUNT] = {
+    { DDFLIP_DONOTWAIT,                 "DDFLIP_DONOTWAIT" },
+    { DDFLIP_STEREO,                    "DDFLIP_STEREO" },
+    { DDFLIP_INTERVAL4,                 "DDFLIP_INTERVAL4" },
+    { DDFLIP_INTERVAL3,                 "DDFLIP_INTERVAL3" },
+    { DDFLIP_INTERVAL2,                 "DDFLIP_INTERVAL2" },
+    { DDFLIP_NOVSYNC,                   "DDFLIP_NOVSYNC" },
+    { DDFLIP_ODD,                       "DDFLIP_ODD" },
+    { DDFLIP_EVEN,                      "DDFLIP_EVEN" },
+    { DDFLIP_WAIT,                      "DDFLIP_WAIT" }
+};
+
 const flag ddlocks[DDLOCK_FLAG_COUNT] = {
     { DDLOCK_NODIRTYUPDATE,             "DDLOCK_NODIRTYUPDATE" },
     { DDLOCK_HASVOLUMETEXTUREBOXRECT,   "DDLOCK_HASVOLUMETEXTUREBOXRECT" },
@@ -505,6 +593,69 @@ static const flag ddpfs[DDPF_FLAG_COUNT] = {
     { DDPF_ALPHAPIXELS,                 "DDPF_ALPHAPIXELS" }
 };
 
+const flag ddscapss[DDSCAPS_FLAG_COUNT] = {
+    { DDSCAPS_OPTIMIZED,                "DDSCAPS_OPTIMIZED" },
+    { DDSCAPS_STANDARDVGAMODE,          "DDSCAPS_STANDARDVGAMODE" },
+    { DDSCAPS_NONLOCALVIDMEM,           "DDSCAPS_NONLOCALVIDMEM" },
+    { DDSCAPS_LOCALVIDMEM,              "DDSCAPS_LOCALVIDMEM" },
+    { DDSCAPS_VIDEOPORT,                "DDSCAPS_VIDEOPORT" },
+    { DDSCAPS_ALLOCONLOAD,              "DDSCAPS_ALLOCONLOAD" },
+    { DDSCAPS_MIPMAP,                   "DDSCAPS_MIPMAP" },
+    { DDSCAPS_MODEX,                    "DDSCAPS_MODEX" },
+    { DDSCAPS_HWCODEC,                  "DDSCAPS_HWCODEC" },
+    { DDSCAPS_LIVEVIDEO,                "DDSCAPS_LIVEVIDEO" },
+    { DDSCAPS_OWNDC,                    "DDSCAPS_OWNDC" },
+    { DDSCAPS_ZBUFFER,                  "DDSCAPS_ZBUFFER" },
+    { DDSCAPS_WRITEONLY,                "DDSCAPS_WRITEONLY" },
+    { DDSCAPS_VISIBLE,                  "DDSCAPS_VISIBLE" },
+    { DDSCAPS_VIDEOMEMORY,              "DDSCAPS_VIDEOMEMORY" },
+    { DDSCAPS_3DDEVICE,                 "DDSCAPS_3DDEVICE" },
+    { DDSCAPS_TEXTURE,                  "DDSCAPS_TEXTURE" },
+    { DDSCAPS_SYSTEMMEMORY,             "DDSCAPS_SYSTEMMEMORY" },
+    { DDSCAPS_PRIMARYSURFACELEFT,       "DDSCAPS_PRIMARYSURFACELEFT" },
+    { DDSCAPS_PRIMARYSURFACE,           "DDSCAPS_PRIMARYSURFACE" },
+    { DDSCAPS_PALETTE,                  "DDSCAPS_PALETTE" },
+    { DDSCAPS_OVERLAY,                  "DDSCAPS_OVERLAY" },
+    { DDSCAPS_OFFSCREENPLAIN,           "DDSCAPS_OFFSCREENPLAIN" },
+    { DDSCAPS_FRONTBUFFER,              "DDSCAPS_FRONTBUFFER" },
+    { DDSCAPS_FLIP,                     "DDSCAPS_FLIP" },
+    { DDSCAPS_COMPLEX,                  "DDSCAPS_COMPLEX" },
+    { DDSCAPS_BACKBUFFER,               "DDSCAPS_BACKBUFFER" },
+    { DDSCAPS_ALPHA,                    "DDSCAPS_ALPHA" },
+    { DDSCAPS_3D,                       "DDSCAPS_3D" }
+};
+
+const flag ddscaps2s[DDSCAPS2_FLAG_COUNT] = {
+    { DDSCAPS2_ADDITIONALPRIMARY,       "DDSCAPS2_ADDITIONALPRIMARY" },
+    { DDSCAPS2_EXTENDEDFORMATPRIMARY,   "DDSCAPS2_EXTENDEDFORMATPRIMARY" },
+    { DDSCAPS2_ENABLEALPHACHANNEL,      "DDSCAPS2_ENABLEALPHACHANNEL" },
+    { DDSCAPS2_DISCARDBACKBUFFER,       "DDSCAPS2_DISCARDBACKBUFFER" },
+    { DDSCAPS2_DEINTERLACE,             "DDSCAPS2_DEINTERLACE" },
+    { DDSCAPS2_NPATCHES,                "DDSCAPS2_NPATCHES" },
+    { DDSCAPS2_RTPATCHES,               "DDSCAPS2_RTPATCHES" },
+    { DDSCAPS2_POINTS,                  "DDSCAPS2_POINTS" },
+    { DDSCAPS2_NOTUSERLOCKABLE,         "DDSCAPS2_NOTUSERLOCKABLE" },
+    { DDSCAPS2_VOLUME,                  "DDSCAPS2_VOLUME" },
+    { DDSCAPS2_STEREOSURFACELEFT,       "DDSCAPS2_STEREOSURFACELEFT" },
+    { DDSCAPS2_DONOTPERSIST,            "DDSCAPS2_DONOTPERSIST" },
+    { DDSCAPS2_D3DTEXTUREMANAGE,        "DDSCAPS2_D3DTEXTUREMANAGE" },
+    { DDSCAPS2_MIPMAPSUBLEVEL,          "DDSCAPS2_MIPMAPSUBLEVEL" },
+    { DDSCAPS2_CUBEMAP_NEGATIVEZ,       "DDSCAPS2_CUBEMAP_NEGATIVEZ" },
+    { DDSCAPS2_CUBEMAP_POSITIVEZ,       "DDSCAPS2_CUBEMAP_POSITIVEZ" },
+    { DDSCAPS2_CUBEMAP_NEGATIVEY,       "DDSCAPS2_CUBEMAP_NEGATIVEY" },
+    { DDSCAPS2_CUBEMAP_POSITIVEY,       "DDSCAPS2_CUBEMAP_POSITIVEY" },
+    { DDSCAPS2_CUBEMAP_NEGATIVEX,       "DDSCAPS2_CUBEMAP_NEGATIVEX" },
+    { DDSCAPS2_CUBEMAP_POSITIVEX,       "DDSCAPS2_CUBEMAP_POSITIVEX" },
+    { DDSCAPS2_CUBEMAP,                 "DDSCAPS2_CUBEMAP" },
+    { DDSCAPS2_HINTANTIALIASING,        "DDSCAPS2_HINTANTIALIASING" },
+    { DDSCAPS2_OPAQUE,                  "DDSCAPS2_OPAQUE" },
+    { DDSCAPS2_TEXTUREMANAGE,           "DDSCAPS2_TEXTUREMANAGE" },
+    { DDSCAPS2_HINTSTATIC,              "DDSCAPS2_HINTSTATIC" },
+    { DDSCAPS2_HINTDYNAMIC,             "DDSCAPS2_HINTDYNAMIC" },
+    { DDSCAPS2_HARDWAREDEINTERLACE,     "DDSCAPS2_HARDWAREDEINTERLACE" },
+    { DDSCAPS2_PERSISTENTCONTENTS,      "DDSCAPS2_PERSISTENTCONTENTS" }
+};
+
 const flag ddscls[DDSCL_FLAG_COUNT] = {
     { DDSCL_FPUPRESERVE,                "DDSCL_FPUPRESERVE" },
     { DDSCL_FPUSETUP,                   "DDSCL_FPUSETUP" },
@@ -545,6 +696,12 @@ const flag ddsds[DDSD_FLAG_COUNT] = {
 
 const flag ddsgrs[DDSGR_FLAG_COUNT] = {
     { DDSGR_CALIBRATE,                  "DDSGR_CALIBRATE" }
+};
+
+const flag ddwvbs[DDWAITVB_FLAG_COUNT] = {
+    { DDWAITVB_BLOCKEND,                "DDWAITVB_BLOCKEND" },
+    { DDWAITVB_BLOCKBEGINEVENT,         "DDWAITVB_BLOCKBEGINEVENT" },
+    { DDWAITVB_BLOCKBEGIN,              "DDWAITVB_BLOCKBEGIN" }
 };
 
 const flag ddsdms[DDSDM_FLAG_COUNT] = {

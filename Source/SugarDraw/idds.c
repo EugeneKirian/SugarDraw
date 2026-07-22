@@ -692,6 +692,8 @@ HRESULT SUGARCALL idds_blt1(idds* self, LPRECT lpDestRect, LPDIRECTDRAWSURFACE l
         return DDERR_INVALIDOBJECT;
     }
 
+    // TODO Enter
+
     // TODO proper implementation
 
     LEAVE(dds_blt(self->instance, lpDestRect,
@@ -703,6 +705,8 @@ HRESULT SUGARCALL idds_blt_batch(idds* self, LPDDBLTBATCH lpDDBltBatch, DWORD dw
         return DDERR_INVALIDOBJECT;
     }
 
+    // TODO Enter
+
     // TODO proper implementation
 
     LEAVE(dds_blt_batch(self->instance, lpDDBltBatch, dwCount, dwFlags));
@@ -712,6 +716,8 @@ HRESULT SUGARCALL idds_blt_fast1(idds* self, DWORD dwX, DWORD dwY, LPDIRECTDRAWS
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
+
+    // TODO Enter
 
     if (lpDDSrcSurface == NULL) {
         LEAVE(DDERR_INVALIDPARAMS);
@@ -725,6 +731,8 @@ HRESULT SUGARCALL idds_delete_attached_surface1(idds* self, DWORD dwFlags, LPDIR
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
+
+    // TODO Enter
 
     // TODO validate dwFlags
 
@@ -757,6 +765,8 @@ HRESULT SUGARCALL idds_enum_overlay_z_orders(idds* self, DWORD dwFlags, LPVOID l
         return DDERR_INVALIDOBJECT;
     }
 
+    // TODO Enter
+
     // TODO
 
     LEAVE(dds_enum_overlay_z_orders(self->instance));
@@ -767,6 +777,8 @@ HRESULT SUGARCALL idds_flip1(idds* self, LPDIRECTDRAWSURFACE lpDDSurfaceTargetOv
         return DDERR_INVALIDOBJECT;
     }
 
+    ENTER("0x%p, %s", lpDDSurfaceTargetOverride, ddflip_to_string(dwFlags));
+
     LEAVE(dds_flip(self->instance,
         lpDDSurfaceTargetOverride == NULL ? NULL : ((idds*)lpDDSurfaceTargetOverride)->instance, dwFlags));
 }
@@ -775,6 +787,8 @@ HRESULT SUGARCALL idds_get_attached_surface1(idds* self, LPDDSCAPS lpDDSCaps, LP
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
+
+    ENTER("%s, 0x%p", ddscaps1_to_string(lpDDSCaps), lplpDDAttachedSurface);
 
     if (lpDDSCaps == NULL || lplpDDAttachedSurface == NULL) {
         LEAVE(DDERR_INVALIDPARAMS);
@@ -799,6 +813,8 @@ HRESULT SUGARCALL idds_get_blt_status(idds* self, DWORD dwFlags) {
         return DDERR_INVALIDOBJECT;
     }
 
+    // TODO Enter
+
     // TODO validate dwFlags
 
     LEAVE(dds_get_blt_status(self->instance, dwFlags));
@@ -808,6 +824,8 @@ HRESULT SUGARCALL idds_get_caps1(idds* self, LPDDSCAPS lpDDSCaps) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
+
+    ENTER("0x%p", lpDDSCaps);
 
     if (lpDDSCaps == NULL) {
         LEAVE(DDERR_INVALIDPARAMS);
@@ -853,6 +871,8 @@ HRESULT SUGARCALL idds_get_color_key(idds* self, DWORD dwFlags, LPDDCOLORKEY lpD
         return DDERR_INVALIDOBJECT;
     }
 
+    // TODO Enter
+
     if ((dwFlags & ~DDCKEY_VALID) || lpDDColorKey == NULL) {
         LEAVE(DDERR_INVALIDPARAMS);
     }
@@ -880,6 +900,8 @@ HRESULT SUGARCALL idds_get_flip_status(idds* self, DWORD dwFlags) {
     }
 
     // TODO check dwFlags
+
+    // TODO Enter
 
     LEAVE(dds_get_flip_status(self->instance, dwFlags));
 }
@@ -926,6 +948,8 @@ HRESULT SUGARCALL idds_get_pixel_format(idds* self, LPDDPIXELFORMAT lpDDPixelFor
         return DDERR_INVALIDOBJECT;
     }
 
+    ENTER("%s", ddpixelformat_to_string(lpDDPixelFormat));
+
     if (lpDDPixelFormat == NULL) {
         LEAVE(DDERR_INVALIDPARAMS);
     }
@@ -951,6 +975,8 @@ HRESULT SUGARCALL idds_get_surface_desc1(idds* self, LPDDSURFACEDESC lpDDSurface
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
+
+    ENTER("0x%p", lpDDSurfaceDesc);
 
     if (lpDDSurfaceDesc == NULL) {
         LEAVE(DDERR_INVALIDPARAMS);
@@ -978,6 +1004,8 @@ HRESULT SUGARCALL idds_initialize1(idds* self, LPDIRECTDRAW lpDD, LPDDSURFACEDES
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
+
+    ENTER("0x%p, %s", lpDD, ddsurfacedesc_to_string(lpDDSurfaceDesc));
 
     if (lpDD == NULL || lpDDSurfaceDesc == NULL) {
         LEAVE(DDERR_INVALIDPARAMS);
@@ -1009,7 +1037,7 @@ HRESULT SUGARCALL idds_lock1(idds* self, LPRECT lpDestRect, LPDDSURFACEDESC lpDD
     }
 
     ENTER("%s, %s, %s, 0x%08X", rect_to_string(lpDestRect),
-        ddsurfacedesc1_to_string(lpDDSurfaceDesc), ddlock_to_string(dwFlags), hEvent);
+        ddsurfacedesc_to_string(lpDDSurfaceDesc), ddlock_to_string(dwFlags), hEvent);
 
     if (lpDDSurfaceDesc == NULL) {
         LEAVE(DDERR_INVALIDPARAMS);
@@ -1090,6 +1118,8 @@ HRESULT SUGARCALL idds_set_color_key(idds* self, DWORD dwFlags, LPDDCOLORKEY lpD
         return DDERR_INVALIDOBJECT;
     }
 
+    // TODO Enter
+
     if (dwFlags & ~DDCKEY_VALID) {
         LEAVE(DDERR_INVALIDPARAMS);
     }
@@ -1141,6 +1171,8 @@ HRESULT SUGARCALL idds_update_overlay1(idds* self, LPRECT lpSrcRect, LPDIRECTDRA
         return DDERR_INVALIDOBJECT;
     }
 
+    // TODO Enter
+
     if (lpDDDestSurface == NULL || lpDestRect == NULL) {
         LEAVE(DDERR_INVALIDPARAMS);
     }
@@ -1181,6 +1213,8 @@ HRESULT SUGARCALL idds_update_overlay_display(idds* self, DWORD dwFlags) {
         return DDERR_INVALIDOBJECT;
     }
 
+    // TODO Enter
+
     // TODO validate dwFlags
 
     LEAVE(dds_update_overlay_display(self->instance));
@@ -1192,6 +1226,8 @@ HRESULT SUGARCALL idds_update_overlay_z_order1(idds* self, DWORD dwFlags, LPDIRE
     }
 
     // TODO validate dwFlags
+
+    // TODO Enter
 
     iddsconn connector;
     ZeroMemory(&connector, sizeof(iddsconn));
@@ -1209,6 +1245,8 @@ HRESULT SUGARCALL idds_add_attached_surface2(idds* self, LPDIRECTDRAWSURFACE2 lp
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
+
+    ENTER("0x%p", lpDDSAttachedSurface);
 
     if (lpDDSAttachedSurface == NULL) {
         LEAVE(DDERR_INVALIDPARAMS);
@@ -1231,6 +1269,8 @@ HRESULT SUGARCALL idds_blt2(idds* self, LPRECT lpDestRect, LPDIRECTDRAWSURFACE2 
         return DDERR_INVALIDOBJECT;
     }
 
+    // TODO Enter
+
     // TODO proper implementation
 
     LEAVE(dds_blt(self->instance, lpDestRect, ((idds*)lpDDSrcSurface)->instance, lpSrcRect, dwFlags, lpDDBltFx));
@@ -1240,6 +1280,8 @@ HRESULT SUGARCALL idds_blt_fast2(idds* self, DWORD dwX, DWORD dwY, LPDIRECTDRAWS
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
+
+    // TODO Enter
 
     if (lpDDSrcSurface == NULL) {
         LEAVE(DDERR_INVALIDPARAMS);
@@ -1254,6 +1296,8 @@ HRESULT SUGARCALL idds_delete_attached_surface2(idds* self, DWORD dwFlags, LPDIR
     }
 
     // TODO validate dwFlags
+
+    // TODO Enter
 
     iddsconn connector;
     ZeroMemory(&connector, sizeof(iddsconn));
@@ -1272,6 +1316,8 @@ HRESULT SUGARCALL idds_flip2(idds* self, LPDIRECTDRAWSURFACE2 lpDDSurfaceTargetO
         return DDERR_INVALIDOBJECT;
     }
 
+    ENTER("0x%p, %s", lpDDSurfaceTargetOverride, ddflip_to_string(dwFlags));
+
     LEAVE(dds_flip(self->instance,
         lpDDSurfaceTargetOverride == NULL ? NULL : ((idds*)lpDDSurfaceTargetOverride)->instance, dwFlags));
 }
@@ -1280,6 +1326,8 @@ HRESULT SUGARCALL idds_get_attached_surface2(idds* self, LPDDSCAPS lpDDSCaps, LP
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
+
+    ENTER("%s, 0x%p", ddscaps1_to_string(lpDDSCaps), lplpDDAttachedSurface);
 
     if (lpDDSCaps == NULL || lplpDDAttachedSurface == NULL) {
         LEAVE(DDERR_INVALIDPARAMS);
@@ -1303,6 +1351,8 @@ HRESULT SUGARCALL idds_update_overlay2(idds* self, LPRECT lpSrcRect, LPDIRECTDRA
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
+
+    // TODO Enter
 
     if (lpDDDestSurface == NULL || lpDestRect == NULL) {
         LEAVE(DDERR_INVALIDPARAMS);
@@ -1346,6 +1396,8 @@ HRESULT SUGARCALL idds_update_overlay_z_order2(idds* self, DWORD dwFlags, LPDIRE
 
     // TODO validate dwFlags
 
+    // TODO Enter
+
     iddsconn connector;
     ZeroMemory(&connector, sizeof(iddsconn));
 
@@ -1363,6 +1415,8 @@ HRESULT SUGARCALL idds_get_dd_interface2(idds* self, LPVOID* lplpDD) {
         return DDERR_INVALIDOBJECT;
     }
 
+    ENTER("0x%p", lplpDD);
+
     if (lplpDD == NULL) {
         LEAVE(DDERR_INVALIDPARAMS);
     }
@@ -1377,6 +1431,8 @@ HRESULT SUGARCALL idds_page_lock2(idds* self, DWORD dwFlags) {
 
     // TODO validate dwFlags
 
+    // TODO Enter
+
     LEAVE(dds_page_lock(self->instance));
 }
 
@@ -1387,6 +1443,8 @@ HRESULT SUGARCALL idds_page_unlock2(idds* self, DWORD dwFlags) {
 
     // TODO validate dwFlags
 
+    // TODO Enter
+
     LEAVE(dds_page_unlock(self->instance));
 }
 
@@ -1394,6 +1452,8 @@ HRESULT SUGARCALL idds_add_attached_surface3(idds* self, LPDIRECTDRAWSURFACE3 lp
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
+
+    ENTER("0x%p", lpDDSAttachedSurface);
 
     if (lpDDSAttachedSurface == NULL) {
         LEAVE(DDERR_INVALIDPARAMS);
@@ -1418,6 +1478,8 @@ HRESULT SUGARCALL idds_blt3(idds* self, LPRECT lpDestRect, LPDIRECTDRAWSURFACE3 
 
     // TODO proper implementation
 
+    // TODO Enter
+
     LEAVE(dds_blt(self->instance, lpDestRect, ((idds*)lpDDSrcSurface)->instance, lpSrcRect, dwFlags, lpDDBltFx));
 }
 
@@ -1425,6 +1487,8 @@ HRESULT SUGARCALL idds_blt_fast3(idds* self, DWORD dwX, DWORD dwY, LPDIRECTDRAWS
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
+
+    // TODO Enter
 
     if (lpDDSrcSurface == NULL) {
         LEAVE(DDERR_INVALIDPARAMS);
@@ -1439,6 +1503,8 @@ HRESULT SUGARCALL idds_delete_attached_surface3(idds* self, DWORD dwFlags, LPDIR
     }
 
     // TODO validate dwFlags
+
+    // TODO Enter
 
     iddsconn connector;
     ZeroMemory(&connector, sizeof(iddsconn));
@@ -1457,6 +1523,8 @@ HRESULT SUGARCALL idds_flip3(idds* self, LPDIRECTDRAWSURFACE3 lpDDSurfaceTargetO
         return DDERR_INVALIDOBJECT;
     }
 
+    ENTER("0x%p, %s", lpDDSurfaceTargetOverride, ddflip_to_string(dwFlags));
+
     LEAVE(dds_flip(self->instance,
         lpDDSurfaceTargetOverride == NULL ? NULL : ((idds*)lpDDSurfaceTargetOverride)->instance, dwFlags));
 }
@@ -1465,6 +1533,8 @@ HRESULT SUGARCALL idds_get_attached_surface3(idds* self, LPDDSCAPS lpDDSCaps, LP
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
+
+    ENTER("%s, 0x%p", ddscaps1_to_string(lpDDSCaps), lplpDDAttachedSurface);
 
     if (lpDDSCaps == NULL || lplpDDAttachedSurface == NULL) {
         LEAVE(DDERR_INVALIDPARAMS);
@@ -1488,6 +1558,8 @@ HRESULT SUGARCALL idds_update_overlay3(idds* self, LPRECT lpSrcRect, LPDIRECTDRA
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
+
+    // TODO Enter
 
     if (lpDDDestSurface == NULL || lpDestRect == NULL) {
         LEAVE(DDERR_INVALIDPARAMS);
@@ -1531,6 +1603,8 @@ HRESULT SUGARCALL idds_update_overlay_z_order3(idds* self, DWORD dwFlags, LPDIRE
 
     // TODO validate dwFlags
 
+    // TODO Enter
+
     iddsconn connector;
     ZeroMemory(&connector, sizeof(iddsconn));
 
@@ -1547,6 +1621,8 @@ HRESULT SUGARCALL idds_set_surface_desc3(idds* self, LPDDSURFACEDESC lpDDSD, DWO
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
+
+    // TODO Enter
 
     if (lpDDSD == NULL) {
         LEAVE(DDERR_INVALIDPARAMS);
@@ -1571,6 +1647,8 @@ HRESULT SUGARCALL idds_add_attached_surface4(idds* self, LPDIRECTDRAWSURFACE4 lp
         return DDERR_INVALIDOBJECT;
     }
 
+    ENTER("0x%p", lpDDSAttachedSurface);
+
     if (lpDDSAttachedSurface == NULL) {
         LEAVE(DDERR_INVALIDPARAMS);
     }
@@ -1594,6 +1672,8 @@ HRESULT SUGARCALL idds_blt4(idds* self, LPRECT lpDestRect, LPDIRECTDRAWSURFACE4 
 
     // TODO proper implementation
 
+    // TODO Enter
+
     LEAVE(dds_blt(self->instance, lpDestRect, ((idds*)lpDDSrcSurface)->instance, lpSrcRect, dwFlags, lpDDBltFx));
 }
 
@@ -1601,6 +1681,8 @@ HRESULT SUGARCALL idds_blt_fast4(idds* self, DWORD dwX, DWORD dwY, LPDIRECTDRAWS
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
+
+    // TODO Enter
 
     if (lpDDSrcSurface == NULL) {
         LEAVE(DDERR_INVALIDPARAMS);
@@ -1615,6 +1697,8 @@ HRESULT SUGARCALL idds_delete_attached_surface4(idds* self, DWORD dwFlags, LPDIR
     }
 
     // TODO validate dwFlags
+
+    // TODO Enter
 
     iddsconn connector;
     ZeroMemory(&connector, sizeof(iddsconn));
@@ -1633,6 +1717,8 @@ HRESULT SUGARCALL idds_flip4(idds* self, LPDIRECTDRAWSURFACE4 lpDDSurfaceTargetO
         return DDERR_INVALIDOBJECT;
     }
 
+    ENTER("0x%p, %s", lpDDSurfaceTargetOverride, ddflip_to_string(dwFlags));
+
     LEAVE(dds_flip(self->instance,
         lpDDSurfaceTargetOverride == NULL ? NULL : ((idds*)lpDDSurfaceTargetOverride)->instance, dwFlags));
 }
@@ -1641,6 +1727,8 @@ HRESULT SUGARCALL idds_get_attached_surface4(idds* self, LPDDSCAPS2 lpDDSCaps, L
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
+
+    ENTER("%s, 0x%p", ddscaps2_to_string(lpDDSCaps), lplpDDAttachedSurface);
 
     if (lpDDSCaps == NULL || lplpDDAttachedSurface == NULL) {
         LEAVE(DDERR_INVALIDPARAMS);
@@ -1659,6 +1747,8 @@ HRESULT SUGARCALL idds_get_caps4(idds* self, LPDDSCAPS2 lpDDSCaps) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
+
+    ENTER("0x%p", lpDDSCaps);
 
     if (lpDDSCaps == NULL) {
         LEAVE(DDERR_INVALIDPARAMS);
@@ -1681,6 +1771,8 @@ HRESULT SUGARCALL idds_get_surface_desc4(idds* self, LPDDSURFACEDESC2 lpDDSurfac
         return DDERR_INVALIDOBJECT;
     }
 
+    ENTER("0x%p", lpDDSurfaceDesc);
+
     if (lpDDSurfaceDesc == NULL) {
         LEAVE(DDERR_INVALIDPARAMS);
     }
@@ -1697,6 +1789,8 @@ HRESULT SUGARCALL idds_initialize4(idds* self, LPDIRECTDRAW lpDD, LPDDSURFACEDES
         return DDERR_INVALIDOBJECT;
     }
 
+    ENTER("0x%p, %s", lpDD, ddsurfacedesc2_to_string(lpDDSurfaceDesc));
+
     if (lpDD == NULL || lpDDSurfaceDesc == NULL) {
         LEAVE(DDERR_INVALIDPARAMS);
     }
@@ -1711,6 +1805,8 @@ HRESULT SUGARCALL idds_lock4(idds* self, LPRECT lpDestRect, LPDDSURFACEDESC2 lpD
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
+
+    // TODO Enter
 
     if (lpDDSurfaceDesc == NULL) {
         LEAVE(DDERR_INVALIDPARAMS);
@@ -1755,6 +1851,8 @@ HRESULT SUGARCALL idds_update_overlay4(idds* self, LPRECT lpSrcRect, LPDIRECTDRA
         return DDERR_INVALIDOBJECT;
     }
 
+    // TODO Enter
+
     if (lpDDDestSurface == NULL || lpDestRect == NULL) {
         LEAVE(DDERR_INVALIDPARAMS);
     }
@@ -1797,6 +1895,8 @@ HRESULT SUGARCALL idds_update_overlay_z_order4(idds* self, DWORD dwFlags, LPDIRE
 
     // TODO validate dwFlags
 
+    // TODO Enter
+
     iddsconn connector;
     ZeroMemory(&connector, sizeof(iddsconn));
 
@@ -1813,6 +1913,8 @@ HRESULT SUGARCALL idds_set_surface_desc4(idds* self, LPDDSURFACEDESC2 lpDDSD, DW
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
+
+    // TODO Enter
 
     if (lpDDSD == NULL) {
         LEAVE(DDERR_INVALIDPARAMS);
@@ -1835,6 +1937,8 @@ HRESULT SUGARCALL idds_set_private_data4(idds* self, REFGUID guidTag, LPVOID lpD
         return DDERR_INVALIDOBJECT;
     }
 
+    // TODO Enter
+
     if (guidTag == NULL || lpData == NULL) {
         LEAVE(DDERR_INVALIDPARAMS);
     }
@@ -1850,6 +1954,8 @@ HRESULT SUGARCALL idds_get_private_data4(idds* self, REFGUID guidTag, LPVOID lpB
         return DDERR_INVALIDOBJECT;
     }
 
+    ENTER("%s, 0x%p, 0x%p", guid_to_string(guidTag), lpBuffer, lpcbBufferSize);
+
     if (guidTag == NULL || lpcbBufferSize == NULL) {
         LEAVE(DDERR_INVALIDPARAMS);
     }
@@ -1862,6 +1968,8 @@ HRESULT SUGARCALL idds_free_private_data4(idds* self, REFGUID guidTag) {
         return DDERR_INVALIDOBJECT;
     }
 
+    ENTER("%s", guid_to_string(guidTag));
+
     if (guidTag == NULL) {
         LEAVE(DDERR_INVALIDPARAMS);
     }
@@ -1873,6 +1981,8 @@ HRESULT SUGARCALL idds_get_uniqueness_value4(idds* self, LPDWORD lpValue) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
+
+    ENTER("0x%p", lpValue);
 
     if (lpValue == NULL) {
         LEAVE(DDERR_INVALIDPARAMS);
@@ -1893,6 +2003,8 @@ HRESULT SUGARCALL idds_add_attached_surface7(idds* self, LPDIRECTDRAWSURFACE7 lp
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
+
+    ENTER("0x%p", lpDDSAttachedSurface);
 
     if (lpDDSAttachedSurface == NULL) {
         LEAVE(DDERR_INVALIDPARAMS);
@@ -1915,6 +2027,8 @@ HRESULT SUGARCALL idds_blt7(idds* self, LPRECT lpDestRect, LPDIRECTDRAWSURFACE7 
         return DDERR_INVALIDOBJECT;
     }
 
+    // TODO Enter
+
     // TODO proper implementation
 
     LEAVE(dds_blt(self->instance, lpDestRect,
@@ -1925,6 +2039,8 @@ HRESULT SUGARCALL idds_blt_fast7(idds* self, DWORD dwX, DWORD dwY, LPDIRECTDRAWS
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
+
+    // TODO Enter
 
     if (lpDDSrcSurface == NULL) {
         LEAVE(DDERR_INVALIDPARAMS);
@@ -1939,6 +2055,8 @@ HRESULT SUGARCALL idds_delete_attached_surface7(idds* self, DWORD dwFlags, LPDIR
     }
 
     // TODO validate dwFlags
+
+    // TODO Enter
 
     iddsconn connector;
     ZeroMemory(&connector, sizeof(iddsconn));
@@ -1957,6 +2075,8 @@ HRESULT SUGARCALL idds_flip7(idds* self, LPDIRECTDRAWSURFACE7 lpDDSurfaceTargetO
         return DDERR_INVALIDOBJECT;
     }
 
+    ENTER("0x%p, %s", lpDDSurfaceTargetOverride, ddflip_to_string(dwFlags));
+
     LEAVE(dds_flip(self->instance,
         lpDDSurfaceTargetOverride == NULL ? NULL : ((idds*)lpDDSurfaceTargetOverride)->instance, dwFlags));
 }
@@ -1965,6 +2085,8 @@ HRESULT SUGARCALL idds_get_attached_surface7(idds* self, LPDDSCAPS2 lpDDSCaps, L
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
+
+    ENTER("%s, 0x%p", ddscaps2_to_string(lpDDSCaps), lplpDDAttachedSurface);
 
     if (lpDDSCaps == NULL || lplpDDAttachedSurface == NULL) {
         LEAVE(DDERR_INVALIDPARAMS);
@@ -1983,6 +2105,8 @@ HRESULT SUGARCALL idds_update_overlay7(idds* self, LPRECT lpSrcRect, LPDIRECTDRA
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
+
+    // TODO Enter
 
     if (lpDDDestSurface == NULL || lpDestRect == NULL) {
         LEAVE(DDERR_INVALIDPARAMS);
@@ -2025,6 +2149,7 @@ HRESULT SUGARCALL idds_update_overlay_z_order7(idds* self, DWORD dwFlags, LPDIRE
     }
 
     // TODO validate dwFlags
+    // TODO Enter
 
     iddsconn connector;
     ZeroMemory(&connector, sizeof(iddsconn));
@@ -2043,6 +2168,8 @@ HRESULT SUGARCALL idds_set_priority7(idds* self, DWORD dwPriority) {
         return DDERR_INVALIDOBJECT;
     }
 
+    ENTER("%u", dwPriority);
+
     LEAVE(dds_set_priority(self->instance, dwPriority));
 }
 
@@ -2050,6 +2177,8 @@ HRESULT SUGARCALL idds_get_priority7(idds* self, LPDWORD lpdwPriority) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
+
+    ENTER("0x%p", lpdwPriority);
 
     if (lpdwPriority == NULL) {
         LEAVE(DDERR_INVALIDPARAMS);
@@ -2063,6 +2192,8 @@ HRESULT SUGARCALL idds_set_lod7(idds* self, DWORD dwMaxLOD) {
         return DDERR_INVALIDOBJECT;
     }
 
+    ENTER("%u", dwMaxLOD);
+
     LEAVE(dds_set_lod(self->instance, dwMaxLOD));
 }
 
@@ -2070,6 +2201,8 @@ HRESULT SUGARCALL idds_get_lod7(idds* self, LPDWORD lpdwMaxLOD) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
+
+    ENTER("0x%p", lpdwMaxLOD);
 
     if (lpdwMaxLOD == NULL) {
         return DDERR_INVALIDPARAMS;

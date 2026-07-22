@@ -120,9 +120,7 @@ HRESULT ddsd_initialize(ddsd* self, DDSURFACEDESC2* desc) {
     CopyMemory(&self->desc, desc, sizeof(DDSURFACEDESC2));
 
     if (self->desc.dwFlags & DDSD_LPSURFACE) {
-        // TODO not implemented - custom memory...
-        hr = DDERR_UNSUPPORTED;
-        goto exit;
+        self->data = desc->lpSurface;
     }
     else {
         // TODO go here only for DC-supporting formats
@@ -191,16 +189,16 @@ HRESULT ddsd_initialize(ddsd* self, DDSURFACEDESC2* desc) {
             ((DWORD*)self->bitmap.header.palette)[2]
                 = self->desc.ddpfPixelFormat.dwBBitMask;
         }break;
-        // TODO
-        //case 24:
-        //case 32: {
-        //    ((DWORD*)self->bitmap.header.palette)[0]
-        //        = self->desc.ddpfPixelFormat.dwRBitMask;
-        //    ((DWORD*)self->bitmap.header.palette)[1]
-        //        = self->desc.ddpfPixelFormat.dwGBitMask;
-        //    ((DWORD*)self->bitmap.header.palette)[2]
-        //        = self->desc.ddpfPixelFormat.dwBBitMask;
-        //}break;
+               // TODO
+               //case 24:
+               //case 32: {
+               //    ((DWORD*)self->bitmap.header.palette)[0]
+               //        = self->desc.ddpfPixelFormat.dwRBitMask;
+               //    ((DWORD*)self->bitmap.header.palette)[1]
+               //        = self->desc.ddpfPixelFormat.dwGBitMask;
+               //    ((DWORD*)self->bitmap.header.palette)[2]
+               //        = self->desc.ddpfPixelFormat.dwBBitMask;
+               //}break;
         }
 
         header->biSizeImage = ((aligned_width * bpp + 63) & ~63) / 8 * self->desc.dwHeight; // TODO

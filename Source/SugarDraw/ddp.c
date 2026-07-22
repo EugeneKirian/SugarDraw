@@ -1,7 +1,7 @@
-#include "iddp.h"
 #include "dd.h"
 #include "ddp.h"
 #include "dds.h"
+#include "iddp.h"
 #include "utilities.h"
 
 HRESULT ddp_create(sugar* manager, ddp** object) {
@@ -271,7 +271,7 @@ HRESULT ddp_set_entries(ddp* self, u32 flags, u32 start, u32 count, PALETTEENTRY
         for (s32 i = 0; i < item_count; i++) {
             dds* instance = NULL;
             if (SUCCEEDED(arr_get_item(self->surfaces, i, &instance))) {
-                hr = ddsd_set_palette(instance->surface, start, count, self->quads);
+                hr = dds_set_palette_entries(instance, start, count, self->quads);
             }
         }
     }

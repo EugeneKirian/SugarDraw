@@ -486,8 +486,7 @@ HRESULT SUGARCALL idd_create_surface1(idd* self, LPDDSURFACEDESC lpDDSurfaceDesc
         return DDERR_INVALIDOBJECT;
     }
 
-    ENTER("%s, 0x%p, 0x%p",
-        ddsurfacedesc1_to_string(lpDDSurfaceDesc), lplpDDSurface, pUnkOuter);
+    ENTER("%s, 0x%p, 0x%p", ddsurfacedesc_to_string(lpDDSurfaceDesc), lplpDDSurface, pUnkOuter);
 
     if (lpDDSurfaceDesc == NULL || lplpDDSurface == NULL || pUnkOuter != NULL) {
         LEAVE(DDERR_INVALIDPARAMS);
@@ -606,7 +605,7 @@ HRESULT SUGARCALL idd_get_display_mode1(idd* self, LPDDSURFACEDESC lpDDSurfaceDe
         return DDERR_INVALIDOBJECT;
     }
 
-    ENTER("%s, 0x%p", ddsurfacedesc1_to_string(lpDDSurfaceDesc));
+    ENTER("%s, 0x%p", ddsurfacedesc_to_string(lpDDSurfaceDesc));
 
     if (lpDDSurfaceDesc == NULL) {
         LEAVE(DDERR_INVALIDPARAMS);
@@ -712,7 +711,7 @@ HRESULT SUGARCALL idd_set_display_mode1(idd* self, DWORD dwWidth, DWORD dwHeight
         return DDERR_INVALIDOBJECT;
     }
 
-    ENTER("%d, %d, %d", dwWidth, dwHeight, dwBPP);
+    ENTER("%u, %u, %u", dwWidth, dwHeight, dwBPP);
 
     LEAVE(dd_set_display_mode(self->instance, dwWidth, dwHeight, dwBPP, 0, DDSDM_NONE));
 }
@@ -722,7 +721,7 @@ HRESULT SUGARCALL idd_wait_for_vertical_blank(idd* self, DWORD dwFlags, HANDLE h
         return DDERR_INVALIDOBJECT;
     }
 
-    // TODO Enter
+    ENTER("%s, 0x%08X", ddwaitvb_to_string(dwFlags), hEvent);
 
     LEAVE(dd_wait_for_vertical_blank(self->instance, dwFlags, hEvent));
 }
@@ -732,8 +731,7 @@ HRESULT SUGARCALL idd_set_display_mode2(idd* self, DWORD dwWidth, DWORD dwHeight
         return DDERR_INVALIDOBJECT;
     }
 
-    ENTER("%d, %d, %d, %d, %s",
-        dwWidth, dwHeight, dwBPP, dwRefreshRate, ddsdm_to_string(dwFlags));
+    ENTER("%u, %u, %u, %u, %s", dwWidth, dwHeight, dwBPP, dwRefreshRate, ddsdm_to_string(dwFlags));
 
     LEAVE(dd_set_display_mode(self->instance, dwWidth, dwHeight, dwBPP, dwRefreshRate, dwFlags));
 }
@@ -772,7 +770,7 @@ HRESULT SUGARCALL idd_create_surface4(idd* self, LPDDSURFACEDESC2 lpDDSurfaceDes
         return DDERR_INVALIDOBJECT;
     }
 
-    // TODO Enter
+    ENTER("%s, 0x%p, 0x%p", ddsurfacedesc2_to_string(lpDDSurfaceDesc), lplpDDSurface, pUnkOuter);
 
     if (lpDDSurfaceDesc == NULL || lplpDDSurface == NULL || pUnkOuter != NULL) {
         LEAVE(DDERR_INVALIDPARAMS);
@@ -934,7 +932,7 @@ HRESULT SUGARCALL idd_create_surface7(idd* self, LPDDSURFACEDESC2 lpDDSurfaceDes
         return DDERR_INVALIDOBJECT;
     }
 
-    // TODO Enter
+    ENTER("%s, 0x%p, 0x%p", ddsurfacedesc2_to_string(lpDDSurfaceDesc), lplpDDSurface, pUnkOuter);
 
     if (lpDDSurfaceDesc == NULL || lplpDDSurface == NULL || pUnkOuter != NULL) {
         LEAVE(DDERR_INVALIDPARAMS);

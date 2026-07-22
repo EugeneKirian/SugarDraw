@@ -5,7 +5,7 @@
 #include "ddsd.h"
 #include "driver.h"
 
-#define FREQUENCY       60
+#define FREQUENCY       60 /* TODO Settings*/
 
 #define WAIT_NONE       0
 
@@ -28,7 +28,8 @@ HRESULT ddg_create(sugar* manager, driver* driver, ddg** object) {
 
         instance->done = CreateEventA(NULL, FALSE, FALSE, NULL);
         instance->stop = CreateEventA(NULL, FALSE, FALSE, NULL);
-        instance->waitable = CreateEventA(NULL, TRUE, TRUE, NULL);
+        instance->ready = CreateEventA(NULL, TRUE, TRUE, NULL);
+        instance->updating = CreateEventA(NULL, TRUE, TRUE, NULL);
         instance->worker = CreateThread(NULL, 0, ddg_worker, instance, CREATE_SUSPENDED, NULL);
 
         *object = instance;
@@ -47,7 +48,8 @@ void ddg_release(ddg* self) {
 
         CloseHandle(self->done);
         CloseHandle(self->stop);
-        CloseHandle(self->waitable);
+        CloseHandle(self->ready);
+        CloseHandle(self->updating);
         CloseHandle(self->worker);
 
         ddsd_release(self->surface);
@@ -57,6 +59,58 @@ void ddg_release(ddg* self) {
 
         allocator_free(self->manager->allocator, self);
     }
+}
+
+HRESULT ddg_get_status(ddg* self, u32* status) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (status == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if (self->surface == NULL) {
+        return DDERR_NOTINITIALIZED;
+    }
+
+    *status = self->status;
+
+    return DD_OK;
+}
+
+HRESULT ddg_is_ready(ddg* self, bool wait) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (self->status & DDGSTATUS_UPDATING) {
+        if (wait) {
+            return WaitForSingleObject(self->ready, INFINITE) == WAIT_OBJECT_0
+                ? DD_OK : DDERR_GENERIC;
+        }
+
+        return DDERR_WASSTILLDRAWING;
+    }
+
+    return DD_OK;
+}
+
+HRESULT ddg_is_updating(ddg* self, bool wait) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (!(self->status & DDGSTATUS_UPDATING)) {
+        if (wait) {
+            return WaitForSingleObject(self->updating, INFINITE) == WAIT_OBJECT_0
+                ? DD_OK : DDERR_GENERIC;
+        }
+
+        return DDERR_SURFACEBUSY;
+    }
+
+    return DD_OK;
 }
 
 HRESULT ddg_initialize(ddg* self, dd* object) {
@@ -141,36 +195,6 @@ HRESULT ddg_recreate_surface(ddg* self) {
     return hr;
 }
 
-HRESULT ddg_get_status(ddg* self, u32 flags, u32* status) {
-    if (self == NULL) {
-        return DDERR_INVALIDOBJECT;
-    }
-
-    if (flags & ~(DDGSTATUS_SIGNALED | DDGSTATUS_UPDATING)) {
-        return DDERR_INVALIDPARAMS;
-    }
-
-    if (status == NULL) {
-        return DDERR_INVALIDPARAMS;
-    }
-
-    if (self->surface == NULL) {
-        return DDERR_NOTINITIALIZED;
-    }
-
-    if (flags & DDGSTATUS_SIGNALED) {
-        *status = self->update
-            ? DDGSTATUS_SIGNALED : DDGSTATUS_NONE;
-    }
-
-    if (flags & DDGSTATUS_UPDATING) {
-        *status = self->updating
-            ? DDGSTATUS_UPDATING : DDGSTATUS_NONE;
-    }
-
-    return DD_OK;
-}
-
 HRESULT ddg_signal_update(ddg* self) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
@@ -180,24 +204,7 @@ HRESULT ddg_signal_update(ddg* self) {
         return DDERR_NOTINITIALIZED;
     }
 
-    InterlockedExchange(&self->update, TRUE);
-
-    return DD_OK;
-}
-
-HRESULT ddg_can_update(ddg* self, bool wait) {
-    if (self == NULL) {
-        return DDERR_INVALIDOBJECT;
-    }
-
-    if (self->updating) {
-        if (!wait) {
-            return DDERR_WASSTILLDRAWING;
-        }
-
-        return WaitForSingleObject(self->waitable, INFINITE) == WAIT_OBJECT_0
-            ? DD_OK : DDERR_GENERIC;
-    }
+    self->status |= DDGSTATUS_SIGNALED;
 
     return DD_OK;
 }
@@ -227,14 +234,14 @@ DWORD WINAPI ddg_worker(ddg* self) {
 
         if (self->instance != NULL
             && self->instance->primary != NULL
-            && self->update && !self->updating) {
+            && (self->status & DDGSTATUS_SIGNALED)) {
             QueryPerformanceCounter(&now);
 
             if (now.QuadPart - time.QuadPart >= interval.QuadPart) {
-                ResetEvent(self->waitable);
+                ResetEvent(self->ready);
+                SetEvent(self->updating);
                 EnterCriticalSection(&self->lock);
-                InterlockedExchange(&self->update, FALSE);
-                InterlockedExchange(&self->updating, TRUE);
+                self->status = DDGSTATUS_UPDATING;
 
                 sleep = FALSE;
                 time.QuadPart = now.QuadPart;
@@ -284,12 +291,13 @@ DWORD WINAPI ddg_worker(ddg* self) {
                     }
                 }
 
-                InterlockedExchange(&self->updating, FALSE);
+                self->status &= ~DDGSTATUS_UPDATING;
                 LeaveCriticalSection(&self->lock);
+                ResetEvent(self->updating);
             }
         }
 
-        SetEvent(self->waitable);
+        SetEvent(self->ready);
 
         if (sleep) { Sleep(1); }
     }
@@ -356,4 +364,3 @@ HRESULT ddg_stop_worker(ddg* self) {
 
     return DD_OK;
 }
-

@@ -6,14 +6,19 @@
 #include "dds.h"
 #include "utilities.h"
 
-HRESULT dds_create(sugar* manager, dds** object) {
+HRESULT dds_create(sugar* manager, u32 flags, dds** object) {
     if (manager == NULL || object == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if (flags != DDS_NONE && (flags & ~DDS_VALID)) {
         return DDERR_INVALIDPARAMS;
     }
 
     HRESULT hr = DD_OK;
     dds* instance = NULL;
     if (SUCCEEDED(hr = allocator_allocate(manager->allocator, MEM_TAG_DIRECTDRAWSURFACE, sizeof(dds), &instance))) {
+        instance->flags = flags;
         instance->manager = manager;
         if (SUCCEEDED(hr = intfc_create(manager->allocator, MEM_TAG_DIRECTDRAWSURFACE, &instance->interfaces))) {
             if (SUCCEEDED(hr = connector_create(manager->allocator, MEM_TAG_DIRECTDRAWSURFACE, &instance->attachments))) {
@@ -64,7 +69,19 @@ void dds_release(dds* self, u32 flags) {
         }
 
         if (self->attachments != NULL) {
-            // TODO attachments
+            const s32 item_count = connector_get_count(self->attachments);
+            for (s32 i = 0; i < item_count; i++) {
+                iddsconn connector;
+                ZeroMemory(&connector, sizeof(iddsconn));
+                if (SUCCEEDED(connector_get_item(self->attachments, i, &connector))) {
+                    idds* intfc = NULL;
+                    if (SUCCEEDED(dds_get_interface(connector.instance, &connector.id, &intfc))) {
+                        idds_remove_ref(intfc);
+                    }
+                }
+            }
+
+            connector_release(self->attachments);
         }
 
         if (self->overlay.target.instance != NULL) {
@@ -363,7 +380,7 @@ HRESULT dds_blt_fast(dds* self, u32 x, u32 y, dds* surface, RECT* rect, u32 tran
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
-    if (SUCCEEDED(hr = ddg_can_update(self->graphics, transfer & DDBLTFAST_WAIT))) {
+    if (SUCCEEDED(hr = ddg_is_ready(self->graphics, transfer & DDBLTFAST_WAIT))) {
         if (SUCCEEDED(hr = ddsd_blt_fast(self->surface, &dst, surface->surface, &src, transfer))) {
             if (self->desc.ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACE) {
                 hr = ddg_signal_update(self->graphics);
@@ -472,7 +489,7 @@ HRESULT dds_flip(dds* self, dds* override, u32 flags) {
         goto exit;
     }
 
-    if (SUCCEEDED(hr = ddg_can_update(self->graphics, flags & DDFLIP_WAIT))) {
+    if (SUCCEEDED(hr = ddg_is_ready(self->graphics, flags & DDFLIP_WAIT))) {
         target->surface = InterlockedExchangePointer(&self->surface, target->surface);
 
         if ((self->desc.ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACE)
@@ -582,19 +599,19 @@ HRESULT dds_get_blt_status(dds* self, u32 flags) {
         u32 count = 0;
         if (SUCCEEDED(hr = ddsd_get_lock_count(self->surface, &count))) {
             if (count == 0) {
-                if (self->desc.ddsCaps.dwCaps & DDPCAPS_PRIMARYSURFACE) {
-                    return ddg_can_update(self->graphics, FALSE);
+                if (self->desc.ddsCaps.dwCaps & (DDSCAPS_PRIMARYSURFACE | DDSCAPS_OVERLAY)) {
+                    return ddg_is_ready(self->graphics, FALSE);
                 }
 
-                return DD_OK;
+                return hr;
             }
 
             return DDERR_SURFACEBUSY;
         }
     }
     else if (flags & DDGBS_ISBLTDONE) {
-        if (self->desc.ddsCaps.dwCaps & DDPCAPS_PRIMARYSURFACE) {
-            return ddg_can_update(self->graphics, FALSE);
+        if (self->desc.ddsCaps.dwCaps & (DDSCAPS_PRIMARYSURFACE | DDSCAPS_OVERLAY)) {
+            return ddg_is_ready(self->graphics, FALSE);
         }
     }
 
@@ -720,7 +737,7 @@ HRESULT dds_get_dc(dds* self, HDC* hdc) {
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
-    if (SUCCEEDED(hr = ddg_can_update(self->graphics, FALSE))) {
+    if (SUCCEEDED(hr = ddg_is_ready(self->graphics, FALSE))) {
         HDC dc;
         if (SUCCEEDED(hr = ddsd_get_dc(self->surface, &dc))) {
             if (self->desc.ddsCaps.dwCaps & DDSCAPS_PALETTE) {
@@ -963,13 +980,11 @@ HRESULT dds_initialize(dds* self, dd* object, DDSURFACEDESC2* desc) {
         back.ddsCaps.dwCaps |= DDSCAPS_BACKBUFFER;
         back.dwBackBufferCount = 0;
 
-        // TODO set implicit ?
-
         for (u32 i = 0; i < self->desc.dwBackBufferCount; i++) {
             dds* instance = NULL;
             // TODO. Should this be done using dd_create_surface?
             // Should the back buffers to be enumeratable as surfaces directly via dd_enumerate_surfaces?
-            if (SUCCEEDED(hr = dds_create(self->manager, &instance))) {
+            if (SUCCEEDED(hr = dds_create(self->manager, DDS_IMPLICIT, &instance))) {
                 if (SUCCEEDED(hr = dds_initialize(instance, self->instance, &back))) {
                     idds* intfc = NULL;
                     // TODO pick proper interface. Tests needed.
@@ -1031,7 +1046,7 @@ HRESULT dds_lock(dds* self, RECT* rect, DDSURFACEDESC2* desc, u32 flags) {
     // TODO ModeX
 
     HRESULT hr = DD_OK;
-    if (SUCCEEDED(hr = ddg_can_update(self->graphics, flags & DDLOCK_WAIT))) {
+    if (SUCCEEDED(hr = ddg_is_ready(self->graphics, flags & DDLOCK_WAIT))) {
         RECT lock;
         if (SUCCEEDED(hr = dds_get_rect(self, rect, &lock))) {
             if (!IsValidRect(&lock)) {
@@ -1843,6 +1858,21 @@ HRESULT dds_remove_palette(dds* self) {
     ZeroMemory(&self->palette, sizeof(iddpconn));
 
     return DD_OK;
+}
+
+HRESULT dds_set_palette_entries(dds* self, u32 start, u32 count, RGBQUAD* quads) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    HRESULT hr = DD_OK;
+    if (SUCCEEDED(hr = ddsd_set_palette(self->surface, start, count, quads))) {
+        if (self->desc.ddsCaps.dwCaps & (DDSCAPS_PRIMARYSURFACE | DDSCAPS_OVERLAY)) {
+            hr = ddg_signal_update(self->graphics);
+        }
+    }
+
+    return hr;
 }
 
 HRESULT dds_register_overlay(dds* self, iddsconn* overlay) {

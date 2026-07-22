@@ -431,10 +431,18 @@ HRESULT sugar_set_display_mode(sugar* self, u32 width, u32 height, u32 bpp, u32 
     mode.dmSize = sizeof(DEVMODEA);
     mode.dmPelsWidth = width;
     mode.dmPelsHeight = height;
+
+    // TODO: Simulation: We should not change real bpp of the display at all,
+    // because the graphics layer is 32 bit anyway,
+    // moreover, Windows don't like non-32 bit depth anyway these days.
+
     mode.dmBitsPerPel = bpp;
-    mode.dmDisplayFrequency = rate == 0
-        ? self->modes.initial.dmDisplayFrequency : rate;
-    mode.dmFields = DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT | DM_DISPLAYFREQUENCY;
+    mode.dmFields = DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT;
+
+    if (rate != 0) {
+        mode.dmDisplayFrequency = rate;
+        mode.dmFields |= DM_DISPLAYFREQUENCY;
+    }
 
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
@@ -501,7 +509,7 @@ HRESULT sugar_supports_display_mode(sugar* self, const DEVMODEA* mode) {
 
         if ((mode->dmFields & DM_PELSHEIGHT)
             && (current->dmFields & DM_PELSHEIGHT)) {
-            if (mode->dmDisplayFrequency != current->dmDisplayFrequency) {
+            if (mode->dmPelsHeight != current->dmPelsHeight) {
                 continue;
             }
         }

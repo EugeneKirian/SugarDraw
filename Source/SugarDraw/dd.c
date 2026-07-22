@@ -249,15 +249,19 @@ HRESULT dd_create_clipper(dd* self, void** object) {
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
-    iddc* instance = NULL;
-    if (SUCCEEDED(hr = sugar_create_ddc(self->manager,
-        &CLSID_DirectDrawClipper, &IID_IDirectDrawClipper, &instance))) {
-        if (SUCCEEDED(hr = ddc_initialize(instance->instance, self))) {
-            *object = instance;
-            goto exit;
+    ddc* instance = NULL;
+    if (SUCCEEDED(hr = ddc_create(self->manager, &CLSID_DirectDrawClipper, &instance))) {
+        if (SUCCEEDED(hr = ddc_initialize(instance, self))) {
+            idd* intfc = NULL;
+            if (SUCCEEDED(hr = ddc_query_interface(instance, &IID_IDirectDrawClipper, &intfc))) {
+                if (SUCCEEDED(hr = arr_add_item(self->clippers, instance))) {
+                    *object = intfc;
+                    goto exit;
+                }
+            }
         }
 
-        ddc_release(instance->instance, RELEASE_NOTIFY);
+        ddc_release(instance, RELEASE_NONE);
     }
 
 exit:
@@ -535,7 +539,7 @@ HRESULT dd_create_surface(dd* self, const GUID* riid, DDSURFACEDESC2* desc, void
     EnterCriticalSection(&self->lock);
 
     dds* instance = NULL;
-    if (SUCCEEDED(hr = dds_create(self->manager, &instance))) {
+    if (SUCCEEDED(hr = dds_create(self->manager, DDS_NONE, &instance))) {
         if (SUCCEEDED(hr = dds_initialize(instance, self, desc))) {
             idds* intfc = NULL;
             if (SUCCEEDED(hr = dds_query_interface(instance, riid, &intfc))) {
@@ -706,6 +710,31 @@ HRESULT dd_get_display_mode(dd* self, DDSURFACEDESC2* desc) {
         desc->dwHeight = mode.dmPelsHeight;
         desc->dwRefreshRate = mode.dmDisplayFrequency;
         // TODO pixel format
+        desc->ddpfPixelFormat.dwSize = sizeof(DDPIXELFORMAT);
+        desc->ddpfPixelFormat.dwFlags = DDPF_RGB;
+        desc->ddpfPixelFormat.dwRGBBitCount = mode.dmBitsPerPel;
+        switch (desc->ddpfPixelFormat.dwRGBBitCount) {
+        case 1:
+        case 2:
+        case 4: {
+            // TODO
+        }break;
+        case 8: {
+            // TODO
+        }break;
+        case 16: {
+            // TODO
+        }break;
+        case 24: {
+            // TODO
+        }break;
+        case 32: {
+            desc->ddpfPixelFormat.dwRGBAlphaBitMask = 0xFF000000;
+            desc->ddpfPixelFormat.dwRBitMask = 0x00FF0000;
+            desc->ddpfPixelFormat.dwGBitMask = 0x0000FF00;
+            desc->ddpfPixelFormat.dwBBitMask = 0x000000FF;
+        }break;
+        }
     }
 
     LeaveCriticalSection(&self->lock);
@@ -809,9 +838,17 @@ HRESULT dd_get_vertical_blank_status(dd* self, bool* status) {
         return DDERR_NOTINITIALIZED;
     }
 
-    // TODO get the driver vblank status
+    HRESULT hr = DD_OK;
+    EnterCriticalSection(&self->lock);
 
-    return DDERR_UNSUPPORTED; // TODO
+    u32 value = DDGSTATUS_NONE;
+    hr = ddg_get_status(self->graphics, &value);
+
+    *status = !(value & DDGSTATUS_UPDATING);
+
+    LeaveCriticalSection(&self->lock);
+
+    return hr;
 }
 
 HRESULT dd_initialize(dd* self, const GUID* device) {
@@ -930,6 +967,10 @@ HRESULT dd_set_cooperative_level(dd* self, HWND hwnd, u32 flags) {
 
     if (self->graphics == NULL) {
         return DDERR_NOTINITIALIZED;
+    }
+
+    if (self->cooperation.hwnd == hwnd && self->cooperation.flags == flags) {
+        return DD_OK;
     }
 
     // TODO ModeX
@@ -1053,16 +1094,21 @@ HRESULT dd_wait_for_vertical_blank(dd* self, u32 flags, HANDLE event) {
         return DDERR_INVALIDOBJECT;
     }
 
-    // TODO validate dwFlags
-    // TODO validate hEvent
+    if (flags == DDWAITVB_NONE || (flags & ~DDWAITVB_VALID)) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if (event != NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
 
     if (self->graphics == NULL) {
         return DDERR_NOTINITIALIZED;
     }
 
-    // TODO proper implementation
-
-    return DDERR_UNSUPPORTED; // TODO
+    return (flags & DDWAITVB_BLOCKBEGIN)
+        ? ddg_is_ready(self->graphics, TRUE)
+        : ddg_is_updating(self->graphics, TRUE);
 }
 
 HRESULT dd_get_available_vid_mem(dd* self, DDSCAPS2* caps, u32* total, u32* free) {

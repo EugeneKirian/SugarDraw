@@ -12,6 +12,10 @@ typedef struct dd dd;
 typedef struct ddcc ddcc;
 typedef struct ddg ddg;
 
+#define DDS_NONE                0x00000000L
+#define DDS_IMPLICIT            0x00000001L
+#define DDS_VALID               (DDS_IMPLICIT)
+
 typedef struct overlayinfo {
     u32                 flags;
     RECT                src, dst;
@@ -24,6 +28,7 @@ typedef struct dds {
     dd*                 instance;
     intfc*              interfaces;
     connector*          attachments;
+    u32                 flags;
     ddg*                graphics;
     CRITICAL_SECTION    lock;
     DDSURFACEDESC2      desc;
@@ -34,11 +39,9 @@ typedef struct dds {
     ddsd*               surface;
     overlayinfo         overlay;
     connector*          overlays;
-    u32                 implicit; // TODO DDERR_IMPLICITLYCREATED
-    // TODO: see implicit documentation at Creating Complex Surfaces and Flipping Chains
 } dds;
 
-HRESULT dds_create(sugar* manager, dds** object);
+HRESULT dds_create(sugar* manager, u32 flags, dds** object);
 void dds_release(dds* self, u32 flags);
 HRESULT dds_get_interface(dds* self, const GUID* riid, void** object);
 
@@ -102,6 +105,8 @@ HRESULT dds_query_gamma_control(dds* self, const GUID* riid, void** object);
 HRESULT dds_remove_color_control(dds* self);
 HRESULT dds_remove_gamma_control(dds* self);
 HRESULT dds_remove_palette(dds* self);
+
+HRESULT dds_set_palette_entries(dds* self, u32 start, u32 count, RGBQUAD* quads);
 
 HRESULT dds_register_overlay(dds* self, iddsconn* overlay);
 HRESULT dds_unregister_overlay(dds* self, iddsconn* overlay);

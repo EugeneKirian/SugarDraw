@@ -165,7 +165,7 @@ HRESULT SUGARCALL iddc_is_clip_list_changed(iddc* self, LPBOOL lpbChanged) {
         return DDERR_INVALIDOBJECT;
     }
 
-    ENTER("%p", lpbChanged);
+    ENTER("0x%p", lpbChanged);
 
     if (lpbChanged == NULL) {
         LEAVE(DDERR_INVALIDPARAMS);

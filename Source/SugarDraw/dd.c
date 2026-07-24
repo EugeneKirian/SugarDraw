@@ -831,9 +831,29 @@ HRESULT dd_get_scan_line(dd* self, u32* line) {
         return DDERR_NOTINITIALIZED;
     }
 
-    // TODO
+    HRESULT hr = DD_OK;
+    EnterCriticalSection(&self->lock);
 
-    return DDERR_UNSUPPORTED; // TODO
+    u32 status = DDGSTATUS_NONE;
+    if (SUCCEEDED(hr = ddg_get_status(self->graphics, &status))) {
+        if (status & DDGSTATUS_UPDATING) {
+            DEVMODEA mode;
+            ZeroMemory(&mode, sizeof(DEVMODEA));
+            mode.dmSize = sizeof(DEVMODEA);
+
+            if (SUCCEEDED(hr = sugar_get_display_mode(self->manager, &mode))) {
+                *line = mode.dmPelsHeight;
+                goto exit;
+            }
+        }
+    }
+
+    *line = 0;
+
+exit:
+    LeaveCriticalSection(&self->lock);
+
+    return hr;
 }
 
 HRESULT dd_get_vertical_blank_status(dd* self, bool* status) {

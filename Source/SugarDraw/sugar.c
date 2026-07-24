@@ -1,7 +1,8 @@
 #include "cf.h"
+#include "converter.h"
 #include "dd.h"
 #include "ddc.h"
-#include "converter.h"
+#include "ddf.h"
 
 #define CDS_NONE            0x00000000
 
@@ -59,8 +60,8 @@ void sugar_release(sugar* self) {
         }
 
         if (self->items != NULL) {
-            const s32 item_count = arr_get_count(self->items);
-            for (s32 i = 0; i < item_count; i++) {
+            const u32 item_count = arr_get_count(self->items);
+            for (u32 i = 0; i < item_count; i++) {
                 dd* instance = NULL;
                 if (SUCCEEDED(arr_get_item(self->items, i, &instance))) {
                     dd_release(instance, RELEASE_NONE);
@@ -71,8 +72,8 @@ void sugar_release(sugar* self) {
         }
 
         if (self->cfs != NULL) {
-            const s32 item_count = arr_get_count(self->cfs);
-            for (s32 i = 0; i < item_count; i++) {
+            const u32 item_count = arr_get_count(self->cfs);
+            for (u32 i = 0; i < item_count; i++) {
                 cf* instance = NULL;
                 if (SUCCEEDED(arr_get_item(self->cfs, i, &instance))) {
                     cf_release(instance, RELEASE_NONE);
@@ -83,11 +84,11 @@ void sugar_release(sugar* self) {
         }
 
         if (self->ddfs != NULL) {
-            const s32 item_count = arr_get_count(self->ddfs);
-            for (s32 i = 0; i < item_count; i++) {
-                cf* instance = NULL;
+            const u32 item_count = arr_get_count(self->ddfs);
+            for (u32 i = 0; i < item_count; i++) {
+                ddf* instance = NULL;
                 if (SUCCEEDED(arr_get_item(self->ddfs, i, &instance))) {
-                    cf_release(instance, RELEASE_NONE);
+                    ddf_release(instance, RELEASE_NONE);
                 }
             }
 
@@ -176,21 +177,8 @@ HRESULT sugar_remove_cf(sugar* self, cf* object) {
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
-    const s32 item_count = arr_get_count(self->cfs);
-    for (s32 i = 0; i < item_count; i++) {
-        cf* instance = NULL;
-        if (SUCCEEDED(hr = arr_get_item(self->cfs, i, &instance))) {
-            if (instance == object) {
-                if (SUCCEEDED(hr = arr_remove_item(self->cfs, i))) {
-                    goto exit;
-                }
-            }
-        }
-    }
+    hr = arr_remove_item(self->cfs, object);
 
-    hr = DDERR_NOTFOUND;
-
-exit:
     LeaveCriticalSection(&self->lock);
 
     return hr;
@@ -246,25 +234,12 @@ HRESULT sugar_remove_dd(sugar* self, dd* object) {
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
-    const s32 item_count = arr_get_count(self->items);
-    for (s32 i = 0; i < item_count; i++) {
-        dd* instance = NULL;
-        if (SUCCEEDED(hr = arr_get_item(self->items, i, &instance))) {
-            if (instance == object) {
-                if (SUCCEEDED(hr = arr_remove_item(self->items, i))) {
-                    if (self->exclusive == object) {
-                        self->exclusive = NULL;
-                    }
-
-                    goto exit;
-                }
-            }
+    if (SUCCEEDED(hr = arr_remove_item(self->items, object))) {
+        if (self->exclusive == object) {
+            self->exclusive = NULL;
         }
     }
 
-    hr = DDERR_NOTFOUND;
-
-exit:
     LeaveCriticalSection(&self->lock);
 
     return hr;
@@ -319,21 +294,8 @@ HRESULT sugar_remove_ddc(sugar* self, ddc* object) {
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
-    const s32 item_count = arr_get_count(self->clippers);
-    for (s32 i = 0; i < item_count; i++) {
-        ddc* instance = NULL;
-        if (SUCCEEDED(hr = arr_get_item(self->clippers, i, &instance))) {
-            if (instance == object) {
-                if (SUCCEEDED(hr = arr_remove_item(self->clippers, i))) {
-                    goto exit;
-                }
-            }
-        }
-    }
+    hr = arr_remove_item(self->clippers, object);
 
-    hr = DDERR_NOTFOUND;
-
-exit:
     LeaveCriticalSection(&self->lock);
 
     return hr;
@@ -351,21 +313,8 @@ HRESULT sugar_remove_ddf(sugar* self, ddf* object) {
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
-    const s32 item_count = arr_get_count(self->ddfs);
-    for (s32 i = 0; i < item_count; i++) {
-        ddf* instance = NULL;
-        if (SUCCEEDED(hr = arr_get_item(self->ddfs, i, &instance))) {
-            if (instance == object) {
-                if (SUCCEEDED(hr = arr_remove_item(self->ddfs, i))) {
-                    goto exit;
-                }
-            }
-        }
-    }
+    hr = arr_remove_item(self->ddfs, object);
 
-    hr = DDERR_NOTFOUND;
-
-exit:
     LeaveCriticalSection(&self->lock);
 
     return hr;

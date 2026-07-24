@@ -14,11 +14,11 @@ HRESULT ddgc_create(sugar* manager, ddgc** object) {
         if (SUCCEEDED(hr = intfc_create(manager->allocator, MEM_TAG_DIRECTDRAWGAMMACONTROL, &instance->interfaces))) {
             InitializeCriticalSection(&instance->lock);
 
-            // TODO correct values...
+            // Linear interpolation from 0 to 65,535 (inclusive).
             for (u32 i = 0; i < 256; i++) {
                 instance->control.red[i] =
                     instance->control.green[i] =
-                    instance->control.blue[i] = i * i;
+                    instance->control.blue[i] = i * 257;
             }
 
             *object = instance;

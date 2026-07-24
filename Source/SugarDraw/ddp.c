@@ -47,8 +47,8 @@ void ddp_release(ddp* self, u32 flags) {
 
         if (self->surfaces != NULL) {
             // This should never happen...
-            const s32 item_count = arr_get_count(self->surfaces);
-            for (s32 i = 0; i < item_count; i++) {
+            const u32 item_count = arr_get_count(self->surfaces);
+            for (u32 i = 0; i < item_count; i++) {
                 dds* instance = NULL;
                 if (SUCCEEDED(arr_get_item(self->surfaces, i, &instance))) {
                     dds_remove_palette(instance);
@@ -267,8 +267,8 @@ HRESULT ddp_set_entries(ddp* self, u32 flags, u32 start, u32 count, PALETTEENTRY
     }
 
     if (SUCCEEDED(hr = palette_entry_to_rgb_quad(&self->entries[start], count, &self->quads[start]))) {
-        const s32 item_count = arr_get_count(self->surfaces);
-        for (s32 i = 0; i < item_count; i++) {
+        const u32 item_count = arr_get_count(self->surfaces);
+        for (u32 i = 0; i < item_count; i++) {
             dds* instance = NULL;
             if (SUCCEEDED(arr_get_item(self->surfaces, i, &instance))) {
                 hr = dds_set_palette_entries(instance, start, count, self->quads);
@@ -316,20 +316,8 @@ HRESULT ddp_unregister_surface(ddp* self, dds* surface) {
 
     // TODO update caps with DDPCAPS_PRIMARYSURFACE, DDPCAPS_PRIMARYSURFACELEFT
 
-    const s32 item_count = arr_get_count(self->surfaces);
-    for (s32 i = 0; i < item_count; i++) {
-        dds* instance = NULL;
-        if (SUCCEEDED(arr_get_item(self->surfaces, i, &instance))) {
-            if (instance == surface) {
-                hr = arr_remove_item(self->surfaces, i);
-                goto exit;
-            }
-        }
-    }
+    hr = arr_remove_item(self->surfaces, surface);
 
-    hr = DDERR_NOTFOUND;
-
-exit:
     LeaveCriticalSection(&self->lock);
 
     return hr;

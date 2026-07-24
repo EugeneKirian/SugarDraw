@@ -40,7 +40,7 @@ HRESULT SUGARCALL icf_create(sugar* manager, const GUID* riid, icf** object) {
     LOGENTER(manager->logger, "%s, 0x%p", guid_to_string(riid), object);
 
     if (riid == NULL || object == NULL) {
-        return DDERR_INVALIDPARAMS;
+        LOGLEAVE(manager->logger, DDERR_INVALIDPARAMS);
     }
 
     if (!IsEqualGUID(&IID_IUnknown, riid)
@@ -90,11 +90,11 @@ ULONG SUGARCALL icf_add_ref(icf* self) {
         return 0;
     }
 
-    return InterlockedIncrement(&self->refs);
+    REFCOUNT(InterlockedIncrement(&self->refs));
 }
 
 ULONG SUGARCALL icf_remove_ref(icf* self) {
-    if (self == NULL || self->refs == 0) {
+    if (self == NULL) {
         return 0;
     }
 
@@ -110,7 +110,7 @@ ULONG SUGARCALL icf_remove_ref(icf* self) {
         icf_release(self);
     }
 
-    return result;
+    REFCOUNT(result);
 }
 
 HRESULT SUGARCALL icf_create_instance(icf* self, LPUNKNOWN pUnkOuter, REFIID riid, LPVOID* ppOut) {

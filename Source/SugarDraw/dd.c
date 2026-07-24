@@ -62,8 +62,8 @@ void dd_release(dd* self, u32 flags) {
         }
 
         if (self->surfaces != NULL) {
-            const s32 item_count = arr_get_count(self->surfaces);
-            for (s32 i = 0; i < item_count; i++) {
+            const u32 item_count = arr_get_count(self->surfaces);
+            for (u32 i = 0; i < item_count; i++) {
                 dds* instance = NULL;
                 if (SUCCEEDED(arr_get_item(self->surfaces, i, &instance))) {
                     dds_release(instance, RELEASE_NONE);
@@ -74,8 +74,8 @@ void dd_release(dd* self, u32 flags) {
         }
 
         if (self->palettes != NULL) {
-            const s32 item_count = arr_get_count(self->palettes);
-            for (s32 i = 0; i < item_count; i++) {
+            const u32 item_count = arr_get_count(self->palettes);
+            for (u32 i = 0; i < item_count; i++) {
                 ddp* instance = NULL;
                 if (SUCCEEDED(arr_get_item(self->palettes, i, &instance))) {
                     ddp_release(instance, RELEASE_NONE);
@@ -86,8 +86,8 @@ void dd_release(dd* self, u32 flags) {
         }
 
         if (self->clippers != NULL) {
-            const s32 item_count = arr_get_count(self->clippers);
-            for (s32 i = 0; i < item_count; i++) {
+            const u32 item_count = arr_get_count(self->clippers);
+            for (u32 i = 0; i < item_count; i++) {
                 ddc* instance = NULL;
                 if (SUCCEEDED(arr_get_item(self->clippers, i, &instance))) {
                     ddc_release(instance, RELEASE_NONE);
@@ -355,6 +355,12 @@ HRESULT dd_create_surface(dd* self, const GUID* riid, DDSURFACEDESC2* desc, void
         return DDERR_NOTINITIALIZED;
     }
 
+    // TODO
+    // Unlike the CreateSurface method exposed by the IDirectDraw3 and earlier interfaces, you cannot use IDirectDraw7::CreateSurface
+    // to implicitly create a flipping chain of render target surfaces with an attached depth-buffer.
+    // The DDSURFACEDESC2 structure that the IDirectDraw7::CreateSurface method accepts doesn't contain a field to specify a depth-buffer bit depth.
+    // As a result, applications must create a depth-buffer surface explicitly, then attach it to the back-buffer render target surface. For more information, see Depth Buffers.
+
     // TODO incomplete validations...
     // TODO move most of validations into separate function, so that it can be reused by ::Initialize
 
@@ -614,6 +620,11 @@ HRESULT dd_enum_surfaces(dd* self) {
     }
 
     // TODO
+    // If the DDENUMSURFACES_CANBECREATED flag is set, this method attempts
+    // to temporarily create a surface that meets the search criterion.
+    // When using the DDENUMSURFACES_DOESEXIST flag, an enumerated surface's reference count
+    // is incremented—if you are not going to use the surface, be sure to use IDirectDrawSurface7::Release
+    // to release it after each enumeration. If you will be using the surface, release it when it is no longer needed.
 
     return DDERR_UNSUPPORTED; // TODO
 }
@@ -903,15 +914,8 @@ HRESULT dd_restore_display_mode(dd* self) {
     // TODO DDERR_LOCKEDSURFACES 
 
     if (SUCCEEDED(hr = sugar_restore_display_mode(self->manager))) {
-        DEVMODEA mode;
-        ZeroMemory(&mode, sizeof(DEVMODEA));
-        mode.dmSize = sizeof(DEVMODEA);
-
-        if (SUCCEEDED(hr = sugar_get_display_mode(self->manager, &mode))) {
-            if (!(self->cooperation.flags & DDSCL_NOWINDOWCHANGES)) {
-                SetWindowPos(self->cooperation.hwnd,
-                    HWND_TOPMOST, 0, 0, mode.dmPelsWidth, mode.dmPelsHeight, SWP_SHOWWINDOW);
-            }
+        if (!(self->cooperation.flags & DDSCL_NOWINDOWCHANGES)) {
+            SetWindowPos(self->cooperation.hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOACTIVATE);
         }
     }
 
@@ -929,22 +933,22 @@ HRESULT dd_set_cooperative_level(dd* self, HWND hwnd, u32 flags) {
         return DDERR_INVALIDPARAMS;
     }
 
-    // The FPU flags are exclusive.
     if ((flags & DDSCL_FPUSETUP) && (flags & DDSCL_FPUPRESERVE)) {
         return DDERR_INVALIDPARAMS;
     }
 
-    // Must specify DDSCL_EXCLUSIVE or DDSCL_NORMAL when DDSCL_SETFOCUSWINDOW is not set.
     if (!(flags & (DDSCL_EXCLUSIVE | DDSCL_NORMAL)) && !(flags & DDSCL_SETFOCUSWINDOW)) {
         return DDERR_INVALIDPARAMS;
     }
 
-    // Flag DDSCL_EXCLUSIVE has to be combined with DDSCL_FULLSCREEN.
     if ((flags & DDSCL_EXCLUSIVE) && !(flags & DDSCL_FULLSCREEN)) {
         return DDERR_INVALIDPARAMS;
     }
 
-    // Check if provided window is a valid window om DDSCL_EXCLUSIVE mode.
+    if ((flags & DDSCL_ALLOWMODEX) && !(flags & DDSCL_FULLSCREEN)) {
+        return DDERR_INVALIDPARAMS;
+    }
+
     if ((flags & DDSCL_EXCLUSIVE) && !(flags & DDSCL_CREATEDEVICEWINDOW)) {
         if (hwnd == NULL) {
             return DDERR_INVALIDPARAMS;
@@ -965,6 +969,14 @@ HRESULT dd_set_cooperative_level(dd* self, HWND hwnd, u32 flags) {
         }
     }
 
+    // TODO DDSCL_ALLOWMODEX
+    // TODO DDSCL_DONTHOOKHWND
+    // TODO DDSCL_SETFOCUSWINDOW
+    // TODO DDSCL_CREATEDEVICEWINDOW
+    // TODO DDSCL_SETDEVICEWINDOW
+
+    // TODO DDERR_HWNDALREADYSET
+
     if (self->graphics == NULL) {
         return DDERR_NOTINITIALIZED;
     }
@@ -973,13 +985,12 @@ HRESULT dd_set_cooperative_level(dd* self, HWND hwnd, u32 flags) {
         return DD_OK;
     }
 
-    // TODO ModeX
-
+    // TODO It is allowed to switch, but the surfaces are lost
     if (arr_get_count(self->surfaces) != 0 || arr_get_count(self->palettes) != 0) {
-        return DDERR_UNSUPPORTED; // TODO proper error code...
+        return DDERR_UNSUPPORTED;
     }
 
-    // TODO DDERR_HWNDALREADYSET
+    // TODO window hooking, is it needed?
 
     // Restore display mode when user changes the mode from exclusive to normal.
     const bool reset_display_mode = (flags & DDSCL_NORMAL)
@@ -1024,8 +1035,8 @@ HRESULT dd_set_cooperative_level(dd* self, HWND hwnd, u32 flags) {
 
         if (SUCCEEDED(hr = sugar_get_display_mode(self->manager, &mode))) {
             if (!(self->cooperation.flags & DDSCL_NOWINDOWCHANGES)) {
-                SetWindowPos(self->cooperation.hwnd,
-                    HWND_TOPMOST, 0, 0, mode.dmPelsWidth, mode.dmPelsHeight, SWP_SHOWWINDOW);
+                SetWindowPos(self->cooperation.hwnd, HWND_TOPMOST,
+                    0, 0, mode.dmPelsWidth, mode.dmPelsHeight, SWP_SHOWWINDOW);
             }
         }
     }
@@ -1065,6 +1076,8 @@ HRESULT dd_set_display_mode(dd* self, u32 width, u32 height, u32 bpp, u32 rate, 
     // TODO: Per documentation - check for locked surfaces, or still drawing...
 
     // TODO: Read documentation about IDirectDraw7::SetCooperativeLevel interaction with ::SetDisplayMode and ::RestoreDisplayMode
+
+    // TODO multi-monitor suport
 
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
@@ -1281,20 +1294,8 @@ HRESULT dd_remove_clipper(dd* self, ddc* clipper) {
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
-    const s32 item_count = arr_get_count(self->clippers);
-    for (s32 i = 0; i < item_count; i++) {
-        ddc* instance = NULL;
-        if (SUCCEEDED(hr = arr_get_item(self->clippers, i, &instance))) {
-            if (instance == clipper) {
-                hr = arr_remove_item(self->clippers, i);
-                goto exit;
-            }
-        }
-    }
+    hr = arr_remove_item(self->clippers, clipper);
 
-    hr = DDERR_NOTFOUND;
-
-exit:
     LeaveCriticalSection(&self->lock);
 
     return hr;
@@ -1312,20 +1313,8 @@ HRESULT dd_remove_palette(dd* self, ddp* palette) {
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
-    const s32 item_count = arr_get_count(self->palettes);
-    for (s32 i = 0; i < item_count; i++) {
-        ddp* instance = NULL;
-        if (SUCCEEDED(hr = arr_get_item(self->palettes, i, &instance))) {
-            if (instance == palette) {
-                hr = arr_remove_item(self->palettes, i);
-                goto exit;
-            }
-        }
-    }
+    hr = arr_remove_item(self->palettes, palette);
 
-    hr = DDERR_NOTFOUND;
-
-exit:
     LeaveCriticalSection(&self->lock);
 
     return hr;
@@ -1343,24 +1332,12 @@ HRESULT dd_remove_surface(dd* self, dds* surface) {
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
-    const s32 item_count = arr_get_count(self->surfaces);
-    for (s32 i = 0; i < item_count; i++) {
-        dds* instance = NULL;
-        if (SUCCEEDED(hr = arr_get_item(self->surfaces, i, &instance))) {
-            if (instance == surface) {
-                hr = arr_remove_item(self->surfaces, i);
-                if (self->primary == surface) {
-                    self->primary = NULL;
-                }
-
-                goto exit;
-            }
+    if (SUCCEEDED(hr = arr_remove_item(self->surfaces, surface))) {
+        if (self->primary == surface) {
+            self->primary = NULL;
         }
     }
 
-    hr = DDERR_NOTFOUND;
-
-exit:
     LeaveCriticalSection(&self->lock);
 
     return hr;

@@ -10,7 +10,7 @@ typedef struct conn {
 
 struct connector {
     allocator*          allocator;
-    s32                 count, capacity;
+    u32                 count, capacity;
     conn*               items;
     CRITICAL_SECTION    lock;
 };
@@ -55,12 +55,12 @@ void connector_release(connector* self) {
     }
 }
 
-HRESULT connector_add_item(connector* self, void* item) {
+HRESULT connector_add_item(connector* self, void* object) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (item == NULL) {
+    if (object == NULL) {
         return DDERR_INVALIDPARAMS;
     }
 
@@ -73,7 +73,7 @@ HRESULT connector_add_item(connector* self, void* item) {
         }
     }
 
-    CopyMemory(&self->items[self->count++], item, sizeof(conn));
+    CopyMemory(&self->items[self->count++], object, sizeof(conn));
 
 exit:
     LeaveCriticalSection(&self->lock);
@@ -81,7 +81,7 @@ exit:
     return hr;
 }
 
-HRESULT connector_get_item(connector* self, s32 index, void* object) {
+HRESULT connector_get_item(connector* self, u32 index, void* object) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
@@ -97,7 +97,7 @@ HRESULT connector_get_item(connector* self, s32 index, void* object) {
     return DD_OK;
 }
 
-HRESULT connector_remove_item(connector* self, s32 index) {
+HRESULT connector_remove_item(connector* self, u32 index) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
@@ -119,7 +119,7 @@ HRESULT connector_remove_item(connector* self, s32 index) {
     return DD_OK;
 }
 
-s32 connector_get_count(connector* self) {
+u32 connector_get_count(connector* self) {
     return self == NULL ? 0 : self->count;
 }
 
@@ -138,4 +138,3 @@ HRESULT connector_resize(connector* self) {
 
     return hr;
 }
-

@@ -40,6 +40,11 @@ HRESULT logger_log(logger* self, log_level level, const char* format, ...);
         "%s() -> %s 0x%p", __FUNCTION__, hresult_to_string(__exit__), R);       \
     return __exit__;
 
+#define REFCOUNT(X)                                                                                 \
+    const ULONG __count__ = X;                                                                      \
+    logger_log(self->logger, LOG_LEVEL_INFO, "0x%p->%s() -> %d", self, __FUNCTION__, __count__);    \
+    return __count__;
+
 #else
 #define ENTER(M, ...)
 #define LOGENTER(LOG, M, ...)
@@ -47,6 +52,8 @@ HRESULT logger_log(logger* self, log_level level, const char* format, ...);
 #define LEAVE(X)                    return X;
 #define LOGLEAVE(LOG, X)            return X;
 #define LOGLEAVESELF(LOG, X, R)     return X;
+
+#define REFCOUNT(X)                 return X;
 #endif
 
 #define ERR(M, ...)         logger_log(self->logger, LOG_LEVEL_ERROR, "0x%p->%s()"##M##, self, __FUNCTION__, ##__VA_ARGS__)

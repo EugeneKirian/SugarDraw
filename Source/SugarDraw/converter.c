@@ -18,11 +18,35 @@ typedef struct flag {
 #define DDID_COUNT                  26
 static const identifier ddid[DDID_COUNT];
 
+#define DDBLT_FLAG_COUNT            27
+static const flag ddblts[DDBLT_FLAG_COUNT];
+
+#define DDBLTFAST_FLAG_COUNT        5
+static const flag ddbltfasts[DDBLTFAST_FLAG_COUNT];
+
+#define DDBLTFX_FLAG_COUNT          9
+static const flag ddbltfxs[DDBLTFX_FLAG_COUNT];
+
+#define DDCOLOR_FLAG_COUNT          7
+static const flag ddcolors[DDCOLOR_FLAG_COUNT];
+
+#define DDEDM_FLAG_COUNT            2
+static const flag ddedms[DDEDM_FLAG_COUNT];
+
 #define DDENUM_FLAG_COUNT           3
 static const flag ddenums[DDENUM_FLAG_COUNT];
 
+#define DDENUMSURFACE_FLAG_COUNT    5
+static const flag ddenumsurfaces[DDENUMSURFACE_FLAG_COUNT];
+
 #define DDFLIP_FLAG_COUNT           9
 static const flag ddflips[DDFLIP_FLAG_COUNT];
+
+#define DDGBS_FLAG_COUNT            2
+static const flag ddgbss[DDGBS_FLAG_COUNT];
+
+#define DDGDI_FLAG_COUNT            1
+static const flag ddgdis[DDGDI_FLAG_COUNT];
 
 #define DDLOCK_FLAG_COUNT           12
 static const flag ddlocks[DDLOCK_FLAG_COUNT];
@@ -83,6 +107,46 @@ const char* devmodea_to_string(const DEVMODEA* mode) {
     return messages[result];
 }
 
+const char* ddbltfx_to_string(const DDBLTFX* effects) {
+    if (effects == NULL) {
+        return "NULL";
+    }
+
+    const u32 result =
+        index = (index + 1) % CONVERTER_MAX_MESSAGE_COUNT;
+
+    // TODO incomplete
+
+    sprintf(messages[result],
+        "{ dwSize = %u, dwDDFX = %s }",
+        effects->dwSize, flag_to_string(effects->dwDDFX, DDBLTFX_FLAG_COUNT, ddbltfxs));
+
+    return messages[result];
+}
+
+const char* ddcolorcontrol_to_string(const DDCOLORCONTROL* control) {
+    if (control == NULL) {
+        return "NULL";
+    }
+
+    const u32 result =
+        index = (index + 1) % CONVERTER_MAX_MESSAGE_COUNT;
+
+    sprintf(messages[result],
+        "{ dwSize = %u, dwFlags = %s, "
+        "lBrightness = %d, lContrast = %d, "
+        "lHue = %d, lSaturation = %d, "
+        "lSharpness = %d, lGamma = %d, "
+        "lColorEnable = %d }",
+        control->dwSize, flag_to_string(control->dwFlags, DDCOLOR_FLAG_COUNT, ddcolors),
+        control->lBrightness, control->lContrast,
+        control->lHue, control->lSaturation,
+        control->lSharpness, control->lGamma,
+        control->lColorEnable);
+
+    return messages[result];
+}
+
 const char* ddcolorkey_to_string(const DDCOLORKEY* key) {
     if (key == NULL) {
         return "NULL";
@@ -116,7 +180,7 @@ const char* ddpixelformat_to_string(const DDPIXELFORMAT* format) {
     return messages[result];
 }
 
-const char* ddscaps1_to_string(const DDSCAPS* caps) {
+const char* ddscaps_to_string(const DDSCAPS* caps) {
     if (caps == NULL) {
         return "NULL";
     }
@@ -164,7 +228,7 @@ const char* ddsurfacedesc_to_string(const DDSURFACEDESC* desc) {
         "ddpfPixelFormat = %s, ddsCaps = %s }",
         desc->dwSize, ddsd_to_string(desc->dwFlags),
         desc->dwHeight, desc->dwWidth,
-        ddpixelformat_to_string(&desc->ddpfPixelFormat), ddscaps1_to_string(&desc->ddsCaps));
+        ddpixelformat_to_string(&desc->ddpfPixelFormat), ddscaps_to_string(&desc->ddsCaps));
 
     return messages[result];
 }
@@ -191,12 +255,36 @@ const char* ddsurfacedesc2_to_string(const DDSURFACEDESC2* desc) {
     return messages[result];
 }
 
+const char* ddblt_to_string(const u32 flags) {
+    return flag_to_string(flags, DDBLT_FLAG_COUNT, ddblts);
+}
+
+const char* ddbltfast_to_string(const u32 flags) {
+    return flag_to_string(flags, DDBLTFAST_FLAG_COUNT, ddbltfasts);
+}
+
+const char* ddedm_to_string(const u32 flags) {
+    return flag_to_string(flags, DDEDM_FLAG_COUNT, ddedms);
+}
+
 const char* ddenum_to_string(const u32 flags) {
     return flag_to_string(flags, DDENUM_FLAG_COUNT, ddenums);
 }
 
+const char* ddenumsurfaces_to_string(const u32 flags) {
+    return flag_to_string(flags, DDENUMSURFACE_FLAG_COUNT, ddenumsurfaces);
+}
+
 const char* ddflip_to_string(const u32 flags) {
     return flag_to_string(flags, DDFLIP_FLAG_COUNT, ddflips);
+}
+
+const char* ddgbs_to_string(const u32 flags) {
+    return flag_to_string(flags, DDGBS_FLAG_COUNT, ddgbss);
+}
+
+const char* ddgdi_to_string(const u32 flags) {
+    return flag_to_string(flags, DDGDI_FLAG_COUNT, ddgdis);
 }
 
 const char* ddlock_to_string(const u32 flags) {
@@ -524,10 +612,83 @@ const identifier ddid[DDID_COUNT] = {
     { &IID_IDirectDrawVideoPortNotify,  "IID_IDirectDrawVideoPortNotify" }
 };
 
+const flag ddblts[DDBLT_FLAG_COUNT] = {
+    { DDBLT_DONOTWAIT,                  "DDBLT_DONOTWAIT" },
+    { DDBLT_DEPTHFILL,                  "DDBLT_DEPTHFILL" },
+    { DDBLT_WAIT,                       "DDBLT_WAIT" },
+    { DDBLT_ZBUFFERSRCOVERRIDE,         "DDBLT_ZBUFFERSRCOVERRIDE" },
+    { DDBLT_ZBUFFERSRCCONSTOVERRIDE,    "DDBLT_ZBUFFERSRCCONSTOVERRIDE" },
+    { DDBLT_ZBUFFERDESTOVERRIDE,        "DDBLT_ZBUFFERDESTOVERRIDE" },
+    { DDBLT_ZBUFFERDESTCONSTOVERRIDE,   "DDBLT_ZBUFFERDESTCONSTOVERRIDE" },
+    { DDBLT_ZBUFFER,                    "DDBLT_ZBUFFER" },
+    { DDBLT_ROTATIONANGLE,              "DDBLT_ROTATIONANGLE" },
+    { DDBLT_ROP,                        "DDBLT_ROP" },
+    { DDBLT_KEYSRCOVERRIDE,             "DDBLT_KEYSRCOVERRIDE" },
+    { DDBLT_KEYSRC,                     "DDBLT_KEYSRC" },
+    { DDBLT_KEYDESTOVERRIDE,            "DDBLT_KEYDESTOVERRIDE" },
+    { DDBLT_KEYDEST,                    "DDBLT_KEYDEST" },
+    { DDBLT_DDROPS,                     "DDBLT_DDROPS" },
+    { DDBLT_DDFX,                       "DDBLT_DDFX" },
+    { DDBLT_COLORFILL,                  "DDBLT_COLORFILL" },
+    { DDBLT_ASYNC,                      "DDBLT_ASYNC" },
+    { DDBLT_ALPHASRCSURFACEOVERRIDE,    "DDBLT_ALPHASRCSURFACEOVERRIDE" },
+    { DDBLT_ALPHASRCNEG,                "DDBLT_ALPHASRCNEG" },
+    { DDBLT_ALPHASRCCONSTOVERRIDE,      "DDBLT_ALPHASRCCONSTOVERRIDE" },
+    { DDBLT_ALPHASRC,                   "DDBLT_ALPHASRC" },
+    { DDBLT_ALPHAEDGEBLEND,             "DDBLT_ALPHAEDGEBLEND" },
+    { DDBLT_ALPHADESTSURFACEOVERRIDE,   "DDBLT_ALPHADESTSURFACEOVERRIDE" },
+    { DDBLT_ALPHADESTNEG,               "DDBLT_ALPHADESTNEG" },
+    { DDBLT_ALPHADESTCONSTOVERRIDE,     "DDBLT_ALPHADESTCONSTOVERRIDE" },
+    { DDBLT_ALPHADEST,                  "DDBLT_ALPHADEST" }
+};
+
+const flag ddbltfasts[DDBLTFAST_FLAG_COUNT] = {
+    { DDBLTFAST_DONOTWAIT,              "DDBLTFAST_DONOTWAIT" },
+    { DDBLTFAST_WAIT,                   "DDBLTFAST_WAIT" },
+    { DDBLTFAST_DESTCOLORKEY,           "DDBLTFAST_DESTCOLORKEY" },
+    { DDBLTFAST_SRCCOLORKEY,            "DDBLTFAST_SRCCOLORKEY" },
+    { DDBLTFAST_NOCOLORKEY,             "DDBLTFAST_NOCOLORKEY" }
+};
+
+const flag ddbltfxs[DDBLTFX_FLAG_COUNT] = {
+    { DDBLTFX_ZBUFFERBASEDEST,          "DDBLTFX_ZBUFFERBASEDEST" },
+    { DDBLTFX_ZBUFFERRANGE,             "DDBLTFX_ZBUFFERRANGE" },
+    { DDBLTFX_ROTATE90,                 "DDBLTFX_ROTATE90" },
+    { DDBLTFX_ROTATE270,                "DDBLTFX_ROTATE270" },
+    { DDBLTFX_ROTATE180,                "DDBLTFX_ROTATE180" },
+    { DDBLTFX_NOTEARING,                "DDBLTFX_NOTEARING" },
+    { DDBLTFX_MIRRORUPDOWN,             "DDBLTFX_MIRRORUPDOWN" },
+    { DDBLTFX_MIRRORLEFTRIGHT,          "DDBLTFX_MIRRORLEFTRIGHT" },
+    { DDBLTFX_ARITHSTRETCHY,            "DDBLTFX_ARITHSTRETCHY" }
+};
+
+const flag ddcolors[DDCOLOR_FLAG_COUNT] = {
+    { DDCOLOR_COLORENABLE,              "DDCOLOR_COLORENABLE"},
+    { DDCOLOR_GAMMA,                    "DDCOLOR_GAMMA" },
+    { DDCOLOR_SHARPNESS,                "DDCOLOR_SHARPNESS" },
+    { DDCOLOR_SATURATION,               "DDCOLOR_SATURATION" },
+    { DDCOLOR_HUE,                      "DDCOLOR_HUE" },
+    { DDCOLOR_CONTRAST,                 "DDCOLOR_CONTRAST" },
+    { DDCOLOR_BRIGHTNESS,               "DDCOLOR_BRIGHTNESS" }
+};
+
+const flag ddedms[DDEDM_FLAG_COUNT] = {
+    { DDEDM_STANDARDVGAMODES,           "DDEDM_STANDARDVGAMODES" },
+    { DDEDM_REFRESHRATES,               "DDEDM_REFRESHRATES" }
+};
+
 const flag ddenums[DDENUM_FLAG_COUNT] = {
     { DDENUM_NONDISPLAYDEVICES,         "DDENUM_NONDISPLAYDEVICES" },
     { DDENUM_DETACHEDSECONDARYDEVICES,  "DDENUM_DETACHEDSECONDARYDEVICES" },
     { DDENUM_ATTACHEDSECONDARYDEVICES,  "DDENUM_ATTACHEDSECONDARYDEVICES" }
+};
+
+const flag ddenumsurfaces[DDENUMSURFACE_FLAG_COUNT] = {
+    { DDENUMSURFACES_DOESEXIST,         "DDENUMSURFACES_DOESEXIST" },
+    { DDENUMSURFACES_CANBECREATED,      "DDENUMSURFACES_CANBECREATED" },
+    { DDENUMSURFACES_NOMATCH,           "DDENUMSURFACES_NOMATCH" },
+    { DDENUMSURFACES_MATCH,             "DDENUMSURFACES_MATCH" },
+    { DDENUMSURFACES_ALL,               "DDENUMSURFACES_ALL" }
 };
 
 const flag ddflips[DDFLIP_FLAG_COUNT] = {
@@ -540,6 +701,15 @@ const flag ddflips[DDFLIP_FLAG_COUNT] = {
     { DDFLIP_ODD,                       "DDFLIP_ODD" },
     { DDFLIP_EVEN,                      "DDFLIP_EVEN" },
     { DDFLIP_WAIT,                      "DDFLIP_WAIT" }
+};
+
+const flag ddgbss[DDGBS_FLAG_COUNT] = {
+    { DDGBS_ISBLTDONE,                  "DDGBS_ISBLTDONE" },
+    { DDGBS_CANBLT,                     "DDGBS_CANBLT" }
+};
+
+static const flag ddgdis[DDGDI_FLAG_COUNT] = {
+    { DDGDI_GETHOSTIDENTIFIER,          "DDGDI_GETHOSTIDENTIFIER" }
 };
 
 const flag ddlocks[DDLOCK_FLAG_COUNT] = {

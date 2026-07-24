@@ -61,7 +61,7 @@ HRESULT SUGARCALL iddf_create(sugar* manager, const GUID* riid, iddf** object) {
     LOGENTER(manager->logger, "%s, 0x%p", guid_to_string(riid), object);
 
     if (riid == NULL || object == NULL) {
-        return DDERR_INVALIDPARAMS;
+        LOGLEAVE(manager->logger, DDERR_INVALIDPARAMS);
     }
 
     if (!IsEqualGUID(&IID_IUnknown, riid)
@@ -114,11 +114,11 @@ ULONG SUGARCALL iddf_add_ref(iddf* self) {
         return 0;
     }
 
-    return InterlockedIncrement(&self->refs);
+    REFCOUNT(InterlockedIncrement(&self->refs));
 }
 
 ULONG SUGARCALL iddf_remove_ref(iddf* self) {
-    if (self == NULL || self->refs == 0) {
+    if (self == NULL) {
         return 0;
     }
 
@@ -134,7 +134,7 @@ ULONG SUGARCALL iddf_remove_ref(iddf* self) {
         iddf_release(self);
     }
 
-    return result;
+    REFCOUNT(result);
 }
 
 HRESULT SUGARCALL iddf_create_direct_draw1(iddf* self, GUID* pGUID, HWND hWnd, DWORD dwCoopLevelFlags, DWORD dwReserved, LPUNKNOWN pUnkOuter, LPDIRECTDRAW* ppDirectDraw) {

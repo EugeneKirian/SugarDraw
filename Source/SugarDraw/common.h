@@ -93,10 +93,16 @@
 
 #define DDPCAPS_VALID							DDPCAPS_ALL
 
+#define DDBLT_NONE                              0x00000000L
+#define DDBLT_VALID                             (DDBLT_ALPHADEST | DDBLT_ALPHADESTCONSTOVERRIDE | DDBLT_ALPHADESTNEG | DDBLT_ALPHADESTSURFACEOVERRIDE \
+                                                    | DDBLT_ALPHAEDGEBLEND | DDBLT_ALPHASRC | DDBLT_ALPHASRCCONSTOVERRIDE | DDBLT_ALPHASRCNEG \
+                                                    | DDBLT_ALPHASRCSURFACEOVERRIDE | DDBLT_ASYNC | DDBLT_COLORFILL | DDBLT_DDFX | DDBLT_DDROPS \
+                                                    | DDBLT_KEYDEST | DDBLT_KEYDESTOVERRIDE | DDBLT_KEYSRC | DDBLT_KEYSRCOVERRIDE | DDBLT_ROP \
+                                                    | DDBLT_ROTATIONANGLE | DDBLT_ZBUFFER | DDBLT_ZBUFFERDESTCONSTOVERRIDE | DDBLT_ZBUFFERDESTOVERRIDE \
+                                                    | DDBLT_ZBUFFERSRCCONSTOVERRIDE | DDBLT_ZBUFFERSRCOVERRIDE | DDBLT_WAIT | DDBLT_DEPTHFILL | DDBLT_DONOTWAIT)
 
 #define DDBLTFAST_NONE                          DDBLTFAST_NOCOLORKEY
-#define DDBLTFAST_VALID                         (DDBLTFAST_NOCOLORKEY | DDBLTFAST_SRCCOLORKEY | DDBLTFAST_DESTCOLORKEY \
-                                                    | DDBLTFAST_WAIT | DDBLTFAST_DONOTWAIT)
+#define DDBLTFAST_VALID                         (DDBLTFAST_NOCOLORKEY | DDBLTFAST_SRCCOLORKEY | DDBLTFAST_DESTCOLORKEY | DDBLTFAST_WAIT | DDBLTFAST_DONOTWAIT)
 
 #define DDCKEY_NONE                             0x00000000L
 #define DDCKEY_VALID		                    (DDCKEY_COLORSPACE | DDCKEY_DESTBLT	| DDCKEY_DESTOVERLAY | DDCKEY_SRCBLT | DDCKEY_SRCOVERLAY)
@@ -242,4 +248,5 @@ const extern GUID IID_IDirectDrawFactory2;
 
 #define CompareMemory(a, b, size)               (memcmp(a, b, size) == 0)
 
+BOOL IsInsideRect(const RECT* bounds, const RECT* rect);
 BOOL IsValidRect(const RECT* rect);

@@ -5,7 +5,7 @@
 
 struct arr {
     allocator*          allocator;
-    s32                 count, capacity;
+    u32                 count, capacity;
     void**              items;
     CRITICAL_SECTION    lock;
 };
@@ -50,12 +50,12 @@ void arr_release(arr* self) {
     }
 }
 
-HRESULT arr_add_item(arr* self, void* item) {
+HRESULT arr_add_item(arr* self, void* object) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (item == NULL) {
+    if (object == NULL) {
         return DDERR_INVALIDPARAMS;
     }
 
@@ -68,7 +68,7 @@ HRESULT arr_add_item(arr* self, void* item) {
         }
     }
 
-    self->items[self->count++] = item;
+    self->items[self->count++] = object;
 
 exit:
     LeaveCriticalSection(&self->lock);
@@ -76,7 +76,7 @@ exit:
     return hr;
 }
 
-HRESULT arr_get_item(arr* self, s32 index, void** object) {
+HRESULT arr_get_item(arr* self, u32 index, void** object) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
@@ -86,35 +86,75 @@ HRESULT arr_get_item(arr* self, s32 index, void** object) {
     }
 
     EnterCriticalSection(&self->lock);
+
     *object = self->items[index];
+
     LeaveCriticalSection(&self->lock);
 
     return DD_OK;
 }
 
-HRESULT arr_remove_item(arr* self, s32 index) {
+HRESULT arr_remove_item(arr* self, const void* object) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (self->count < index + 1) {
+    if (object == NULL) {
         return DDERR_INVALIDPARAMS;
     }
 
+    HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
-    if (self->count != index + 1) {
-        MoveMemory(&self->items[index],
-            &self->items[index + 1], (self->count - index - 1) * sizeof(void*));
+    for (u32 i = 0; i < self->count; i++) {
+        if (self->items[i] == object) {
+            if (self->count != i + 1) {
+                MoveMemory(&self->items[i],
+                    &self->items[i + 1], (self->count - i - 1) * sizeof(void*));
+            }
+
+            self->count--;
+
+            goto exit;
+        }
     }
 
-    self->count--;
+    hr = DDERR_NOTFOUND;
+
+exit:
     LeaveCriticalSection(&self->lock);
 
-    return DD_OK;
+    return hr;
 }
 
-s32 arr_get_count(arr* self) {
+HRESULT arr_get_index(arr* self, const void* object, u32* index) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (object == NULL || index == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    HRESULT hr = DD_OK;
+    EnterCriticalSection(&self->lock);
+
+    for (u32 i = 0; i < self->count; i++) {
+        if (self->items[i] == object) {
+            *index = i;
+            goto exit;
+        }
+    }
+
+    hr = DDERR_NOTFOUND;
+
+exit:
+    LeaveCriticalSection(&self->lock);
+
+    return hr;
+}
+
+u32 arr_get_count(arr* self) {
     return self == NULL ? 0 : self->count;
 }
 

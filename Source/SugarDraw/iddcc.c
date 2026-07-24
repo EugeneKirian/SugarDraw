@@ -91,11 +91,11 @@ ULONG SUGARCALL iddcc_add_ref(iddcc* self) {
         return 0;
     }
 
-    return InterlockedIncrement(&self->refs);
+    REFCOUNT(InterlockedIncrement(&self->refs));
 }
 
 ULONG SUGARCALL iddcc_remove_ref(iddcc* self) {
-    if (self == NULL || self->refs == 0) {
+    if (self == NULL) {
         return 0;
     }
 
@@ -111,7 +111,7 @@ ULONG SUGARCALL iddcc_remove_ref(iddcc* self) {
         iddcc_release(self);
     }
 
-    return result;
+    REFCOUNT(result);
 }
 
 HRESULT SUGARCALL iddcc_get_color_controls(iddcc* self, LPDDCOLORCONTROL lpColorControl) {
@@ -137,7 +137,7 @@ HRESULT SUGARCALL iddcc_set_color_controls(iddcc* self, LPDDCOLORCONTROL lpColor
         return DDERR_INVALIDOBJECT;
     }
 
-    ENTER("0x%p", lpColorControl);
+    ENTER("%s", ddcolorcontrol_to_string(lpColorControl));
 
     if (lpColorControl == NULL) {
         LEAVE(DDERR_INVALIDPARAMS);

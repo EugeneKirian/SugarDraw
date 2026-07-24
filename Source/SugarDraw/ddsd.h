@@ -37,5 +37,6 @@ HRESULT ddsd_change_uniqueness_value(ddsd* self);
 
 HRESULT ddsd_get_lock_count(ddsd* self, u32* count);
 HRESULT ddsd_get_rect(ddsd* self, RECT* rect);
+HRESULT ddsd_inside_rect(ddsd* self, RECT* rect);
 HRESULT ddsd_lock_rect(ddsd* self, RECT* rect);
 HRESULT ddsd_unlock_rect(ddsd* self, RECT* rect);

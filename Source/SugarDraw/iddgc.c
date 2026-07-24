@@ -91,11 +91,11 @@ ULONG SUGARCALL iddgc_add_ref(iddgc* self) {
         return 0;
     }
 
-    return InterlockedIncrement(&self->refs);
+    REFCOUNT(InterlockedIncrement(&self->refs));
 }
 
 ULONG SUGARCALL iddgc_remove_ref(iddgc* self) {
-    if (self == NULL || self->refs == 0) {
+    if (self == NULL) {
         return 0;
     }
 
@@ -111,7 +111,7 @@ ULONG SUGARCALL iddgc_remove_ref(iddgc* self) {
         iddgc_release(self);
     }
 
-    return result;
+    REFCOUNT(result);
 }
 
 HRESULT SUGARCALL iddgc_get_gamma_ramp(iddgc* self, DWORD dwFlags, LPDDGAMMARAMP lpRampData) {
@@ -119,7 +119,7 @@ HRESULT SUGARCALL iddgc_get_gamma_ramp(iddgc* self, DWORD dwFlags, LPDDGAMMARAMP
         return DDERR_INVALIDOBJECT;
     }
 
-    ENTER("0x%08X 0x%p", dwFlags, lpRampData);
+    ENTER("0x%08X, 0x%p", dwFlags, lpRampData);
 
     if (dwFlags != DDGGR_NONE) {
         LEAVE(DDERR_INVALIDPARAMS);
@@ -137,7 +137,7 @@ HRESULT SUGARCALL iddgc_set_gamma_ramp(iddgc* self, DWORD dwFlags, LPDDGAMMARAMP
         return DDERR_INVALIDOBJECT;
     }
 
-    ENTER("%s 0x%p", ddsgr_to_string(dwFlags), lpRampData);
+    ENTER("%s, 0x%p", ddsgr_to_string(dwFlags), lpRampData);
 
     if (dwFlags != DDSGR_NONE && dwFlags != DDSGR_CALIBRATE) {
         LEAVE(DDERR_INVALIDPARAMS);

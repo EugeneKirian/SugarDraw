@@ -11,6 +11,7 @@
 typedef struct dd dd;
 typedef struct ddcc ddcc;
 typedef struct ddg ddg;
+typedef struct ddsfc ddsfc;
 
 #define DDS_NONE                0x00000000L
 #define DDS_IMPLICIT            0x00000001L
@@ -28,6 +29,7 @@ typedef struct dds {
     dd*                 instance;
     intfc*              interfaces;
     connector*          attachments;
+    ddsfc*              chain;
     u32                 flags;
     ddg*                graphics;
     CRITICAL_SECTION    lock;

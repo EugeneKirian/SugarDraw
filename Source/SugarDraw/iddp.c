@@ -85,6 +85,8 @@ HRESULT SUGARCALL iddp_query_interface(iddp* self, const GUID* riid, void** obje
         return DDERR_INVALIDOBJECT;
     }
 
+    ENTER("%s, 0x%p", guid_to_string(riid), object);
+
     LEAVE(ddp_query_interface(self->instance, riid, object));
 }
 
@@ -93,11 +95,11 @@ ULONG SUGARCALL iddp_add_ref(iddp* self) {
         return 0;
     }
 
-    return InterlockedIncrement(&self->refs);
+    REFCOUNT(InterlockedIncrement(&self->refs));
 }
 
 ULONG SUGARCALL iddp_remove_ref(iddp* self) {
-    if (self == NULL || self->refs == 0) {
+    if (self == NULL) {
         return 0;
     }
 
@@ -113,13 +115,15 @@ ULONG SUGARCALL iddp_remove_ref(iddp* self) {
         iddp_release(self);
     }
 
-    return result;
+    REFCOUNT(result);
 }
 
 HRESULT SUGARCALL iddp_get_caps(iddp* self, LPDWORD lpdwCaps) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
+
+    ENTER("0x%p", lpdwCaps);
 
     LEAVE(ddp_get_caps(self->instance, lpdwCaps));
 }
@@ -129,6 +133,8 @@ HRESULT SUGARCALL iddp_get_entries(iddp* self, DWORD dwFlags, DWORD dwBase, DWOR
         return DDERR_INVALIDOBJECT;
     }
 
+    ENTER("0x%08X, %u, %u, 0x%p", dwFlags, dwBase, dwNumEntries, lpEntries);
+
     LEAVE(ddp_get_entries(self->instance, dwFlags, dwBase, dwNumEntries, lpEntries));
 }
 
@@ -136,6 +142,8 @@ HRESULT SUGARCALL iddp_initialize(iddp* self, LPDIRECTDRAW lpDD, DWORD dwFlags, 
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
+
+    ENTER("0x%p, 0x%08X, 0x%p", lpDD, dwFlags, lpDDColorTable);
 
     if (lpDD == NULL || dwFlags != DDPCAPS_NONE || lpDDColorTable != NULL) {
         LEAVE(DDERR_INVALIDPARAMS);
@@ -148,6 +156,8 @@ HRESULT SUGARCALL iddp_set_entries(iddp* self, DWORD dwFlags, DWORD dwStartingEn
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
+
+    ENTER("0x%08X, %u, %u, 0x%p", dwFlags, dwStartingEntry, dwCount, lpEntries);
 
     LEAVE(ddp_set_entries(self->instance, dwFlags, dwStartingEntry, dwCount, lpEntries));
 }

@@ -103,11 +103,11 @@ ULONG SUGARCALL iddc_add_ref(iddc* self) {
         return 0;
     }
 
-    return InterlockedIncrement(&self->refs);
+    REFCOUNT(InterlockedIncrement(&self->refs));
 }
 
 ULONG SUGARCALL iddc_remove_ref(iddc* self) {
-    if (self == NULL || self->refs == 0) {
+    if (self == NULL) {
         return 0;
     }
 
@@ -123,7 +123,7 @@ ULONG SUGARCALL iddc_remove_ref(iddc* self) {
         iddc_release(self);
     }
 
-    return result;
+    REFCOUNT(result);
 }
 
 HRESULT SUGARCALL iddc_get_clip_list(iddc* self, LPRECT lpRect, LPRGNDATA lpClipList, LPDWORD lpdwSize) {

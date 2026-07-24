@@ -244,6 +244,9 @@ HRESULT ddsd_blt_fast(ddsd* self, RECT* dst, ddsd* surface, RECT* src, u32 trans
     }
 
     if (self == surface) {
+        // TODO Blitting Basics
+        // The destination and source surfaces can be one and the same, and you don't have to worry
+        // about overlap - DirectDraw takes care to preserve all source pixels before overwriting them.
         return DDERR_UNSUPPORTED; // TODO need to support!
     }
 
@@ -633,6 +636,31 @@ HRESULT ddsd_get_rect(ddsd* self, RECT* rect) {
     return DD_OK;
 }
 
+HRESULT ddsd_inside_rect(ddsd* self, RECT* rect) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (rect == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if (!IsValidRect(rect)) {
+        return DDERR_INVALIDRECT;
+    }
+
+    if (self->data == NULL) {
+        return DDERR_NOTINITIALIZED;
+    }
+
+    RECT bounds;
+    ZeroMemory(&bounds, sizeof(RECT));
+    bounds.right = (s32)self->desc.dwWidth;
+    bounds.bottom = (s32)self->desc.dwHeight;
+
+    return IsInsideRect(&bounds, rect) ? DD_OK : DDERR_INVALIDRECT;
+}
+
 HRESULT ddsd_lock_rect(ddsd* self, RECT* rect) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
@@ -646,18 +674,12 @@ HRESULT ddsd_lock_rect(ddsd* self, RECT* rect) {
         return DDERR_INVALIDRECT;
     }
 
-    if (rect->right < 0 || rect->bottom < 0
-        || (s32)self->desc.dwWidth < rect->left
-        || (s32)self->desc.dwHeight < rect->top) {
-        return DDERR_INVALIDRECT;
+    HRESULT hr = DD_OK;
+    if (SUCCEEDED(hr = ddsd_inside_rect(self, rect))) {
+        hr = lock_acquire(self->locks, rect);
     }
 
-    //if ((s32)self->desc.dwWidth < rect->left + rect->right
-    //    || (s32)self->desc.dwHeight < rect->top + rect->bottom) {
-    //    return DDERR_INVALIDRECT;
-    //}
-
-    return lock_acquire(self->locks, rect);
+    return hr;
 }
 
 HRESULT ddsd_unlock_rect(ddsd* self, RECT* rect) {

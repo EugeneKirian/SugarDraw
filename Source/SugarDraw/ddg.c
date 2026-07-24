@@ -260,8 +260,8 @@ DWORD WINAPI ddg_worker(ddg* self) {
                         // Blit the primary surface into the grahics surface.
                         if (SUCCEEDED(hr = ddsd_blt_fast(self->surface, &dst, surface, &src, DDBLTFAST_NOCOLORKEY))) {
                             // Blit all visible overlays on top of the primary surface into the graphics surface.
-                            const s32 item_count = connector_get_count(primary->overlays);
-                            for (s32 i = 0; i < item_count; i++) {
+                            const u32 item_count = connector_get_count(primary->overlays);
+                            for (u32 i = 0; i < item_count; i++) {
                                 iddsconn connector;
                                 ZeroMemory(&connector, sizeof(iddsconn));
                                 if (SUCCEEDED(hr = connector_get_item(primary->overlays, i, &connector))) {
@@ -281,10 +281,12 @@ DWORD WINAPI ddg_worker(ddg* self) {
                                     HDC hdc = GetDC(hwnd);
                                     RECT rect;
                                     GetClientRect(hwnd, &rect);
-                                    
+
                                     ClientToScreen(hwnd, (POINT*)&rect);
                                     BitBlt(hdc, 0, 0, rect.right, rect.bottom, sdc, rect.left, rect.top, SRCCOPY);
                                     hr = ddsd_release_dc(self->surface, sdc);
+
+                                    InvalidateRect(hwnd, NULL, FALSE); // Some windows might need WM_PAINT message.
                                 }
                             }
                         }

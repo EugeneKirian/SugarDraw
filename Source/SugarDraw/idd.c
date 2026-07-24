@@ -421,11 +421,11 @@ ULONG SUGARCALL idd_add_ref(idd* self) {
         return 0;
     }
 
-    return InterlockedIncrement(&self->refs);
+    REFCOUNT(InterlockedIncrement(&self->refs));
 }
 
 ULONG SUGARCALL idd_remove_ref(idd* self) {
-    if (self == NULL || self->refs == 0) {
+    if (self == NULL) {
         return 0;
     }
 
@@ -441,7 +441,7 @@ ULONG SUGARCALL idd_remove_ref(idd* self) {
         idd_release(self);
     }
 
-    return result;
+    REFCOUNT(result);
 }
 
 HRESULT SUGARCALL idd_compact(idd* self) {
@@ -524,7 +524,7 @@ HRESULT SUGARCALL idd_enum_display_modes1(idd* self, DWORD dwFlags, LPDDSURFACED
         return DDERR_INVALIDOBJECT;
     }
 
-    // TODO Enter
+    ENTER("%s, %s, 0x%p, 0x%p", ddedm_to_string(dwFlags), ddsurfacedesc_to_string(lpDDSurfaceDesc), lpContext, lpEnumModesCallback);
 
     // TODO proper implementation
 
@@ -536,7 +536,7 @@ HRESULT SUGARCALL idd_enum_surfaces1(idd* self, DWORD dwFlags, LPDDSURFACEDESC l
         return DDERR_INVALIDOBJECT;
     }
 
-    // TODO Enter
+    ENTER("%s, %s, 0x%p, 0x%p", ddenumsurfaces_to_string(dwFlags), ddsurfacedesc_to_string(lpDDSD), lpContext, lpEnumSurfacesCallback);
 
     // TODO proper implementation
 
@@ -741,7 +741,7 @@ HRESULT SUGARCALL idd_get_available_vid_mem2(idd* self, LPDDSCAPS lpDDSCaps, LPD
         return DDERR_INVALIDOBJECT;
     }
 
-    // TODO Enter
+    ENTER("%s, 0x%p, 0x%p", ddscaps_to_string(lpDDSCaps), lpdwTotal, lpdwFree);
 
     if (lpDDSCaps == NULL
         || (lpdwTotal == NULL && lpdwFree == NULL)) {
@@ -760,7 +760,7 @@ HRESULT SUGARCALL idd_get_surface_from_dc3(idd* self, HDC hdc, LPDIRECTDRAWSURFA
         return DDERR_INVALIDOBJECT;
     }
 
-    // TODO Enter
+    ENTER("0x%08X, 0x%p", hdc, lpDDS);
 
     LEAVE(dd_get_surface_from_dc(self->instance, hdc, &IID_IDirectDrawSurface, lpDDS));
 }
@@ -791,7 +791,7 @@ HRESULT SUGARCALL idd_duplicate_surface4(idd* self, LPDIRECTDRAWSURFACE4 lpDDSur
         return DDERR_INVALIDOBJECT;
     }
 
-    // TODO Enter
+    ENTER("0x%p, 0x%p", lpDDSurface, lplpDupDDSurface);
 
     if (lpDDSurface == NULL || lplpDupDDSurface == NULL) {
         LEAVE(DDERR_INVALIDPARAMS);
@@ -806,7 +806,8 @@ HRESULT SUGARCALL idd_enum_display_modes4(idd* self, DWORD dwFlags, LPDDSURFACED
         return DDERR_INVALIDOBJECT;
     }
 
-    // TODO Enter
+    ENTER("%s, %s, 0x%p, 0x%p", ddedm_to_string(dwFlags), ddsurfacedesc2_to_string(lpDDSurfaceDesc), lpContext, lpEnumModesCallback);
+
     // TODO proper implementation
 
     LEAVE(dd_enum_display_modes(self->instance)); // TODO
@@ -817,7 +818,8 @@ HRESULT SUGARCALL idd_enum_surfaces4(idd* self, DWORD dwFlags, LPDDSURFACEDESC2 
         return DDERR_INVALIDOBJECT;
     }
 
-    // TODO Enter
+    ENTER("%s, %s, 0x%p, 0x%p", ddenumsurfaces_to_string(dwFlags), ddsurfacedesc2_to_string(lpDDSD), lpContext, lpEnumSurfacesCallback);
+
     // TODO proper implementation
 
     LEAVE(dd_enum_surfaces(self->instance)); // TODO
@@ -828,7 +830,7 @@ HRESULT SUGARCALL idd_get_display_mode4(idd* self, LPDDSURFACEDESC2 lpDDSurfaceD
         return DDERR_INVALIDOBJECT;
     }
 
-    // TODO Enter
+    ENTER("0x%p", lpDDSurfaceDesc);
 
     if (lpDDSurfaceDesc == NULL) {
         LEAVE(DDERR_INVALIDPARAMS);
@@ -865,7 +867,7 @@ HRESULT SUGARCALL idd_get_available_vid_mem4(idd* self, LPDDSCAPS2 lpDDSCaps, LP
         return DDERR_INVALIDOBJECT;
     }
 
-    // TODO Enter
+    ENTER("%s, 0x%p, 0x%p", ddscaps2_to_string(lpDDSCaps), lpdwTotal, lpdwFree);
 
     if (lpDDSCaps == NULL
         || (lpdwTotal == NULL && lpdwFree == NULL)) {
@@ -883,7 +885,7 @@ HRESULT SUGARCALL idd_get_surface_from_dc4(idd* self, HDC hdc, LPDIRECTDRAWSURFA
         return DDERR_INVALIDOBJECT;
     }
 
-    // TODO Enter
+    ENTER("0x%08X, 0x%p", hdc, lpDDS);
 
     LEAVE(dd_get_surface_from_dc(self->instance, hdc, &IID_IDirectDrawSurface4, lpDDS));
 }
@@ -909,7 +911,7 @@ HRESULT SUGARCALL idd_get_device_identifier4(idd* self, LPDDDEVICEIDENTIFIER lpd
         return DDERR_INVALIDOBJECT;
     }
 
-    // TODO Enter
+    ENTER("0x%p, %s", lpdddi, ddgdi_to_string(dwFlags));
 
     if (lpdddi == NULL
         || (dwFlags != DDGDI_NONE && dwFlags != DDGDI_GETHOSTIDENTIFIER)) {
@@ -968,7 +970,7 @@ HRESULT SUGARCALL idd_enum_surfaces7(idd* self, DWORD dwFlags, LPDDSURFACEDESC2 
         return DDERR_INVALIDOBJECT;
     }
 
-    // TODO Enter
+    ENTER("%s, %s, 0x%p, 0x%p", ddenumsurfaces_to_string(dwFlags), ddsurfacedesc2_to_string(lpDDSD), lpContext, lpEnumSurfacesCallback);
 
     // TODO proper implementation
 
@@ -1000,7 +1002,7 @@ HRESULT SUGARCALL idd_get_device_identifier7(idd* self, LPDDDEVICEIDENTIFIER2 lp
         return DDERR_INVALIDOBJECT;
     }
 
-    // TODO Enter
+    ENTER("0x%p, %s", lpdddi, ddgdi_to_string(dwFlags));
 
     if (lpdddi == NULL
         || (dwFlags != DDGDI_NONE && dwFlags != DDGDI_GETHOSTIDENTIFIER)) {

@@ -36,6 +36,7 @@
     <ClInclude Include="ddrawex.h" />
     <ClInclude Include="dds.h" />
     <ClInclude Include="ddsd.h" />
+    <ClInclude Include="ddsfc.h" />
     <ClInclude Include="driver.h" />
     <ClInclude Include="gdi.h" />
     <ClInclude Include="icf.h" />
@@ -69,6 +70,7 @@
     <ClCompile Include="ddp.c" />
     <ClCompile Include="dds.c" />
     <ClCompile Include="ddsd.c" />
+    <ClCompile Include="ddsfc.c" />
     <ClCompile Include="driver.c" />
     <ClCompile Include="gdi.c" />
     <ClCompile Include="icf.c" />

@@ -605,6 +605,20 @@ HRESULT dds_get_color_key(dds* self, u32 flags, DDCOLORKEY* key) {
         return DDERR_NOTINITIALIZED;
     }
 
+    if (self->desc.ddsCaps.dwCaps & DDSCAPS_OPTIMIZED) {
+        return DDERR_ISOPTIMIZEDSURFACE;
+    }
+
+    if (self->desc.ddsCaps.dwCaps & DDSCAPS_ZBUFFER) {
+        return DDERR_NOCOLORKEY;
+    }
+
+    if (flags & (DDCKEY_DESTOVERLAY | DDCKEY_SRCOVERLAY)) {
+        if (!(self->desc.ddsCaps.dwCaps & DDSCAPS_OVERLAY)) {
+            return DDERR_NOTAOVERLAYSURFACE;
+        }
+    }
+
     if (flags & DDCKEY_DESTBLT) {
         if (self->desc.dwFlags & DDSD_CKDESTBLT) {
             CopyMemory(key, &self->desc.ddckCKDestBlt, sizeof(DDCOLORKEY));
@@ -1117,9 +1131,21 @@ HRESULT dds_set_color_key(dds* self, u32 flags, DDCOLORKEY* key) {
         return DDERR_NOTINITIALIZED;
     }
 
+    if (self->desc.ddsCaps.dwCaps & DDSCAPS_OPTIMIZED) {
+        return DDERR_ISOPTIMIZEDSURFACE;
+    }
+
     if (self->desc.ddsCaps.dwCaps & DDSCAPS_ZBUFFER) {
         return DDERR_INVALIDSURFACETYPE;
     }
+
+    if (flags & (DDCKEY_DESTOVERLAY | DDCKEY_SRCOVERLAY)) {
+        if (!(self->desc.ddsCaps.dwCaps & DDSCAPS_OVERLAY)) {
+            return DDERR_NOTAOVERLAYSURFACE;
+        }
+    }
+
+    // TODO mip maps
 
     // TODO check overlay flags with non-overlay surface
 

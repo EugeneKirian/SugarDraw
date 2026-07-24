@@ -217,6 +217,7 @@ HRESULT ddp_initialize(ddp* self, dd* object, u32 flags) {
 
     self->caps = flags;
     self->instance = object;
+    self->uniqueness++;
 
     return DD_OK;
 }
@@ -271,7 +272,9 @@ HRESULT ddp_set_entries(ddp* self, u32 flags, u32 start, u32 count, PALETTEENTRY
         for (u32 i = 0; i < item_count; i++) {
             dds* instance = NULL;
             if (SUCCEEDED(arr_get_item(self->surfaces, i, &instance))) {
-                hr = dds_set_palette_entries(instance, start, count, self->quads);
+                if (SUCCEEDED(hr = dds_set_palette_entries(instance, start, count, self->quads))) {
+                    self->uniqueness++;
+                }
             }
         }
     }

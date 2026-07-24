@@ -14,6 +14,7 @@ typedef struct ddp {
     arr*                surfaces;
     CRITICAL_SECTION    lock;
     u32                 caps;
+    u32                 uniqueness;
     RGBQUAD             quads[PALETTE_MAX_ENTRY_COUNT];
     PALETTEENTRY        entries[PALETTE_MAX_ENTRY_COUNT];
 } ddp;

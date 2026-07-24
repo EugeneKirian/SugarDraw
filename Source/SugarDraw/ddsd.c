@@ -117,6 +117,7 @@ HRESULT ddsd_initialize(ddsd* self, DDSURFACEDESC2* desc) {
 
     // TODO all kinds of verifications
 
+    self->uniqueness++;
     CopyMemory(&self->desc, desc, sizeof(DDSURFACEDESC2));
 
     if (self->desc.dwFlags & DDSD_LPSURFACE) {

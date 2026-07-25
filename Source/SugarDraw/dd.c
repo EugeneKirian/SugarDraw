@@ -935,7 +935,10 @@ HRESULT dd_restore_display_mode(dd* self) {
 
     if (SUCCEEDED(hr = sugar_restore_display_mode(self->manager))) {
         if (!(self->cooperation.flags & DDSCL_NOWINDOWCHANGES)) {
-            SetWindowPos(self->cooperation.hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOACTIVATE);
+            SetWindowPos(self->cooperation.hwnd, HWND_TOPMOST,
+                self->cooperation.rect.left, self->cooperation.rect.top,
+                self->cooperation.rect.right - self->cooperation.rect.left,
+                self->cooperation.rect.bottom - self->cooperation.rect.top, SWP_NOACTIVATE);
         }
     }
 
@@ -1005,12 +1008,7 @@ HRESULT dd_set_cooperative_level(dd* self, HWND hwnd, u32 flags) {
         return DD_OK;
     }
 
-    // TODO It is allowed to switch, but the surfaces are lost
-    if (arr_get_count(self->surfaces) != 0 || arr_get_count(self->palettes) != 0) {
-        return DDERR_UNSUPPORTED;
-    }
-
-    // TODO window hooking, is it needed?
+    // TODO window hooking, is it needed for full screen?
 
     // Restore display mode when user changes the mode from exclusive to normal.
     const bool reset_display_mode = (flags & DDSCL_NORMAL)
@@ -1101,6 +1099,7 @@ HRESULT dd_set_display_mode(dd* self, u32 width, u32 height, u32 bpp, u32 rate, 
 
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
+
     dd* exclusive = NULL;
     if (SUCCEEDED(hr = sugar_get_exclusive(self->manager, &exclusive))) {
         if (exclusive != NULL && self != exclusive) {
@@ -1110,6 +1109,12 @@ HRESULT dd_set_display_mode(dd* self, u32 width, u32 height, u32 bpp, u32 rate, 
     }
 
     if (SUCCEEDED(hr = sugar_set_display_mode(self->manager, width, height, bpp, rate))) {
+        RECT rect;
+        GetClientRect(self->cooperation.hwnd, &rect);
+        ClientToScreen(self->cooperation.hwnd, (POINT*)&rect.left);
+        ClientToScreen(self->cooperation.hwnd, (POINT*)&rect.right);
+        CopyMemory(&self->cooperation.rect, &rect, sizeof(RECT));
+
         if (!(self->cooperation.flags & DDSCL_NOWINDOWCHANGES)) {
             SetWindowPos(self->cooperation.hwnd, HWND_TOPMOST, 0, 0, width, height, SWP_SHOWWINDOW);
             hr = ddg_recreate_surface(self->graphics);
@@ -1189,7 +1194,25 @@ HRESULT dd_restore_all_surfaces(dd* self) {
         return DDERR_NOTINITIALIZED;
     }
 
-    return DD_OK;
+    HRESULT hr = DD_OK;
+    EnterCriticalSection(&self->lock);
+
+    const u32 item_count = arr_get_count(self->surfaces);
+    for (u32 i = 0; i < item_count; i++) {
+        dds* instance = NULL;
+        if (SUCCEEDED(hr = arr_get_item(self->surfaces, i, &instance))) {
+            if (SUCCEEDED(hr = dds_restore(instance))) {
+                continue;
+            }
+        }
+
+        goto exit;
+    }
+
+exit:
+    LeaveCriticalSection(&self->lock);
+
+    return hr;
 }
 
 HRESULT dd_test_cooperative_level(dd* self) {
@@ -1358,6 +1381,32 @@ HRESULT dd_remove_surface(dd* self, dds* surface) {
         }
     }
 
+    LeaveCriticalSection(&self->lock);
+
+    return hr;
+}
+
+HRESULT dd_lose_all_surfaces(dd* self) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    HRESULT hr = DD_OK;
+    EnterCriticalSection(&self->lock);
+
+    const u32 item_count = arr_get_count(self->surfaces);
+    for (u32 i = 0; i < item_count; i++) {
+        dds* instance = NULL;
+        if (SUCCEEDED(hr = arr_get_item(self->surfaces, i, &instance))) {
+            if (SUCCEEDED(hr = dds_set_lost(instance))) {
+                continue;
+            }
+        }
+
+        goto exit;
+    }
+
+exit:
     LeaveCriticalSection(&self->lock);
 
     return hr;

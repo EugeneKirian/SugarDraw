@@ -13,9 +13,10 @@ typedef struct ddcc ddcc;
 typedef struct ddg ddg;
 typedef struct ddsfc ddsfc;
 
-#define DDS_NONE                0x00000000L
-#define DDS_IMPLICIT            0x00000001L
-#define DDS_VALID               (DDS_IMPLICIT)
+#define DDS_NONE                0x00000000
+#define DDS_IMPLICIT            0x00000001
+#define DDS_LOST                0x00000002
+#define DDS_VALID               (DDS_IMPLICIT | DDS_LOST)
 
 typedef struct overlayinfo {
     u32                 flags;
@@ -41,6 +42,7 @@ typedef struct dds {
     ddsd*               surface;
     overlayinfo         overlay;
     connector*          overlays;
+    DEVMODEA            mode;
 } dds;
 
 HRESULT dds_create(sugar* manager, u32 flags, dds** object);
@@ -108,6 +110,7 @@ HRESULT dds_remove_color_control(dds* self);
 HRESULT dds_remove_gamma_control(dds* self);
 HRESULT dds_remove_palette(dds* self);
 
+HRESULT dds_set_lost(dds* self);
 HRESULT dds_set_palette_entries(dds* self, u32 start, u32 count, RGBQUAD* quads);
 
 HRESULT dds_register_overlay(dds* self, iddsconn* overlay);

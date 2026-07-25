@@ -40,3 +40,5 @@ HRESULT ddsd_get_rect(ddsd* self, RECT* rect);
 HRESULT ddsd_inside_rect(ddsd* self, RECT* rect);
 HRESULT ddsd_lock_rect(ddsd* self, RECT* rect);
 HRESULT ddsd_unlock_rect(ddsd* self, RECT* rect);
+
+HRESULT ddsd_restore_surface(ddsd* self);

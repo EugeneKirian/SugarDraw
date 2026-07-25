@@ -17,8 +17,9 @@ typedef struct dd {
     ddg*                graphics;
     
     struct {
-        HWND            hwnd;
         DWORD           flags;
+        HWND            hwnd;
+        RECT            rect;
     } cooperation;
 
     dds*                primary;
@@ -70,3 +71,5 @@ HRESULT dd_remove_clipper(dd* self, ddc* clipper);
 
 HRESULT dd_remove_palette(dd* self, ddp* palette);
 HRESULT dd_remove_surface(dd* self, dds* surface);
+
+HRESULT dd_lose_all_surfaces(dd* self);

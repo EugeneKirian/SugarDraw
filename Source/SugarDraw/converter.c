@@ -245,8 +245,8 @@ const char* ddsurfacedesc2_to_string(const DDSURFACEDESC2* desc) {
     // TODO caps
 
     sprintf(messages[result],
-        "{ dwSize = %d, dwFlags = %s, "
-        "dwHeight = %d, dwWidth = %d, "
+        "{ dwSize = %u, dwFlags = %s, "
+        "dwHeight = %u, dwWidth = %u, "
         "ddpfPixelFormat = %s, ddsCaps = %s }",
         desc->dwSize, ddsd_to_string(desc->dwFlags),
         desc->dwHeight, desc->dwWidth,

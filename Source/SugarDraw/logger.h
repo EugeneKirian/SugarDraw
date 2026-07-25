@@ -42,7 +42,7 @@ HRESULT logger_log(logger* self, log_level level, const char* format, ...);
 
 #define REFCOUNT(X)                                                                                 \
     const ULONG __count__ = X;                                                                      \
-    logger_log(self->logger, LOG_LEVEL_INFO, "0x%p->%s() -> %d", self, __FUNCTION__, __count__);    \
+    logger_log(self->logger, LOG_LEVEL_INFO, "0x%p->%s() -> %u", self, __FUNCTION__, __count__);    \
     return __count__;
 
 #else

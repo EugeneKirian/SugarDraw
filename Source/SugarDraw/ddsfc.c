@@ -99,7 +99,7 @@ HRESULT ddsfc_flip(ddsfc* self, dds* override) {
     }
 
     // TODO: target and source must be both in DDSCAPS_SYSTEMMEMORY or in DDSCAPS_VIDEOMEMORY
-    
+
     if (SUCCEEDED(hr = ddsfc_lock(self, index))) {
         // The undelying surface pointer rotation of the back buffers starts from 0 (zero),
         // or from the index of the override surface. See Flipping Surfaces in the documentation.
@@ -190,16 +190,21 @@ HRESULT ddsfc_unlock(ddsfc* self, u32 start) {
         dds* instance = NULL;
         if (SUCCEEDED(hr = arr_get_item(self->surfaces, i, &instance))) {
             if (SUCCEEDED(hr = ddsd_get_rect(instance->surface, &rect))) {
-                hr = ddsd_unlock_rect(instance->surface, &rect);
+                if (SUCCEEDED(hr = ddsd_unlock_rect(instance->surface, &rect))) {
+                    continue;
+                }
             }
         }
+
+        goto exit;
     }
 
     if (SUCCEEDED(hr = ddsd_get_rect(self->instance->surface, &rect))) {
         hr = ddsd_unlock_rect(self->instance->surface, &rect);
     }
 
-    return DD_OK;
+exit:
+    return hr;
 }
 
 HRESULT ddsfc_rotate(ddsfc* self, u32 start) {

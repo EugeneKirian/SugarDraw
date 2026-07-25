@@ -7,6 +7,7 @@ typedef struct lock lock;
 HRESULT lock_create(allocator* allocator, memory_tag tag, lock** object);
 void lock_release(lock* self);
 
+HRESULT lock_clear(lock* self);
 HRESULT lock_get_item(lock* self, s32 index, RECT* rect);
 
 HRESULT lock_acquire(lock* self, const RECT* rect);

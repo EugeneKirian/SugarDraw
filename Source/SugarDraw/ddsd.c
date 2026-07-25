@@ -698,3 +698,16 @@ HRESULT ddsd_unlock_rect(ddsd* self, RECT* rect) {
 
     return lock_unacquire(self->locks, rect);
 }
+
+HRESULT ddsd_restore_surface(ddsd* self) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    HRESULT hr = DD_OK;
+    if (SUCCEEDED(hr = lock_clear(self->locks))) {
+        self->exposed = FALSE;
+    }
+
+    return hr;
+}

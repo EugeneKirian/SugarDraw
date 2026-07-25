@@ -32,3 +32,30 @@ BOOL IsValidRect(const RECT* rect) {
 
     return TRUE;
 }
+
+BOOL devmodea_equal(const DEVMODEA* mode, const DEVMODEA* value) {
+    if (mode == NULL || value == NULL) {
+        return FALSE;
+    }
+
+    if (mode->dmSize != sizeof(DEVMODEA) || value->dmSize != sizeof(DEVMODEA)) {
+        return FALSE;
+    }
+
+    const u32 flags = DM_PELSHEIGHT | DM_PELSWIDTH | DM_BITSPERPEL;
+
+    if ((mode->dmFields & flags) != (value->dmFields & flags)
+        || mode->dmPelsWidth != value->dmPelsWidth
+        || mode->dmPelsHeight != value->dmPelsHeight
+        || mode->dmBitsPerPel != value->dmBitsPerPel) {
+        return FALSE;
+    }
+
+    if ((mode->dmFields & DM_PELSHEIGHT) && (value->dmFields & DM_PELSHEIGHT)) {
+        if (mode->dmPelsHeight != value->dmPelsHeight) {
+            return FALSE;
+        }
+    }
+
+    return TRUE;
+}

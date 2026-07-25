@@ -7,6 +7,7 @@
 #define CDS_NONE            0x00000000
 
 static HRESULT sugar_enumerate_dispaly_modes(sugar* self);
+static HRESULT sugar_lose_all_surfaces(sugar* self);
 
 HRESULT sugar_create(allocator* allocator, logger* logger, driver* driver, sugar** object) {
     if (allocator == NULL || logger == NULL || driver == NULL || object == NULL) {
@@ -98,7 +99,7 @@ void sugar_release(sugar* self) {
         // TODO driver
 
         // Restore display mode if needed.
-        if (!CompareMemory(&self->modes.current, &self->modes.initial, sizeof(DEVMODEA))) {
+        if (!devmodea_equal(&self->modes.current, &self->modes.initial)) {
             const s32 result = ChangeDisplaySettingsA(NULL, CDS_NONE);
             if (result != DISP_CHANGE_SUCCESSFUL) {
                 ERR("->ChangeDisplaySettings(NULL, CDS_NONE) -> %s", disp_change_to_string(result));
@@ -399,9 +400,9 @@ HRESULT sugar_set_display_mode(sugar* self, u32 width, u32 height, u32 bpp, u32 
     if (SUCCEEDED(hr = sugar_supports_display_mode(self, &mode))) {
         const s32 result = ChangeDisplaySettingsA(&mode, CDS_FULLSCREEN);
         if (result == DISP_CHANGE_SUCCESSFUL) {
+            self->modes.flags |= SUGAR_DISPLAY_MODE_UPDATED;
             CopyMemory(&self->modes.current, &mode, sizeof(DEVMODEA));
-            // TODO do we need to recreate surface to match current display settings?
-            // TODO what about multiple displays?
+            hr = sugar_lose_all_surfaces(self);
         }
         else {
             hr = DDERR_UNSUPPORTEDMODE;
@@ -476,22 +477,29 @@ HRESULT sugar_restore_display_mode(sugar* self) {
 
     // TODO see comments in graphics_set_display_mode
 
-    if (CompareMemory(&self->modes.initial, &self->modes.current, sizeof(DEVMODEA))) {
+    if (!(self->modes.flags & SUGAR_DISPLAY_MODE_UPDATED)) {
         return DD_OK;
     }
 
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
+    if (devmodea_equal(&self->modes.initial, &self->modes.current)) {
+        hr = sugar_lose_all_surfaces(self);
+        goto exit;
+    }
 
     const s32 result = ChangeDisplaySettingsA(NULL, CDS_NONE);
     if (result == DISP_CHANGE_SUCCESSFUL) {
+        self->modes.flags &= ~SUGAR_DISPLAY_MODE_UPDATED;
         CopyMemory(&self->modes.current, &self->modes.initial, sizeof(DEVMODEA));
+        hr = sugar_lose_all_surfaces(self);
     }
     else {
         hr = DDERR_UNSUPPORTEDMODE;
         ERR("->ChangeDisplaySettings(NULL, CDS_NONE) -> %s", disp_change_to_string(result));
     }
 
+exit:
     LeaveCriticalSection(&self->lock);
 
     return hr;
@@ -543,5 +551,27 @@ HRESULT sugar_enumerate_dispaly_modes(sugar* self) {
         CopyMemory(&self->modes.current, &self->modes.initial, sizeof(DEVMODEA));
     }
 
+    return hr;
+}
+
+HRESULT sugar_lose_all_surfaces(sugar* self) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    HRESULT hr = DD_OK;
+    const u32 item_count = arr_get_count(self->items);
+    for (u32 i = 0; i < item_count; i++) {
+        dd* instance = NULL;
+        if (SUCCEEDED(hr = arr_get_item(self->items, i, &instance))) {
+            if (SUCCEEDED(hr = dd_lose_all_surfaces(instance))) {
+                continue;
+            }
+        }
+
+        goto exit;
+    }
+
+exit:
     return hr;
 }

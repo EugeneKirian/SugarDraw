@@ -232,6 +232,8 @@ DWORD WINAPI ddg_worker(ddg* self) {
 
         // TODO what to do if window was moved to another screen?
 
+        // TODO handle lost primary surface and overlays
+
         if (self->instance != NULL
             && self->instance->primary != NULL
             && (self->status & DDGSTATUS_SIGNALED)) {
@@ -275,18 +277,20 @@ DWORD WINAPI ddg_worker(ddg* self) {
 
                             // TODO move to the driver
                             {
-                                HDC sdc = NULL;
-                                if (SUCCEEDED(hr = ddsd_get_dc(self->surface, &sdc))) {
-                                    HWND hwnd = self->instance->cooperation.hwnd;
-                                    HDC hdc = GetDC(hwnd);
-                                    RECT rect;
-                                    GetClientRect(hwnd, &rect);
+                                HWND hwnd = self->instance->cooperation.hwnd;
+                                if (!IsIconic(hwnd)) {
+                                    HDC sdc = NULL;
+                                    if (SUCCEEDED(hr = ddsd_get_dc(self->surface, &sdc))) {
+                                        HDC hdc = GetDC(hwnd);
+                                        RECT rect;
+                                        GetClientRect(hwnd, &rect);
 
-                                    ClientToScreen(hwnd, (POINT*)&rect);
-                                    BitBlt(hdc, 0, 0, rect.right, rect.bottom, sdc, rect.left, rect.top, SRCCOPY);
-                                    hr = ddsd_release_dc(self->surface, sdc);
+                                        ClientToScreen(hwnd, (POINT*)&rect);
+                                        BitBlt(hdc, 0, 0, rect.right, rect.bottom, sdc, rect.left, rect.top, SRCCOPY);
+                                        hr = ddsd_release_dc(self->surface, sdc);
 
-                                    InvalidateRect(hwnd, NULL, FALSE); // Some windows might need WM_PAINT message.
+                                        InvalidateRect(hwnd, NULL, FALSE); // Some windows might need WM_PAINT message.
+                                    }
                                 }
                             }
                         }

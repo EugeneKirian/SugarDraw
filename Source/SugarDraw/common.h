@@ -250,3 +250,5 @@ const extern GUID IID_IDirectDrawFactory2;
 
 BOOL IsInsideRect(const RECT* bounds, const RECT* rect);
 BOOL IsValidRect(const RECT* rect);
+
+BOOL devmodea_equal(const DEVMODEA* mode, const DEVMODEA* value);

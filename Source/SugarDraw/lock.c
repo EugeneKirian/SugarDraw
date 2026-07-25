@@ -52,6 +52,18 @@ void lock_release(lock* self) {
     }
 }
 
+HRESULT lock_clear(lock* self) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    EnterCriticalSection(&self->lock);
+    self->count = 0;
+    LeaveCriticalSection(&self->lock);
+
+    return DD_OK;
+}
+
 HRESULT lock_get_item(lock* self, s32 index, RECT* rect) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
@@ -125,7 +137,7 @@ HRESULT lock_unacquire(lock* self, const RECT* rect) {
         }
     }
 
-    hr = DDERR_NOTLOCKED; // TODO correct error code
+    hr = DDERR_NOTLOCKED;
 
 exit:
     LeaveCriticalSection(&self->lock);

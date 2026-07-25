@@ -10,6 +10,9 @@ typedef struct ddc ddc;
 typedef struct ddf ddf;
 typedef struct dds dds;
 
+#define SUGAR_DISPLAY_MODE_NONE     0x00000000
+#define SUGAR_DISPLAY_MODE_UPDATED  0x00000001
+
 typedef struct sugar {
     allocator*          allocator;
     logger*             logger;
@@ -20,6 +23,7 @@ typedef struct sugar {
     arr*                ddfs;
     CRITICAL_SECTION    lock;
     struct {
+        u32             flags;
         DEVMODEA        initial, current;
         u32             count;
         DEVMODEA*       modes;

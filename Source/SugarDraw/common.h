@@ -248,6 +248,9 @@ const extern GUID IID_IDirectDrawFactory2;
 
 #define CompareMemory(a, b, size)               (memcmp(a, b, size) == 0)
 
+#define EXIT(X)                                 hr = (X); goto exit;
+#define GOTO(LABEL, X)                          hr = (X); goto LABEL;
+
 BOOL IsInsideRect(const RECT* bounds, const RECT* rect);
 BOOL IsValidRect(const RECT* rect);
 

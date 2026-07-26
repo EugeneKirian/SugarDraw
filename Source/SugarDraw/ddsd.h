@@ -28,6 +28,7 @@ HRESULT ddsd_unlock(ddsd* self, RECT* rect);
 HRESULT ddsd_page_lock(ddsd* self);
 HRESULT ddsd_page_unlock(ddsd* self);
 
+HRESULT ddsd_get_surface_desc(ddsd* self, DDSURFACEDESC2* desc);
 HRESULT ddsd_set_surface_desc(ddsd* self, DDSURFACEDESC2* desc);
 
 // TODO Private data?
@@ -42,3 +43,5 @@ HRESULT ddsd_lock_rect(ddsd* self, RECT* rect);
 HRESULT ddsd_unlock_rect(ddsd* self, RECT* rect);
 
 HRESULT ddsd_restore_surface(ddsd* self);
+
+HRESULT ddsd_set_color_key(ddsd* self, u32 flags, DDCOLORKEY* key);

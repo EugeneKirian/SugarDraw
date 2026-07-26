@@ -349,13 +349,13 @@ HRESULT dds_blt_fast(dds* self, u32 x, u32 y, dds* surface, RECT* rect, u32 tran
 
     if (transfer & DDBLTFAST_SRCCOLORKEY) {
         if (!(surface->desc.dwFlags & DDSD_CKSRCBLT)) {
-            return DDERR_INVALIDCAPS; // TODO error code
+            return DDERR_NOCOLORKEY;
         }
     }
 
     if (transfer & DDBLTFAST_DESTCOLORKEY) {
         if (!(self->desc.dwFlags & DDSD_CKDESTBLT)) {
-            return DDERR_INVALIDCAPS; // TODO error code
+            return DDERR_NOCOLORKEY;
         }
     }
 
@@ -1121,7 +1121,7 @@ HRESULT dds_release_dc(dds* self, HDC hdc) {
     }
 
     if (self->flags & DDS_LOST) {
-        return DDERR_SURFACELOST;
+        return DDERR_NODC;
     }
 
     if (self->desc.dwFlags & DDSD_LPSURFACE) {
@@ -1159,8 +1159,18 @@ HRESULT dds_restore(dds* self) {
         return DDERR_IMPLICITLYCREATED;
     }
 
+    if (self->desc.ddsCaps.dwCaps & DDSCAPS_OPTIMIZED) {
+        return DDERR_ISOPTIMIZEDSURFACE;
+    }
+
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
+
+    // DirectDraw only allows surfaces to be restored when the current display mode
+    // matches the display mode at the time of surface creation (initialization).
+    // In practice this means that the surface width, height, and depth of the surfaces
+    // before they are lost and after they are restored are the same, therefore
+    // it is only needed to mark them as found, or not lost again.
 
     DEVMODEA mode;
     ZeroMemory(&mode, sizeof(DEVMODEA));
@@ -1286,7 +1296,7 @@ HRESULT dds_set_color_key(dds* self, u32 flags, DDCOLORKEY* key) {
         }
 
         if (flags & DDCKEY_SRCOVERLAY) {
-            self->desc.dwFlags &= DDSD_CKSRCOVERLAY;
+            self->desc.dwFlags &= ~DDSD_CKSRCOVERLAY;
         }
     }
     else {
@@ -1319,7 +1329,7 @@ HRESULT dds_set_color_key(dds* self, u32 flags, DDCOLORKEY* key) {
         }
     }
 
-    return DD_OK;
+    return ddsd_set_color_key(self->surface, flags, key);
 }
 
 HRESULT dds_set_overlay_position(dds* self, s32 x, s32 y) {
@@ -2162,43 +2172,47 @@ HRESULT dds_restore_surface(dds* self) {
         return DDERR_INVALIDOBJECT;
     }
 
-    // DirectDraw only allows surfaces to be restored when the current display mode
-    // matches the display mode at the time of surface creation (initialization).
-    // In practice this means that the surface width, height, and depth of the surfaces
-    // before they are lost and after they are restored are the same, therefore
-    // it is only needed to mark them as found, or not lost again.
-
-    // TODO DDERR_NOEXCLUSIVEMODE
-
     HRESULT hr = DD_OK;
-    if (self->desc.ddsCaps.dwCaps & (DDSCAPS_PRIMARYSURFACE | DDSCAPS_PRIMARYSURFACELEFT)) {
-        if (self->desc.ddsCaps.dwCaps & (DDSCAPS_COMPLEX | DDSCAPS_FLIP)) {
-            dd* exclusive = NULL;
-            if (SUCCEEDED(hr = sugar_get_exclusive(self->manager, &exclusive))) {
+    dd* exclusive = NULL;
+    if (SUCCEEDED(hr = sugar_get_exclusive(self->manager, &exclusive))) {
+        if (exclusive == NULL) {
+            if (self->instance->cooperation.flags & DDSCL_EXCLUSIVE) {
+                return DDERR_WRONGMODE;
+            }
+        }
+        else if (self->instance != exclusive) {
+            return DDERR_WRONGMODE;
+        }
+
+        // TODO DDERR_NOEXCLUSIVEMODE
+        // TODO DDERR_INCOMPATIBLEPRIMARY
+
+        if (self->desc.ddsCaps.dwCaps & (DDSCAPS_PRIMARYSURFACE | DDSCAPS_PRIMARYSURFACELEFT)) {
+            if (self->desc.ddsCaps.dwCaps & DDSCAPS_FLIP) {
                 if (self->instance != exclusive) {
                     return DDERR_SURFACELOST;
                 }
             }
         }
-    }
 
-    const u32 item_count = connector_get_count(self->attachments);
-    for (u32 i = 0; i < item_count; i++) {
-        iddsconn connector;
-        ZeroMemory(&connector, sizeof(iddsconn));
-        if (SUCCEEDED(hr = connector_get_item(self->attachments, i, &connector))) {
-            if (connector.instance->flags & DDS_IMPLICIT) {
-                if (SUCCEEDED(hr = dds_restore_surface(connector.instance))) {
-                    continue;
+        const u32 item_count = connector_get_count(self->attachments);
+        for (u32 i = 0; i < item_count; i++) {
+            iddsconn connector;
+            ZeroMemory(&connector, sizeof(iddsconn));
+            if (SUCCEEDED(hr = connector_get_item(self->attachments, i, &connector))) {
+                if (connector.instance->flags & DDS_IMPLICIT) {
+                    if (SUCCEEDED(hr = dds_restore_surface(connector.instance))) {
+                        continue;
+                    }
                 }
             }
+
+            goto exit;
         }
 
-        goto exit;
-    }
-
-    if (SUCCEEDED(hr = ddsd_restore_surface(self->surface))) {
-        self->flags &= ~DDS_LOST;
+        if (SUCCEEDED(hr = ddsd_restore_surface(self->surface))) {
+            self->flags &= ~DDS_LOST;
+        }
     }
 
 exit:

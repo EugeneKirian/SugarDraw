@@ -12,6 +12,7 @@
 static DWORD WINAPI ddg_worker(ddg* self);
 
 static HRESULT ddg_get_surface_desc(ddg* self, DDSURFACEDESC2* desc);
+static HRESULT ddg_need_surface_change(ddg* self, bool* change);
 static HRESULT ddg_stop_worker(ddg* self);
 
 HRESULT ddg_create(sugar* manager, driver* driver, ddg** object) {
@@ -174,17 +175,22 @@ HRESULT ddg_recreate_surface(ddg* self) {
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
-    if (SUCCEEDED(hr = ddg_stop_worker(self))) {
-        ddsd* instance = NULL;
-        if (SUCCEEDED(hr = ddsd_create(self->manager->allocator, &instance))) {
-            DDSURFACEDESC2 desc;
-            ZeroMemory(&desc, sizeof(DDSURFACEDESC2));
-            desc.dwSize = sizeof(DDSURFACEDESC2);
+    bool change = FALSE;
+    if (SUCCEEDED(hr = ddg_need_surface_change(self, &change))) {
+        if (change) {
+            if (SUCCEEDED(hr = ddg_stop_worker(self))) {
+                ddsd* instance = NULL;
+                if (SUCCEEDED(hr = ddsd_create(self->manager->allocator, &instance))) {
+                    DDSURFACEDESC2 desc;
+                    ZeroMemory(&desc, sizeof(DDSURFACEDESC2));
+                    desc.dwSize = sizeof(DDSURFACEDESC2);
 
-            if (SUCCEEDED(hr = ddg_get_surface_desc(self, &desc))) {
-                if (SUCCEEDED(hr = ddsd_initialize(instance, &desc))) {
-                    ddsd_release(InterlockedExchangePointer(&self->surface, instance));
-                    self->worker = CreateThread(NULL, 0, ddg_worker, self, 0, NULL);
+                    if (SUCCEEDED(hr = ddg_get_surface_desc(self, &desc))) {
+                        if (SUCCEEDED(hr = ddsd_initialize(instance, &desc))) {
+                            ddsd_release(InterlockedExchangePointer(&self->surface, instance));
+                            self->worker = CreateThread(NULL, 0, ddg_worker, self, 0, NULL);
+                        }
+                    }
                 }
             }
         }
@@ -227,7 +233,7 @@ DWORD WINAPI ddg_worker(ddg* self) {
 
         if (WaitForSingleObject(self->stop, WAIT_NONE) == WAIT_OBJECT_0) { break; }
 
-        // TODO: keep track of window size changes...
+        // TODO keep track of window size changes...
         // TODO keep track of window position on the screen...
 
         // TODO what to do if window was moved to another screen?
@@ -346,6 +352,35 @@ static HRESULT ddg_get_surface_desc(ddg* self, DDSURFACEDESC2* desc) {
         desc->ddpfPixelFormat.dwGBitMask = 0x0000FF00;
         desc->ddpfPixelFormat.dwBBitMask = 0x000000FF;
     }
+
+    return hr;
+}
+
+HRESULT ddg_need_surface_change(ddg* self, bool* change) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (change == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    HRESULT hr = DD_OK;
+
+    DEVMODEA mode;
+    ZeroMemory(&mode, sizeof(DEVMODEA));
+    mode.dmSize = sizeof(DEVMODEA);
+    if (SUCCEEDED(hr = sugar_get_display_mode(self->manager, &mode))) {
+        DDSURFACEDESC2 desc;
+        ZeroMemory(&desc, sizeof(DDSURFACEDESC2));
+        desc.dwSize = sizeof(DDSURFACEDESC2);
+        if (SUCCEEDED(hr = ddsd_get_surface_desc(self->surface, &desc))) {
+            *change = mode.dmPelsWidth > desc.dwWidth || mode.dmPelsHeight > desc.dwHeight;
+            return hr;
+        }
+    }
+
+    *change = FALSE;
 
     return hr;
 }

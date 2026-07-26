@@ -5,6 +5,11 @@
 #include "dds.h"
 #include "idd.h"
 
+static HRESULT dd_can_change_display_mode(dd* self);
+
+static HRESULT dd_acquire_exclusive_mode(dd* self);
+static HRESULT dd_unacquire_exclusive_mode(dd* self);
+
 HRESULT dd_create(sugar* manager, const GUID* rclsid, driver* driver, dd** object) {
     if (manager == NULL || rclsid == NULL || object == NULL) {
         return DDERR_INVALIDPARAMS;
@@ -388,11 +393,6 @@ HRESULT dd_create_surface(dd* self, const GUID* riid, DDSURFACEDESC2* desc, void
     }
 
     if (desc->ddsCaps.dwCaps & (DDSCAPS_FLIP | DDSCAPS_COMPLEX)) {
-        if (!(desc->ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACE)
-            && !(desc->ddsCaps.dwCaps & (DDSCAPS_FRONTBUFFER | DDSCAPS_BACKBUFFER))) {
-            return DDERR_INVALIDCAPS;
-        }
-
         if ((desc->dwFlags & DDSD_BACKBUFFERCOUNT) && desc->dwBackBufferCount == 0) {
             return DDERR_INVALIDPARAMS;
         }
@@ -923,22 +923,21 @@ HRESULT dd_restore_display_mode(dd* self) {
         return DDERR_NOCOOPERATIVELEVELSET;
     }
 
-    if (!(self->cooperation.flags & (DDSCL_EXCLUSIVE | DDSCL_FULLSCREEN))) {
-        return DDERR_NOEXCLUSIVEMODE;
-    }
-
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
-    // TODO: how to handle existing primary surface?
     // TODO DDERR_LOCKEDSURFACES 
 
-    if (SUCCEEDED(hr = sugar_restore_display_mode(self->manager))) {
-        if (!(self->cooperation.flags & DDSCL_NOWINDOWCHANGES)) {
-            SetWindowPos(self->cooperation.hwnd, HWND_TOPMOST,
-                self->cooperation.rect.left, self->cooperation.rect.top,
-                self->cooperation.rect.right - self->cooperation.rect.left,
-                self->cooperation.rect.bottom - self->cooperation.rect.top, SWP_NOACTIVATE);
+    if (SUCCEEDED(hr = dd_can_change_display_mode(self))) {
+        if (SUCCEEDED(hr = sugar_restore_display_mode(self->manager))) {
+            if (!(self->cooperation.flags & DDSCL_NOWINDOWCHANGES)) {
+                SetWindowPos(self->cooperation.hwnd, HWND_TOPMOST,
+                    self->cooperation.rect.left, self->cooperation.rect.top,
+                    self->cooperation.rect.right - self->cooperation.rect.left,
+                    self->cooperation.rect.bottom - self->cooperation.rect.top, SWP_NOACTIVATE);
+            }
+
+            hr = ddg_recreate_surface(self->graphics);
         }
     }
 
@@ -1018,28 +1017,14 @@ HRESULT dd_set_cooperative_level(dd* self, HWND hwnd, u32 flags) {
     EnterCriticalSection(&self->lock);
 
     if (flags & DDSCL_NORMAL) {
-        dd* exclusive = NULL;
-        if (SUCCEEDED(hr = sugar_get_exclusive(self->manager, &exclusive))) {
-            if (self == exclusive) {
-                if (FAILED(hr = sugar_set_exclusive(self->manager, NULL))) {
-                    goto exit;
-                }
-            }
+        if (FAILED(hr = dd_unacquire_exclusive_mode(self))) {
+            goto exit;
         }
     }
 
     if (flags & (DDSCL_EXCLUSIVE | DDSCL_FULLSCREEN)) {
-        dd* exclusive = NULL;
-        if (SUCCEEDED(hr = sugar_get_exclusive(self->manager, &exclusive))) {
-            if (exclusive == NULL) {
-                if (FAILED(hr = sugar_set_exclusive(self->manager, self))) {
-                    goto exit;
-                }
-            }
-            else if (self != exclusive) {
-                hr = DDERR_EXCLUSIVEMODEALREADYSET;
-                goto exit;
-            }
+        if (FAILED(hr = dd_acquire_exclusive_mode(self))) {
+            goto exit;
         }
     }
 
@@ -1053,17 +1038,20 @@ HRESULT dd_set_cooperative_level(dd* self, HWND hwnd, u32 flags) {
 
         if (SUCCEEDED(hr = sugar_get_display_mode(self->manager, &mode))) {
             if (!(self->cooperation.flags & DDSCL_NOWINDOWCHANGES)) {
-                SetWindowPos(self->cooperation.hwnd, HWND_TOPMOST,
-                    0, 0, mode.dmPelsWidth, mode.dmPelsHeight, SWP_SHOWWINDOW);
+                SetWindowPos(self->cooperation.hwnd, HWND_TOPMOST, 0, 0, mode.dmPelsWidth, mode.dmPelsHeight, SWP_SHOWWINDOW);
             }
+
+            hr = ddg_recreate_surface(self->graphics);
         }
     }
 
-    if (reset_display_mode) {
+    if (SUCCEEDED(hr) && reset_display_mode) {
         // See article Restoring Display Modes in the documentation.
         // This behavior was first offered in the IDirectDraw2 interface,
         // and is offered by all newer versions of the interface.
-        hr = sugar_restore_display_mode(self->manager);
+        if (SUCCEEDED(hr = sugar_restore_display_mode(self->manager))) {
+            hr = ddg_recreate_surface(self->graphics);
+        }
     }
 
 exit:
@@ -1085,10 +1073,6 @@ HRESULT dd_set_display_mode(dd* self, u32 width, u32 height, u32 bpp, u32 rate, 
         return DDERR_NOTINITIALIZED;
     }
 
-    if (!(self->cooperation.flags & (DDSCL_EXCLUSIVE | DDSCL_FULLSCREEN))) {
-        return DDERR_NOEXCLUSIVEMODE;
-    }
-
     // TODO ModeX
 
     // TODO: Per documentation - check for locked surfaces, or still drawing...
@@ -1100,28 +1084,22 @@ HRESULT dd_set_display_mode(dd* self, u32 width, u32 height, u32 bpp, u32 rate, 
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
-    dd* exclusive = NULL;
-    if (SUCCEEDED(hr = sugar_get_exclusive(self->manager, &exclusive))) {
-        if (exclusive != NULL && self != exclusive) {
-            hr = DDERR_NOEXCLUSIVEMODE;
-            goto exit;
-        }
-    }
+    if (SUCCEEDED(hr = dd_can_change_display_mode(self))) {
+        if (SUCCEEDED(hr = sugar_set_display_mode(self->manager, width, height, bpp, rate))) {
+            RECT rect;
+            GetClientRect(self->cooperation.hwnd, &rect);
+            ClientToScreen(self->cooperation.hwnd, (POINT*)&rect.left);
+            ClientToScreen(self->cooperation.hwnd, (POINT*)&rect.right);
+            CopyMemory(&self->cooperation.rect, &rect, sizeof(RECT));
 
-    if (SUCCEEDED(hr = sugar_set_display_mode(self->manager, width, height, bpp, rate))) {
-        RECT rect;
-        GetClientRect(self->cooperation.hwnd, &rect);
-        ClientToScreen(self->cooperation.hwnd, (POINT*)&rect.left);
-        ClientToScreen(self->cooperation.hwnd, (POINT*)&rect.right);
-        CopyMemory(&self->cooperation.rect, &rect, sizeof(RECT));
+            if (!(self->cooperation.flags & DDSCL_NOWINDOWCHANGES)) {
+                SetWindowPos(self->cooperation.hwnd, HWND_TOPMOST, 0, 0, width, height, SWP_SHOWWINDOW);
+            }
 
-        if (!(self->cooperation.flags & DDSCL_NOWINDOWCHANGES)) {
-            SetWindowPos(self->cooperation.hwnd, HWND_TOPMOST, 0, 0, width, height, SWP_SHOWWINDOW);
             hr = ddg_recreate_surface(self->graphics);
         }
     }
 
-exit:
     LeaveCriticalSection(&self->lock);
 
     return hr;
@@ -1223,6 +1201,11 @@ HRESULT dd_test_cooperative_level(dd* self) {
     if (self->graphics == NULL) {
         return DDERR_NOTINITIALIZED;
     }
+
+    // TODO DDERR_EXCLUSIVEMODEALREADYSET
+    // TODO DDERR_NOEXCLUSIVEMODE
+    // TODO DDERR_WRONGMODE
+
 
     // TODO proper implementation
     // See Testing Cooperative Levels page in the documentation
@@ -1408,6 +1391,58 @@ HRESULT dd_lose_all_surfaces(dd* self) {
 
 exit:
     LeaveCriticalSection(&self->lock);
+
+    return hr;
+}
+
+HRESULT dd_can_change_display_mode(dd* self) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    HRESULT hr = DD_OK;
+    dd* exclusive = NULL;
+    if (SUCCEEDED(hr = sugar_get_exclusive(self->manager, &exclusive))) {
+        if (exclusive != NULL && self != exclusive) {
+            return DDERR_NOEXCLUSIVEMODE;
+        }
+    }
+
+    return hr;
+}
+
+HRESULT dd_acquire_exclusive_mode(dd* self) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    HRESULT hr = DD_OK;
+    dd* exclusive = NULL;
+    if (SUCCEEDED(hr = sugar_get_exclusive(self->manager, &exclusive))) {
+        if (self == exclusive) {
+            return DD_OK;
+        }
+
+        return exclusive == NULL
+            ? sugar_set_exclusive(self->manager, self)
+            : DDERR_EXCLUSIVEMODEALREADYSET;
+    }
+
+    return hr;
+}
+
+HRESULT dd_unacquire_exclusive_mode(dd* self) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    HRESULT hr = DD_OK;
+    dd* exclusive = NULL;
+    if (SUCCEEDED(hr = sugar_get_exclusive(self->manager, &exclusive))) {
+        return exclusive == NULL || self == exclusive
+            ? sugar_set_exclusive(self->manager, NULL)
+            : DDERR_NOEXCLUSIVEMODE;
+    }
 
     return hr;
 }

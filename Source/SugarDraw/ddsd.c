@@ -244,13 +244,6 @@ HRESULT ddsd_blt_fast(ddsd* self, RECT* dst, ddsd* surface, RECT* src, u32 trans
         return DDERR_INVALIDPARAMS;
     }
 
-    if (self == surface) {
-        // TODO Blitting Basics
-        // The destination and source surfaces can be one and the same, and you don't have to worry
-        // about overlap - DirectDraw takes care to preserve all source pixels before overwriting them.
-        return DDERR_UNSUPPORTED; // TODO need to support!
-    }
-
     // TODO DDERR_OVERLAPPINGRECTS overlapping rects?
     // TODO DDERR_COLORKEYNOTSET
 
@@ -266,22 +259,26 @@ HRESULT ddsd_blt_fast(ddsd* self, RECT* dst, ddsd* surface, RECT* src, u32 trans
         }
 
         if (transfer & DDBLTFAST_SRCCOLORKEY) {
-            blt_color_key(self->data, dst->left, dst->top, dst->right, dst->bottom,
+            blt_src_color_key(self->data, (u32)dst->left, (u32)dst->top, (u32)dst->right, (u32)dst->bottom,
                 self->desc.ddpfPixelFormat.dwRGBBitCount, self->desc.lPitch,
-                surface->data, src->left, src->top, src->right, src->bottom,
+                surface->data, (u32)src->left, (u32)src->top, (u32)src->right, (u32)src->bottom,
                 surface->desc.ddpfPixelFormat.dwRGBBitCount, surface->desc.lPitch,
                 surface->desc.ddckCKSrcBlt.dwColorSpaceLowValue,
                 surface->desc.ddckCKSrcBlt.dwColorSpaceHighValue);
         }
         else if (transfer & DDBLTFAST_DESTCOLORKEY) {
-            // TODO not suported
-            // TODO both flags?
+            blt_dst_color_key(self->data, (u32)dst->left, (u32)dst->top, (u32)dst->right, (u32)dst->bottom,
+                self->desc.ddpfPixelFormat.dwRGBBitCount, self->desc.lPitch,
+                surface->data, (u32)src->left, (u32)src->top, (u32)src->right, (u32)src->bottom,
+                surface->desc.ddpfPixelFormat.dwRGBBitCount, surface->desc.lPitch,
+                self->desc.ddckCKDestBlt.dwColorSpaceLowValue,
+                self->desc.ddckCKDestBlt.dwColorSpaceHighValue);
         }
         else {
-            blt_blit(self->data, dst->left, dst->top, dst->right, dst->bottom,
+            blt_blit(self->data, (u32)dst->left, (u32)dst->top, (u32)dst->right, (u32)dst->bottom,
                 &self->desc.ddpfPixelFormat, self->desc.lPitch,
                 self->bitmap.header.palette,
-                surface->data, src->left, src->top, src->right, src->bottom,
+                surface->data, (u32)src->left, (u32)src->top, (u32)src->right, (u32)src->bottom,
                 &surface->desc.ddpfPixelFormat, surface->desc.lPitch,
                 surface->bitmap.header.palette);
         }
@@ -556,6 +553,24 @@ HRESULT ddsd_page_unlock(ddsd* self) {
     return DD_OK;
 }
 
+HRESULT ddsd_get_surface_desc(ddsd* self, DDSURFACEDESC2* desc) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (desc == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if (desc->dwSize != sizeof(DDSURFACEDESC2)) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    CopyMemory(desc, &self->desc, sizeof(DDSURFACEDESC2));
+
+    return DD_OK;
+}
+
 HRESULT ddsd_set_surface_desc(ddsd* self, DDSURFACEDESC2* desc) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
@@ -710,4 +725,65 @@ HRESULT ddsd_restore_surface(ddsd* self) {
     }
 
     return hr;
+}
+
+HRESULT ddsd_set_color_key(ddsd* self, u32 flags, DDCOLORKEY* key) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    // TODO This is a code duplication. Refactor this...
+
+    if (self->data == NULL) {
+        return DDERR_NOTINITIALIZED;
+    }
+
+    if (key == NULL) {
+        if (flags & DDCKEY_DESTBLT) {
+            self->desc.dwFlags &= ~DDSD_CKDESTBLT;
+        }
+
+        if (flags & DDCKEY_DESTOVERLAY) {
+            self->desc.dwFlags &= ~DDSD_CKDESTOVERLAY;
+        }
+
+        if (flags & DDCKEY_SRCBLT) {
+            self->desc.dwFlags &= ~DDSD_CKSRCBLT;
+        }
+
+        if (flags & DDCKEY_SRCOVERLAY) {
+            self->desc.dwFlags &= ~DDSD_CKSRCOVERLAY;
+        }
+    }
+    else {
+        DDCOLORKEY color;
+        color.dwColorSpaceLowValue = key->dwColorSpaceLowValue;
+        color.dwColorSpaceHighValue = key->dwColorSpaceLowValue;
+
+        if (flags & DDCKEY_COLORSPACE) {
+            color.dwColorSpaceHighValue = key->dwColorSpaceHighValue;
+        }
+
+        if (flags & DDCKEY_DESTBLT) {
+            self->desc.dwFlags |= DDSD_CKDESTBLT;
+            CopyMemory(&self->desc.ddckCKDestBlt, &color, sizeof(DDCOLORKEY));
+        }
+
+        if (flags & DDCKEY_DESTOVERLAY) {
+            self->desc.dwFlags |= DDSD_CKDESTOVERLAY;
+            CopyMemory(&self->desc.ddckCKDestOverlay, &color, sizeof(DDCOLORKEY));
+        }
+
+        if (flags & DDCKEY_SRCBLT) {
+            self->desc.dwFlags |= DDSD_CKSRCBLT;
+            CopyMemory(&self->desc.ddckCKSrcBlt, &color, sizeof(DDCOLORKEY));
+        }
+
+        if (flags & DDCKEY_SRCOVERLAY) {
+            self->desc.dwFlags |= DDSD_CKSRCOVERLAY;
+            CopyMemory(&self->desc.ddckCKSrcOverlay, &color, sizeof(DDCOLORKEY));
+        }
+    }
+
+    return DD_OK;
 }

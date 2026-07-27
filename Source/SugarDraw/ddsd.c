@@ -128,8 +128,7 @@ HRESULT ddsd_initialize(ddsd* self, DDSURFACEDESC2* desc) {
         // TODO: From where? exclusive mode hwnd, or cliper?
         self->bitmap.dc = CreateCompatibleDC(NULL);
         if (self->bitmap.dc == NULL) {
-            hr = DDERR_OUTOFMEMORY;
-            goto exit;
+            EXITCODE(DDERR_OUTOFMEMORY);
         }
 
         // TODO make stride aligned to a reasonable value for SIMD processing
@@ -151,8 +150,7 @@ HRESULT ddsd_initialize(ddsd* self, DDSURFACEDESC2* desc) {
         case 1:
         case 2:
         case 4: {
-            hr = DDERR_UNSUPPORTED;
-            goto exit;
+            EXITCODE(DDERR_UNSUPPORTED);
         }break;
         case 8: {
             header->biClrUsed = PALETTE_MAX_ENTRY_COUNT;
@@ -206,8 +204,7 @@ HRESULT ddsd_initialize(ddsd* self, DDSURFACEDESC2* desc) {
             NULL, PAGE_READWRITE | SEC_COMMIT, 0, size, NULL);
         if (self->bitmap.mapping == NULL) {
             // TODO clean-up...
-            hr = DDERR_OUTOFMEMORY;
-            goto exit;
+            EXITCODE(DDERR_OUTOFMEMORY);
         }
 
         self->desc->lPitch = stride;
@@ -216,8 +213,7 @@ HRESULT ddsd_initialize(ddsd* self, DDSURFACEDESC2* desc) {
             &self->data, self->bitmap.mapping, 0);
         if (self->bitmap.bitmap == NULL) {
             // TODO clean-up...
-            hr = DDERR_OUTOFMEMORY;
-            goto exit;
+            EXITCODE(DDERR_OUTOFMEMORY);
         }
 
         SelectObject(self->bitmap.dc, self->bitmap.bitmap);
@@ -252,23 +248,22 @@ HRESULT ddsd_blt_fast(ddsd* self, RECT* dst, ddsd* surface, RECT* src, u32 trans
     if (SUCCEEDED(hr = ddsd_lock_rect(self, dst))) {
         if (FAILED(hr = ddsd_lock_rect(surface, src))) {
             ddsd_unlock_rect(self, dst);
-            hr = DDERR_LOCKEDSURFACES;
-            goto exit;
+            EXITCODE(DDERR_LOCKEDSURFACES);
         }
 
         if (transfer & DDBLTFAST_SRCCOLORKEY) {
             blt_src_color_key(self->data, (u32)dst->left, (u32)dst->top, (u32)dst->right, (u32)dst->bottom,
-                self->desc->ddpfPixelFormat.dwRGBBitCount, self->desc->lPitch,
+                &self->desc->ddpfPixelFormat, self->desc->lPitch,
                 surface->data, (u32)src->left, (u32)src->top, (u32)src->right, (u32)src->bottom,
-                surface->desc->ddpfPixelFormat.dwRGBBitCount, surface->desc->lPitch,
+                &surface->desc->ddpfPixelFormat, surface->desc->lPitch,
                 surface->desc->ddckCKSrcBlt.dwColorSpaceLowValue,
                 surface->desc->ddckCKSrcBlt.dwColorSpaceHighValue);
         }
         else if (transfer & DDBLTFAST_DESTCOLORKEY) {
             blt_dst_color_key(self->data, (u32)dst->left, (u32)dst->top, (u32)dst->right, (u32)dst->bottom,
-                self->desc->ddpfPixelFormat.dwRGBBitCount, self->desc->lPitch,
+                &self->desc->ddpfPixelFormat, self->desc->lPitch,
                 surface->data, (u32)src->left, (u32)src->top, (u32)src->right, (u32)src->bottom,
-                surface->desc->ddpfPixelFormat.dwRGBBitCount, surface->desc->lPitch,
+                &surface->desc->ddpfPixelFormat, surface->desc->lPitch,
                 surface->desc->ddckCKDestBlt.dwColorSpaceLowValue,
                 surface->desc->ddckCKDestBlt.dwColorSpaceHighValue);
         }
@@ -298,6 +293,10 @@ HRESULT ddsd_get_palette(ddsd* self, u32 base, u32 count, RGBQUAD* quads) {
         return DDERR_INVALIDOBJECT;
     }
 
+    if (self->data == NULL) {
+        return DDERR_NOTINITIALIZED;
+    }
+
     if (base >= PALETTE_MAX_ENTRY_COUNT
         || count > PALETTE_MAX_ENTRY_COUNT
         || (base + count) > PALETTE_MAX_ENTRY_COUNT) {
@@ -306,10 +305,6 @@ HRESULT ddsd_get_palette(ddsd* self, u32 base, u32 count, RGBQUAD* quads) {
 
     if (quads == NULL) {
         return DDERR_INVALIDPARAMS;
-    }
-
-    if (self->data == NULL) {
-        return DDERR_NOTINITIALIZED;
     }
 
     EnterCriticalSection(&self->lock);
@@ -326,6 +321,10 @@ HRESULT ddsd_set_palette(ddsd* self, u32 start, u32 count, RGBQUAD* quads) {
         return DDERR_INVALIDOBJECT;
     }
 
+    if (self->data == NULL) {
+        return DDERR_NOTINITIALIZED;
+    }
+
     if (start >= PALETTE_MAX_ENTRY_COUNT
         || count > PALETTE_MAX_ENTRY_COUNT
         || (start + count) > PALETTE_MAX_ENTRY_COUNT) {
@@ -334,10 +333,6 @@ HRESULT ddsd_set_palette(ddsd* self, u32 start, u32 count, RGBQUAD* quads) {
 
     if (quads == NULL) {
         return DDERR_INVALIDPARAMS;
-    }
-
-    if (self->data == NULL) {
-        return DDERR_NOTINITIALIZED;
     }
 
     EnterCriticalSection(&self->lock);
@@ -364,12 +359,12 @@ HRESULT ddsd_get_dc(ddsd* self, HDC* hdc) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (hdc == NULL) {
-        return DDERR_INVALIDPARAMS;
-    }
-
     if (self->data == NULL) {
         return DDERR_NOTINITIALIZED;
+    }
+
+    if (hdc == NULL) {
+        return DDERR_INVALIDPARAMS;
     }
 
     if (self->desc->dwFlags & DDSD_LPSURFACE) {
@@ -406,12 +401,12 @@ HRESULT ddsd_release_dc(ddsd* self, HDC hdc) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (hdc == NULL) {
-        return DDERR_INVALIDPARAMS;
-    }
-    
     if (self->data == NULL) {
         return DDERR_NOTINITIALIZED;
+    }
+
+    if (hdc == NULL) {
+        return DDERR_INVALIDPARAMS;
     }
 
     if (self->desc->dwFlags & DDSD_LPSURFACE) {
@@ -452,16 +447,16 @@ HRESULT ddsd_lock(ddsd* self, RECT* rect, DDSURFACEDESC2* desc) {
         return DDERR_INVALIDOBJECT;
     }
 
+    if (self->data == NULL) {
+        return DDERR_NOTINITIALIZED;
+    }
+
     if (rect == NULL || desc == NULL) {
         return DDERR_INVALIDPARAMS;
     }
 
     if (desc->dwSize != sizeof(DDSURFACEDESC2)) {
         return DDERR_INVALIDPARAMS;
-    }
-
-    if (self->data == NULL) {
-        return DDERR_NOTINITIALIZED;
     }
 
     // TODO validate intersection DDERR_INVALIDRECT
@@ -489,12 +484,12 @@ HRESULT ddsd_unlock(ddsd* self, RECT* rect) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (rect == NULL) {
-        return DDERR_INVALIDPARAMS;
-    }
-
     if (self->data == NULL) {
         return DDERR_NOTINITIALIZED;
+    }
+
+    if (rect == NULL) {
+        return DDERR_INVALIDPARAMS;
     }
 
     // TODO validate against intersection DDERR_INVALIDRECT
@@ -556,12 +551,12 @@ HRESULT ddsd_set_surface_desc(ddsd* self, DDSURFACEDESC2* desc) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (desc == NULL) {
-        return DDERR_INVALIDPARAMS;
-    }
-
     if (self->data == NULL) {
         return DDERR_NOTINITIALIZED;
+    }
+
+    if (desc == NULL) {
+        return DDERR_INVALIDPARAMS;
     }
 
     // TODO
@@ -616,12 +611,12 @@ HRESULT ddsd_get_rect(ddsd* self, RECT* rect) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (rect == NULL) {
-        return DDERR_INVALIDPARAMS;
-    }
-
     if (self->data == NULL) {
         return DDERR_NOTINITIALIZED;
+    }
+
+    if (rect == NULL) {
+        return DDERR_INVALIDPARAMS;
     }
 
     rect->left = 0;
@@ -637,6 +632,10 @@ HRESULT ddsd_inside_rect(ddsd* self, RECT* rect) {
         return DDERR_INVALIDOBJECT;
     }
 
+    if (self->data == NULL) {
+        return DDERR_NOTINITIALIZED;
+    }
+
     if (rect == NULL) {
         return DDERR_INVALIDPARAMS;
     }
@@ -645,12 +644,7 @@ HRESULT ddsd_inside_rect(ddsd* self, RECT* rect) {
         return DDERR_INVALIDRECT;
     }
 
-    if (self->data == NULL) {
-        return DDERR_NOTINITIALIZED;
-    }
-
-    RECT bounds;
-    ZeroMemory(&bounds, sizeof(RECT));
+    MAKETYPE(RECT, bounds);
     bounds.right = (s32)self->desc->dwWidth;
     bounds.bottom = (s32)self->desc->dwHeight;
 

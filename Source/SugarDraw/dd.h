@@ -19,6 +19,7 @@ typedef struct dd {
     struct {
         DWORD           flags;
         HWND            hwnd;
+        DEVMODEA        mode;
         RECT            rect;
     } cooperation;
 

@@ -37,6 +37,7 @@
 #define DDSDM_VALID								(DDSDM_STANDARDVGAMODE)
 
 #define DDSD_NONE								0x00000000L
+#define DDSD_SIZEFORMAT                         (DDSD_WIDTH | DDSD_HEIGHT | DDSD_PIXELFORMAT)
 #define DDSD_VALID								(DDSD_CAPS | DDSD_HEIGHT | DDSD_WIDTH | DDSD_PITCH | DDSD_BACKBUFFERCOUNT \
                                                     | DDSD_ALPHABITDEPTH | DDSD_LPSURFACE | DDSD_PIXELFORMAT | DDSD_CKDESTOVERLAY \
                                                     | DDSD_CKDESTBLT | DDSD_CKSRCOVERLAY | DDSD_CKSRCBLT | DDSD_MIPMAPCOUNT | DDSD_REFRESHRATE \
@@ -210,6 +211,11 @@
 #define DDWAITVB_VALID                          (DDWAITVB_BLOCKBEGIN | DDWAITVB_BLOCKEND)
 #define DDWAITVB_ALL                            (DDWAITVB_BLOCKBEGIN | DDWAITVB_BLOCKBEGINEVENT | DDWAITVB_BLOCKEND)
 
+
+#define FOURCC_NONE                             0x00000000
+
+#define DDPF_D3DFORMAT                          0x00200000
+
 typedef int bool;
 
 typedef int s32;
@@ -243,13 +249,29 @@ const extern GUID IID_IDirectDrawFactory2;
 #define SUGARDRAW_DEVICE_DESCRIPTION            "SugarDraw Device Driver"
 #define SUGARDRAW_DEVICE_DESCRIPTION_LENGTH     32
 
-#define DD_MAX_TOTAL_VIDEO_MEMORY               (256 * 1024 * 1024)
-#define DD_MAX_VISIBLE_OVERLAY_COUNT            256
+#define MAX_TOTAL_VIDEO_MEMORY                  (256 * 1024 * 1024)
+#define MAX_VISIBLE_OVERLAY_COUNT               256
 
 #define CompareMemory(a, b, size)               (memcmp(a, b, size) == 0)
 
-#define EXIT(X)                                 hr = (X); goto exit;
+#define EXITCODE(X)                             hr = (X); goto exit;
 #define GOTO(LABEL, X)                          hr = (X); goto LABEL;
+
+#define MAKETYPE(TYPE, X)                       \
+    TYPE X;                                     \
+    ZeroMemory(&X, sizeof(TYPE));
+
+#define MAKEDEVMODEA(X)                         \
+    MAKETYPE(DEVMODEA, X);                      \
+    X.dmSize = sizeof(DEVMODEA);
+
+#define MAKEDDSURFACEDESC2(X)                   \
+    MAKETYPE(DDSURFACEDESC2, X);                \
+    X.dwSize = sizeof(DDSURFACEDESC2);
+
+#define MAKEDDPIXELFORMAT(X)                    \
+    MAKETYPE(DDPIXELFORMAT, X);                 \
+    X.dwSize = sizeof(DDPIXELFORMAT);
 
 BOOL IsInsideRect(const RECT* bounds, const RECT* rect);
 BOOL IsValidRect(const RECT* rect);

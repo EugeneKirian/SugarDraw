@@ -695,7 +695,7 @@ HRESULT SUGARCALL idds_blt1(idds* self, LPRECT lpDestRect, LPDIRECTDRAWSURFACE l
         rect_to_string(lpSrcRect), ddblt_to_string(dwFlags), ddbltfx_to_string(lpDDBltFx));
 
     LEAVE(dds_blt(self->instance, lpDestRect,
-        ((idds*)lpDDSrcSurface)->instance, lpSrcRect, dwFlags, lpDDBltFx));
+        lpDDSrcSurface == NULL ? NULL : ((idds*)lpDDSrcSurface)->instance, lpSrcRect, dwFlags, lpDDBltFx));
 }
 
 HRESULT SUGARCALL idds_blt_batch(idds* self, LPDDBLTBATCH lpDDBltBatch, DWORD dwCount, DWORD dwFlags) {
@@ -959,11 +959,7 @@ HRESULT SUGARCALL idds_get_pixel_format(idds* self, LPDDPIXELFORMAT lpDDPixelFor
     }
 
     HRESULT hr = DD_OK;
-
-    DDPIXELFORMAT format;
-    ZeroMemory(&format, sizeof(DDPIXELFORMAT));
-    format.dwSize = sizeof(DDPIXELFORMAT);
-
+    MAKEDDPIXELFORMAT(format);
     if (SUCCEEDED(hr = dds_get_pixel_format(self->instance, lpDDPixelFormat))) {
         CopyMemory(lpDDPixelFormat, &format, sizeof(DDPIXELFORMAT));
     }
@@ -1271,7 +1267,8 @@ HRESULT SUGARCALL idds_blt2(idds* self, LPRECT lpDestRect, LPDIRECTDRAWSURFACE2 
     ENTER("%s, 0x%p, %s, %s, %s", rect_to_string(lpDestRect), lpDDSrcSurface,
         rect_to_string(lpSrcRect), ddblt_to_string(dwFlags), ddbltfx_to_string(lpDDBltFx));
 
-    LEAVE(dds_blt(self->instance, lpDestRect, ((idds*)lpDDSrcSurface)->instance, lpSrcRect, dwFlags, lpDDBltFx));
+    LEAVE(dds_blt(self->instance, lpDestRect,
+        lpDDSrcSurface == NULL ? NULL : ((idds*)lpDDSrcSurface)->instance, lpSrcRect, dwFlags, lpDDBltFx));
 }
 
 HRESULT SUGARCALL idds_blt_fast2(idds* self, DWORD dwX, DWORD dwY, LPDIRECTDRAWSURFACE2 lpDDSrcSurface, LPRECT lpSrcRect, DWORD dwTrans) {
@@ -1477,7 +1474,8 @@ HRESULT SUGARCALL idds_blt3(idds* self, LPRECT lpDestRect, LPDIRECTDRAWSURFACE3 
     ENTER("%s, 0x%p, %s, %s, %s", rect_to_string(lpDestRect), lpDDSrcSurface,
         rect_to_string(lpSrcRect), ddblt_to_string(dwFlags), ddbltfx_to_string(lpDDBltFx));
 
-    LEAVE(dds_blt(self->instance, lpDestRect, ((idds*)lpDDSrcSurface)->instance, lpSrcRect, dwFlags, lpDDBltFx));
+    LEAVE(dds_blt(self->instance, lpDestRect,
+        lpDDSrcSurface == NULL ? NULL : ((idds*)lpDDSrcSurface)->instance, lpSrcRect, dwFlags, lpDDBltFx));
 }
 
 HRESULT SUGARCALL idds_blt_fast3(idds* self, DWORD dwX, DWORD dwY, LPDIRECTDRAWSURFACE3 lpDDSrcSurface, LPRECT lpSrcRect, DWORD dwTrans) {
@@ -1670,7 +1668,8 @@ HRESULT SUGARCALL idds_blt4(idds* self, LPRECT lpDestRect, LPDIRECTDRAWSURFACE4 
     ENTER("%s, 0x%p, %s, %s, %s", rect_to_string(lpDestRect), lpDDSrcSurface,
         rect_to_string(lpSrcRect), ddblt_to_string(dwFlags), ddbltfx_to_string(lpDDBltFx));
 
-    LEAVE(dds_blt(self->instance, lpDestRect, ((idds*)lpDDSrcSurface)->instance, lpSrcRect, dwFlags, lpDDBltFx));
+    LEAVE(dds_blt(self->instance, lpDestRect,
+        lpDDSrcSurface == NULL ? NULL : ((idds*)lpDDSrcSurface)->instance, lpSrcRect, dwFlags, lpDDBltFx));
 }
 
 HRESULT SUGARCALL idds_blt_fast4(idds* self, DWORD dwX, DWORD dwY, LPDIRECTDRAWSURFACE4 lpDDSrcSurface, LPRECT lpSrcRect, DWORD dwTrans) {
@@ -1732,7 +1731,12 @@ HRESULT SUGARCALL idds_get_attached_surface4(idds* self, LPDDSCAPS2 lpDDSCaps, L
 
     HRESULT hr = DD_OK;
     dds* instance = NULL;
-    if (SUCCEEDED(hr = dds_get_attached_surface(self->instance, lpDDSCaps, &instance))) {
+
+    // Turns out IDirectDrawSurface4 only checks for dwCaps value.
+    MAKETYPE(DDSCAPS2, caps);
+    caps.dwCaps = lpDDSCaps->dwCaps;
+
+    if (SUCCEEDED(hr = dds_get_attached_surface(self->instance, &caps, &instance))) {
         hr = dds_query_interface(instance, &IID_IDirectDrawSurface4, lplpDDAttachedSurface);
     }
 

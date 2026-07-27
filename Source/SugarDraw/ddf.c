@@ -53,26 +53,15 @@ void ddf_release(ddf* self, u32 flags) {
 }
 
 HRESULT ddf_get_interface(ddf* self, const GUID* riid, void** object) {
-    HRESULT hr = DD_OK;
-    EnterCriticalSection(&self->lock);
-
-    const s32 item_count = intfc_get_count(self->interfaces);
-    for (s32 i = 0; i < item_count; i++) {
-        iddf* instance = NULL;
-        if (SUCCEEDED(hr = intfc_get_item(self->interfaces, i, &instance))) {
-            if (IsEqualGUID(riid, &instance->id)) {
-                *object = instance;
-                goto exit;
-            }
-        }
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
     }
 
-    hr = E_NOINTERFACE;
+    if (riid == NULL || object == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
 
-exit:
-    LeaveCriticalSection(&self->lock);
-
-    return hr;
+    return intfc_query_item(self->interfaces, riid, object);
 }
 
 HRESULT ddf_query_interface(ddf* self, const GUID* riid, void** object) {

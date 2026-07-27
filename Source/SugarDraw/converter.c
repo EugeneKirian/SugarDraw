@@ -228,7 +228,8 @@ const char* ddsurfacedesc_to_string(const DDSURFACEDESC* desc) {
         "ddpfPixelFormat = %s, ddsCaps = %s }",
         desc->dwSize, ddsd_to_string(desc->dwFlags),
         desc->dwHeight, desc->dwWidth,
-        ddpixelformat_to_string(&desc->ddpfPixelFormat), ddscaps_to_string(&desc->ddsCaps));
+        (desc->dwFlags & DDSD_PIXELFORMAT) ? ddpixelformat_to_string(&desc->ddpfPixelFormat) : "{}",
+        ddscaps_to_string(&desc->ddsCaps));
 
     return messages[result];
 }
@@ -250,7 +251,8 @@ const char* ddsurfacedesc2_to_string(const DDSURFACEDESC2* desc) {
         "ddpfPixelFormat = %s, ddsCaps = %s }",
         desc->dwSize, ddsd_to_string(desc->dwFlags),
         desc->dwHeight, desc->dwWidth,
-        ddpixelformat_to_string(&desc->ddpfPixelFormat), ddscaps2_to_string(&desc->ddsCaps));
+        (desc->dwFlags & DDSD_PIXELFORMAT) ? ddpixelformat_to_string(&desc->ddpfPixelFormat) : "{}",
+        ddscaps2_to_string(&desc->ddsCaps));
 
     return messages[result];
 }

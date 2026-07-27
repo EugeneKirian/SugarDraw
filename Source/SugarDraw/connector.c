@@ -40,7 +40,7 @@ HRESULT connector_create(allocator* allocator, memory_tag tag, connector** objec
             return hr;
         }
 
-        connector_release(instance);
+        allocator_free(allocator, instance);
     }
 
     return hr;
@@ -68,7 +68,7 @@ HRESULT connector_add_item(connector* self, void* object) {
     EnterCriticalSection(&self->lock);
 
     if (self->capacity < self->count + 1) {
-        if (SUCCEEDED(hr = connector_resize(self))) {
+        if (FAILED(hr = connector_resize(self))) {
             goto exit;
         }
     }

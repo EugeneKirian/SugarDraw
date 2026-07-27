@@ -67,26 +67,15 @@ void ddc_release(ddc* self, u32 flags) {
 }
 
 HRESULT ddc_get_interface(ddc* self, const GUID* riid, void** object) {
-    HRESULT hr = DD_OK;
-    EnterCriticalSection(&self->lock);
-
-    const s32 item_count = intfc_get_count(self->interfaces);
-    for (s32 i = 0; i < item_count; i++) {
-        iddc* instance = NULL;
-        if (SUCCEEDED(hr = intfc_get_item(self->interfaces, i, &instance))) {
-            if (IsEqualGUID(riid, &instance->id)) {
-                *object = instance;
-                goto exit;
-            }
-        }
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
     }
 
-    hr = E_NOINTERFACE;
+    if (riid == NULL || object == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
 
-exit:
-    LeaveCriticalSection(&self->lock);
-
-    return hr;
+    return intfc_query_item(self->interfaces, riid, object);
 }
 
 HRESULT ddc_query_interface(ddc* self, const GUID* riid, void** object) {
@@ -163,8 +152,7 @@ HRESULT ddc_get_clip_list(ddc* self, RECT* rect, RGNDATA* region, u32* size) {
 
     if (self->hwnd == NULL) {
         if (self->region == NULL) {
-            hr = DDERR_NOCLIPLIST;
-            goto exit;
+            EXITCODE(DDERR_NOCLIPLIST);
         }
 
         const u32 length = RGNDATASIZE(self->region);
@@ -174,8 +162,7 @@ HRESULT ddc_get_clip_list(ddc* self, RECT* rect, RGNDATA* region, u32* size) {
         }
 
         if (*size < length) {
-            hr = DDERR_REGIONTOOSMALL;
-            goto exit;
+            EXITCODE(DDERR_REGIONTOOSMALL);
         }
 
         CopyMemory(region, self->region, RGNDATASIZE(self->region));
@@ -190,8 +177,7 @@ HRESULT ddc_get_clip_list(ddc* self, RECT* rect, RGNDATA* region, u32* size) {
             }
 
             if (*size < length) {
-                hr = DDERR_REGIONTOOSMALL;
-                goto exit;
+                EXITCODE(DDERR_REGIONTOOSMALL);
             }
 
             CopyMemory(region, self->region, length);
@@ -210,12 +196,12 @@ HRESULT ddc_get_hwnd(ddc* self, HWND* hwnd) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (hwnd == NULL) {
-        return DDERR_INVALIDPARAMS;
-    }
-
     if (!self->initialized) {
         return DDERR_NOTINITIALIZED;
+    }
+
+    if (hwnd == NULL) {
+        return DDERR_INVALIDPARAMS;
     }
 
     if (self->hwnd == NULL) {
@@ -243,12 +229,12 @@ HRESULT ddc_initialize(ddc* self, dd* object) {
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
-    // According to the documentation, see:
+    // According to the documentation:
     // Creating DirectDrawClipper Objects with CoCreateInstance
     // the object passed in can be NULL, in which case it is a driver-independent object.
 
     if (object != NULL) {
-        // Change ownership of the clipper.
+        // Change the ownership of the clipper.
         if (SUCCEEDED(hr = dd_attach_clipper(object, self))) {
             sugar_remove_ddc(self->manager, self);
             self->instance = object;
@@ -269,12 +255,12 @@ HRESULT ddc_is_clip_list_changed(ddc* self, bool* changed) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (changed == NULL) {
-        return DDERR_INVALIDPARAMS;
-    }
-
     if (!self->initialized) {
         return DDERR_NOTINITIALIZED;
+    }
+
+    if (changed == NULL) {
+        return DDERR_INVALIDPARAMS;
     }
 
     *changed = TRUE;
@@ -336,6 +322,10 @@ HRESULT ddc_set_hwnd(ddc* self, HWND hwnd) {
         return DDERR_INVALIDOBJECT;
     }
 
+    if (!self->initialized) {
+        return DDERR_NOTINITIALIZED;
+    }
+
     if (hwnd == NULL) {
         return DDERR_INVALIDPARAMS;
     }
@@ -344,10 +334,6 @@ HRESULT ddc_set_hwnd(ddc* self, HWND hwnd) {
         if (!IsWindow(hwnd)) {
             return DDERR_INVALIDPARAMS;
         }
-    }
-
-    if (!self->initialized) {
-        return DDERR_NOTINITIALIZED;
     }
 
     // TODO multi-monitor suport

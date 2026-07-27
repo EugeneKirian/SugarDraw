@@ -66,26 +66,15 @@ void ddcc_release(ddcc* self, u32 flags) {
 }
 
 HRESULT ddcc_get_interface(ddcc* self, const GUID* riid, void** object) {
-    HRESULT hr = DD_OK;
-    EnterCriticalSection(&self->lock);
-
-    const s32 item_count = intfc_get_count(self->interfaces);
-    for (s32 i = 0; i < item_count; i++) {
-        iddcc* instance = NULL;
-        if (SUCCEEDED(hr = intfc_get_item(self->interfaces, i, &instance))) {
-            if (IsEqualGUID(riid, &instance->id)) {
-                *object = instance;
-                goto exit;
-            }
-        }
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
     }
 
-    hr = E_NOINTERFACE;
+    if (riid == NULL || object == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
 
-exit:
-    LeaveCriticalSection(&self->lock);
-
-    return hr;
+    return intfc_query_item(self->interfaces, riid, object);
 }
 
 HRESULT ddcc_query_interface(ddcc* self, const GUID* riid, void** object) {
@@ -145,16 +134,16 @@ HRESULT ddcc_get_color_controls(ddcc* self, DDCOLORCONTROL* control) {
         return DDERR_INVALIDOBJECT;
     }
 
+    if (self->instance = NULL) {
+        return DDERR_NOTINITIALIZED;
+    }
+
     if (control == NULL) {
         return DDERR_INVALIDPARAMS;
     }
 
     if (control->dwSize != sizeof(DDCOLORCONTROL)) {
         return DDERR_INVALIDPARAMS;
-    }
-
-    if (self->instance = NULL) {
-        return DDERR_NOTINITIALIZED;
     }
 
     if (!(self->instance->desc.ddsCaps.dwCaps & (DDSCAPS_PRIMARYSURFACE | DDSCAPS_OVERLAY))) {
@@ -173,6 +162,10 @@ HRESULT ddcc_get_color_controls(ddcc* self, DDCOLORCONTROL* control) {
 HRESULT ddcc_set_color_controls(ddcc* self, DDCOLORCONTROL* control) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
+    }
+
+    if (self->instance = NULL) {
+        return DDERR_NOTINITIALIZED;
     }
 
     if (control == NULL) {
@@ -227,10 +220,6 @@ HRESULT ddcc_set_color_controls(ddcc* self, DDCOLORCONTROL* control) {
         if (control->lColorEnable < FALSE || control->lColorEnable > TRUE) {
             return DDERR_INVALIDPARAMS;
         }
-    }
-
-    if (self->instance = NULL) {
-        return DDERR_NOTINITIALIZED;
     }
 
     if (!(self->instance->desc.ddsCaps.dwCaps & (DDSCAPS_PRIMARYSURFACE | DDSCAPS_OVERLAY))) {

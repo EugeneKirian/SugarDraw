@@ -39,7 +39,7 @@ HRESULT ddg_create(sugar* manager, driver* driver, ddg** object) {
             return hr;
         }
 
-        ddg_release(instance);
+        allocator_free(manager->allocator, instance);
     }
 
     return hr;
@@ -73,12 +73,12 @@ HRESULT ddg_get_status(ddg* self, u32* status) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (status == NULL) {
-        return DDERR_INVALIDPARAMS;
-    }
-
     if (self->surface == NULL) {
         return DDERR_NOTINITIALIZED;
+    }
+
+    if (status == NULL) {
+        return DDERR_INVALIDPARAMS;
     }
 
     *status = self->status;
@@ -175,18 +175,13 @@ HRESULT ddg_recreate_surface(ddg* self) {
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
-    DEVMODEA mode;
-    ZeroMemory(&mode, sizeof(DEVMODEA));
-    mode.dmSize = sizeof(DEVMODEA);
+    MAKEDEVMODEA(mode);
     if (SUCCEEDED(hr = sugar_get_display_mode(self->manager, &mode))) {
         if (mode.dmPelsWidth > self->desc.dwWidth || mode.dmPelsHeight > self->desc.dwHeight) {
             if (SUCCEEDED(hr = ddg_stop_worker(self))) {
                 ddsd* instance = NULL;
                 if (SUCCEEDED(hr = ddsd_create(self->manager->allocator, &instance))) {
-                    DDSURFACEDESC2 desc;
-                    ZeroMemory(&desc, sizeof(DDSURFACEDESC2));
-                    desc.dwSize = sizeof(DDSURFACEDESC2);
-
+                    MAKEDDSURFACEDESC2(desc);
                     if (SUCCEEDED(hr = ddg_get_surface_desc(self, &desc))) {
                         if (SUCCEEDED(hr = ddsd_initialize(instance, &desc))) {
                             ddsd_release(InterlockedExchangePointer(&self->surface, instance));
@@ -268,6 +263,7 @@ DWORD WINAPI ddg_worker(ddg* self) {
                         // How to aply those values? Need example!
 
                         // Blit the primary surface into the grahics surface.
+                        // TODO this must be blit, and need support of clipper...
                         if (SUCCEEDED(hr = ddsd_blt_fast(self->surface, &dst, surface, &src, DDBLTFAST_NOCOLORKEY))) {
                             // Blit all visible overlays on top of the primary surface into the graphics surface.
                             const u32 item_count = connector_get_count(primary->overlays);
@@ -293,7 +289,7 @@ DWORD WINAPI ddg_worker(ddg* self) {
                                         RECT rect;
                                         GetClientRect(hwnd, &rect);
 
-                                        ClientToScreen(hwnd, (POINT*)&rect);
+                                        ClientToScreen(hwnd, (POINT*)&rect); // TODO adjust blitting only for DDSCL_NORMAL
                                         BitBlt(hdc, 0, 0, rect.right, rect.bottom, sdc, rect.left, rect.top, SRCCOPY);
                                         hr = ddsd_release_dc(self->surface, sdc);
 
@@ -334,11 +330,8 @@ static HRESULT ddg_get_surface_desc(ddg* self, DDSURFACEDESC2* desc) {
         return DDERR_INVALIDPARAMS;
     }
 
-    DEVMODEA mode;
-    ZeroMemory(&mode, sizeof(DEVMODEA));
-    mode.dmSize = sizeof(DEVMODEA);
-
     HRESULT hr = DD_OK;
+    MAKEDEVMODEA(mode);
     if (SUCCEEDED(hr = sugar_get_display_mode(self->manager, &mode))) {
         ZeroMemory(desc, sizeof(DDSURFACEDESC2));
         desc->dwSize = sizeof(DDSURFACEDESC2);
@@ -348,12 +341,12 @@ static HRESULT ddg_get_surface_desc(ddg* self, DDSURFACEDESC2* desc) {
         desc->ddsCaps.dwCaps = DDSCAPS_SYSTEMMEMORY;
 
         desc->ddpfPixelFormat.dwSize = sizeof(DDPIXELFORMAT);
-        desc->ddpfPixelFormat.dwFlags = DDPF_RGB;
+        desc->ddpfPixelFormat.dwFlags = DDPF_RGB | DDPF_ALPHAPIXELS;
         desc->ddpfPixelFormat.dwRGBBitCount = 32;
-        desc->ddpfPixelFormat.dwRGBAlphaBitMask = 0xFF000000;
         desc->ddpfPixelFormat.dwRBitMask = 0x00FF0000;
         desc->ddpfPixelFormat.dwGBitMask = 0x0000FF00;
         desc->ddpfPixelFormat.dwBBitMask = 0x000000FF;
+        desc->ddpfPixelFormat.dwRGBAlphaBitMask = 0xFF000000;
     }
 
     return hr;

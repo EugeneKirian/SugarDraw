@@ -40,7 +40,7 @@ HRESULT intfc_create(allocator* allocator, memory_tag tag, intfc** object) {
             return hr;
         }
 
-        intfc_release(instance);
+        allocator_free(allocator, instance);
     }
 
     return hr;
@@ -81,7 +81,7 @@ HRESULT intfc_query_item(intfc* self, const GUID* riid, void** object) {
     }
 
     if (self->count == 0) {
-        return DDERR_NOTFOUND;
+        return E_NOINTERFACE;
     }
 
     HRESULT hr = DD_OK;
@@ -89,9 +89,8 @@ HRESULT intfc_query_item(intfc* self, const GUID* riid, void** object) {
 
     for (s32 i = 0; i < self->count; i++) {
         if (IsEqualGUID(riid, &self->items[i].id)) {
-            hr = DD_OK;
             *object = self->items[i].item;
-            goto exit;
+            EXITCODE(DD_OK);
         }
     }
 

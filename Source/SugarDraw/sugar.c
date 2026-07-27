@@ -374,9 +374,7 @@ HRESULT sugar_set_display_mode(sugar* self, u32 width, u32 height, u32 bpp, u32 
         return DDERR_INVALIDOBJECT;
     }
 
-    DEVMODEA mode;
-    ZeroMemory(&mode, sizeof(DEVMODEA));
-    mode.dmSize = sizeof(DEVMODEA);
+    MAKEDEVMODEA(mode);
     mode.dmPelsWidth = width;
     mode.dmPelsHeight = height;
 
@@ -482,20 +480,18 @@ HRESULT sugar_restore_display_mode(sugar* self) {
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
     if (devmodea_equal(&self->modes.initial, &self->modes.current)) {
-        hr = sugar_lose_all_surfaces(self);
-        goto exit;
+        EXITCODE(sugar_lose_all_surfaces(self));
     }
 
     const s32 result = ChangeDisplaySettingsA(NULL, CDS_NONE);
     if (result == DISP_CHANGE_SUCCESSFUL) {
         self->modes.flags &= ~SUGAR_DISPLAY_MODE_UPDATED;
         CopyMemory(&self->modes.current, &self->modes.initial, sizeof(DEVMODEA));
-        hr = sugar_lose_all_surfaces(self);
+        EXITCODE(sugar_lose_all_surfaces(self));
     }
-    else {
-        hr = DDERR_UNSUPPORTEDMODE;
-        ERR("->ChangeDisplaySettings(NULL, CDS_NONE) -> %s", disp_change_to_string(result));
-    }
+
+    ERR("->ChangeDisplaySettings(NULL, CDS_NONE) -> %s", disp_change_to_string(result));
+    EXITCODE(DDERR_UNSUPPORTEDMODE);
 
 exit:
     LeaveCriticalSection(&self->lock);
@@ -508,11 +504,15 @@ HRESULT sugar_can_unload(sugar* self) {
         return DDERR_INVALIDOBJECT;
     }
 
+    EnterCriticalSection(&self->lock);
+
     const BOOL result =
         arr_get_count(self->clippers) == 0
         && arr_get_count(self->items) == 0
         && arr_get_count(self->cfs) == 0
         && arr_get_count(self->ddfs) == 0;
+
+    LeaveCriticalSection(&self->lock);
 
     return result ? S_OK : S_FALSE;
 }
@@ -522,11 +522,8 @@ HRESULT sugar_enumerate_dispaly_modes(sugar* self) {
         return DDERR_INVALIDOBJECT;
     }
 
-    DEVMODEA mode;
-    ZeroMemory(&mode, sizeof(DEVMODEA));
-    mode.dmSize = sizeof(DEVMODEA);
-
     u32 count = 0;
+    MAKEDEVMODEA(mode);
     while (EnumDisplaySettingsA(NULL, count, &mode)) { count++; }
 
     HRESULT hr = DD_OK;

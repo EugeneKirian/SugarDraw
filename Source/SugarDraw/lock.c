@@ -37,7 +37,7 @@ HRESULT lock_create(allocator* allocator, memory_tag tag, lock** object) {
             return hr;
         }
 
-        lock_release(instance);
+        allocator_free(allocator, instance);
     }
 
     return hr;
@@ -96,13 +96,10 @@ HRESULT lock_acquire(lock* self, const RECT* rect) {
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
-    RECT overlap;
-    ZeroMemory(&overlap, sizeof(RECT));
-
+    MAKETYPE(RECT, overlap);
     for (s32 i = 0; i < self->count; i++) {
         if (IntersectRect(&overlap, rect, &self->items[i])) {
-            hr = DDERR_SURFACEBUSY;
-            goto exit;
+            EXITCODE(DDERR_SURFACEBUSY);
         }
     }
 
@@ -132,8 +129,7 @@ HRESULT lock_unacquire(lock* self, const RECT* rect) {
 
     for (s32 i = 0; i < self->count; i++) {
         if (CompareMemory(rect, &self->items[i], sizeof(RECT))) {
-            hr = lock_remove_item(self, rect);
-            goto exit;
+            EXITCODE(lock_remove_item(self, rect));
         }
     }
 

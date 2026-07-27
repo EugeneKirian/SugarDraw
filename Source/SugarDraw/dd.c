@@ -4,6 +4,7 @@
 #include "ddp.h"
 #include "dds.h"
 #include "idd.h"
+#include "utilities.h"
 
 static HRESULT dd_can_change_display_mode(dd* self);
 
@@ -26,6 +27,7 @@ HRESULT dd_create(sugar* manager, const GUID* rclsid, driver* driver, dd** objec
         instance->manager = manager;
         instance->driver = driver;
         CopyMemory(&instance->id, rclsid, sizeof(GUID));
+        instance->cooperation.mode.dmSize = sizeof(DEVMODEA);
         if (SUCCEEDED(hr = intfc_create(manager->allocator, MEM_TAG_DIRECTDRAW, &instance->interfaces))) {
             if (SUCCEEDED(hr = arr_create(manager->allocator, MEM_TAG_DIRECTDRAW, &instance->clippers))) {
                 if (SUCCEEDED(hr = arr_create(manager->allocator, MEM_TAG_DIRECTDRAW, &instance->palettes))) {
@@ -118,26 +120,15 @@ void dd_release(dd* self, u32 flags) {
 }
 
 HRESULT dd_get_interface(dd* self, const GUID* riid, void** object) {
-    HRESULT hr = DD_OK;
-    EnterCriticalSection(&self->lock);
-
-    const s32 item_count = intfc_get_count(self->interfaces);
-    for (s32 i = 0; i < item_count; i++) {
-        idd* instance = NULL;
-        if (SUCCEEDED(hr = intfc_get_item(self->interfaces, i, &instance))) {
-            if (IsEqualGUID(riid, &instance->id)) {
-                *object = instance;
-                goto exit;
-            }
-        }
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
     }
 
-    hr = E_NOINTERFACE;
+    if (riid == NULL || object == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
 
-exit:
-    LeaveCriticalSection(&self->lock);
-
-    return hr;
+    return intfc_query_item(self->interfaces, riid, object);
 }
 
 HRESULT dd_query_interface(dd* self, const GUID* riid, void** object) {
@@ -248,12 +239,12 @@ HRESULT dd_create_clipper(dd* self, void** object) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (object == NULL) {
-        return DDERR_INVALIDPARAMS;
-    }
-
     if (self->graphics == NULL) {
         return DDERR_NOTINITIALIZED;
+    }
+
+    if (object == NULL) {
+        return DDERR_INVALIDPARAMS;
     }
 
     HRESULT hr = DD_OK;
@@ -285,16 +276,16 @@ HRESULT dd_create_palette(dd* self, u32 flags, PALETTEENTRY* entries, void** obj
         return DDERR_INVALIDOBJECT;
     }
 
+    if (self->graphics == NULL) {
+        return DDERR_NOTINITIALIZED;
+    }
+
     if ((flags != DDPCAPS_NONE) && (flags & ~DDPCAPS_VALID)) {
         return DDERR_INVALIDPARAMS;
     }
 
     if (entries == NULL || object == NULL) {
         return DDERR_INVALIDPARAMS;
-    }
-
-    if (self->graphics == NULL) {
-        return DDERR_NOTINITIALIZED;
     }
 
     if (self->cooperation.flags == DDSCL_NONE) {
@@ -357,12 +348,12 @@ HRESULT dd_create_surface(dd* self, const GUID* riid, DDSURFACEDESC2* desc, void
         return DDERR_INVALIDOBJECT;
     }
 
-    if (riid == NULL || desc == NULL || object == NULL) {
-        return DDERR_INVALIDPARAMS;
-    }
-
     if (self->graphics == NULL) {
         return DDERR_NOTINITIALIZED;
+    }
+
+    if (riid == NULL || desc == NULL || object == NULL) {
+        return DDERR_INVALIDPARAMS;
     }
 
     // TODO
@@ -414,81 +405,22 @@ HRESULT dd_create_surface(dd* self, const GUID* riid, DDSURFACEDESC2* desc, void
     }
 
     HRESULT hr = DD_OK;
-    if ((desc->dwFlags & (DDSD_WIDTH | DDSD_HEIGHT | DDSD_PIXELFORMAT))
-        != (DDSD_WIDTH | DDSD_HEIGHT | DDSD_PIXELFORMAT)) {
-        DEVMODEA mode;
-        ZeroMemory(&mode, sizeof(DEVMODEA));
-        mode.dmSize = sizeof(DEVMODEA);
+    if ((desc->dwFlags & DDSD_SIZEFORMAT) != DDSD_SIZEFORMAT) {
+        MAKEDDSURFACEDESC2(disp);
+        if (SUCCEEDED(hr = ddsurfacedesc2_from_devmodea(&disp, &self->cooperation.mode))) {
+            if (!(desc->dwFlags & DDSD_WIDTH)) {
+                desc->dwFlags |= DDSD_WIDTH;
+                desc->dwWidth = disp.dwWidth;
+            }
 
-        if (FAILED(hr = sugar_get_display_mode(self->manager, &mode))) {
-            return hr;
-        }
+            if (!(desc->dwFlags & DDSD_HEIGHT)) {
+                desc->dwFlags |= DDSD_HEIGHT;
+                desc->dwHeight = disp.dwHeight;
+            }
 
-        if (!(desc->dwFlags & DDSD_WIDTH)) {
-            desc->dwFlags |= DDSD_WIDTH;
-            desc->dwWidth = mode.dmPelsWidth;
-        }
-
-        if (!(desc->dwFlags & DDSD_HEIGHT)) {
-            desc->dwFlags |= DDSD_HEIGHT;
-            desc->dwHeight = mode.dmPelsHeight;
-        }
-
-        if (!(desc->dwFlags & DDSD_PIXELFORMAT)) {
-            desc->dwFlags |= DDSD_PIXELFORMAT;
-
-            // TODO proper implementation..
-            // Surface pixel format can be implicit (i.e. same as primary surface)
-            // TODO do we need to set it for non-primary surfaces explicitly?
-            // TODO dds_get_pixel_format ...
-
-            ZeroMemory(&desc->ddpfPixelFormat, sizeof(DDPIXELFORMAT));
-            desc->ddpfPixelFormat.dwSize = sizeof(DDPIXELFORMAT);
-
-            desc->ddpfPixelFormat.dwFlags = DDPF_RGB;
-            desc->ddpfPixelFormat.dwRGBBitCount = mode.dmBitsPerPel;
-
-            switch (mode.dmBitsPerPel) {
-            case 1: {
-                desc->ddsCaps.dwCaps |= DDSCAPS_PALETTE;
-                desc->ddpfPixelFormat.dwFlags |= DDPF_PALETTEINDEXED1;
-                return DDERR_UNSUPPORTEDFORMAT; // TODO
-            }break;
-            case 2: {
-                desc->ddsCaps.dwCaps |= DDSCAPS_PALETTE;
-                desc->ddpfPixelFormat.dwFlags |= DDPF_PALETTEINDEXED2;
-                return DDERR_UNSUPPORTEDFORMAT; // TODO
-            }break;
-            case 4: {
-                desc->ddsCaps.dwCaps |= DDSCAPS_PALETTE;
-                desc->ddpfPixelFormat.dwFlags |= DDPF_PALETTEINDEXED4;
-                return DDERR_UNSUPPORTEDFORMAT; // TODO
-            }break;
-            case 8: {
-                desc->ddsCaps.dwCaps |= DDSCAPS_PALETTE;
-                desc->ddpfPixelFormat.dwFlags |= DDPF_PALETTEINDEXED8;
-            }break;
-            case 15: {
-                desc->ddpfPixelFormat.dwRBitMask = 0x7C00;
-                desc->ddpfPixelFormat.dwGBitMask = 0x03E0;
-                desc->ddpfPixelFormat.dwBBitMask = 0x001F;
-            }break;
-            case 16: {
-                desc->ddpfPixelFormat.dwRBitMask = 0xF800;
-                desc->ddpfPixelFormat.dwGBitMask = 0x07E0;
-                desc->ddpfPixelFormat.dwBBitMask = 0x001F;
-            }break;
-            case 24: {
-                desc->ddpfPixelFormat.dwRBitMask = 0x00FF0000;
-                desc->ddpfPixelFormat.dwGBitMask = 0x0000FF00;
-                desc->ddpfPixelFormat.dwBBitMask = 0x000000FF;
-            }break;
-            case 32: {
-                desc->ddpfPixelFormat.dwRBitMask = 0x00FF0000;
-                desc->ddpfPixelFormat.dwGBitMask = 0x0000FF00;
-                desc->ddpfPixelFormat.dwBBitMask = 0x000000FF;
-                desc->ddpfPixelFormat.dwRGBAlphaBitMask = 0xFF000000;
-            }break;
+            if (!(desc->dwFlags & DDSD_PIXELFORMAT)) {
+                desc->dwFlags |= DDSD_PIXELFORMAT;
+                CopyMemory(&desc->ddpfPixelFormat, &disp.ddpfPixelFormat, sizeof(DDPIXELFORMAT));
             }
         }
     }
@@ -544,28 +476,27 @@ HRESULT dd_create_surface(dd* self, const GUID* riid, DDSURFACEDESC2* desc, void
         desc->ddsCaps.dwCaps |= DDSCAPS_SYSTEMMEMORY;// | DDSCAPS_VIDEOMEMORY; // TODO verify...
     }
 
-    // TODO validate pixel format...
-    // For example 16-bit pixels can be both 555 and 565
-
     EnterCriticalSection(&self->lock);
 
-    dds* instance = NULL;
-    if (SUCCEEDED(hr = dds_create(self->manager, DDS_NONE, &instance))) {
-        if (SUCCEEDED(hr = dds_initialize(instance, self, desc))) {
-            idds* intfc = NULL;
-            if (SUCCEEDED(hr = dds_query_interface(instance, riid, &intfc))) {
-                if (SUCCEEDED(hr = arr_add_item(self->surfaces, instance))) {
-                    if (desc->ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACE) {
-                        self->primary = instance;
-                    }
+    if (SUCCEEDED(hr = ddpixelformat_validate(&desc->ddpfPixelFormat))) {
+        dds* instance = NULL;
+        if (SUCCEEDED(hr = dds_create(self->manager, DDS_NONE, &instance))) {
+            if (SUCCEEDED(hr = dds_initialize(instance, self, desc))) {
+                idds* intfc = NULL;
+                if (SUCCEEDED(hr = dds_query_interface(instance, riid, &intfc))) {
+                    if (SUCCEEDED(hr = arr_add_item(self->surfaces, instance))) {
+                        if (desc->ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACE) {
+                            self->primary = instance;
+                        }
 
-                    *object = intfc;
-                    goto exit;
+                        *object = intfc;
+                        goto exit;
+                    }
                 }
             }
-        }
 
-        dds_release(instance, RELEASE_NONE);
+            dds_release(instance, RELEASE_NONE);
+        }
     }
 
 exit:
@@ -579,12 +510,12 @@ HRESULT dd_duplicate_surface(dd* self, dds* surface, const GUID* riid, void** ob
         return DDERR_INVALIDOBJECT;
     }
 
-    if (surface == NULL || riid == NULL || object == NULL) {
-        return DDERR_INVALIDPARAMS;
-    }
-
     if (self->graphics == NULL) {
         return DDERR_NOTINITIALIZED;
+    }
+
+    if (surface == NULL || riid == NULL || object == NULL) {
+        return DDERR_INVALIDPARAMS;
     }
 
     if (self != surface->instance) {
@@ -653,16 +584,16 @@ HRESULT dd_get_caps(dd* self, DDCAPS_DX7* caps) {
         return DDERR_INVALIDOBJECT;
     }
 
+    if (self->graphics == NULL) {
+        return DDERR_NOTINITIALIZED;
+    }
+
     if (caps == NULL) {
         return DDERR_INVALIDPARAMS;
     }
 
     if (caps->dwSize != sizeof(DDCAPS_DX7)) {
         return DDERR_INVALIDPARAMS;
-    }
-
-    if (self->graphics == NULL) {
-        return DDERR_NOTINITIALIZED;
     }
 
     caps->dwCaps = DDCAPS_ALL;
@@ -679,9 +610,9 @@ HRESULT dd_get_caps(dd* self, DDCAPS_DX7* caps) {
     caps->dwAlphaOverlayPixelBitDepths = DDBD_1 | DDBD_2 | DDBD_4 | DDBD_8;
     caps->dwAlphaOverlaySurfaceBitDepths = DDBD_1 | DDBD_2 | DDBD_4 | DDBD_8;
     caps->dwZBufferBitDepths = DDBD_8 | DDBD_16 | DDBD_24 | DDBD_32;
-    caps->dwVidMemTotal = DD_MAX_TOTAL_VIDEO_MEMORY;
-    caps->dwVidMemFree = DD_MAX_TOTAL_VIDEO_MEMORY; // TODO Calculate
-    caps->dwMaxVisibleOverlays = DD_MAX_VISIBLE_OVERLAY_COUNT;
+    caps->dwVidMemTotal = MAX_TOTAL_VIDEO_MEMORY;
+    caps->dwVidMemFree = MAX_TOTAL_VIDEO_MEMORY; // TODO Calculate
+    caps->dwMaxVisibleOverlays = MAX_VISIBLE_OVERLAY_COUNT;
     caps->dwCurrVisibleOverlays = 0; // TODO Calculate
 
     // TODO
@@ -701,6 +632,10 @@ HRESULT dd_get_display_mode(dd* self, DDSURFACEDESC2* desc) {
         return DDERR_INVALIDOBJECT;
     }
 
+    if (self->graphics == NULL) {
+        return DDERR_NOTINITIALIZED;
+    }
+
     if (desc == NULL) {
         return DDERR_INVALIDPARAMS;
     }
@@ -709,49 +644,10 @@ HRESULT dd_get_display_mode(dd* self, DDSURFACEDESC2* desc) {
         return DDERR_INVALIDPARAMS;
     }
 
-    if (self->graphics == NULL) {
-        return DDERR_NOTINITIALIZED;
-    }
-
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
-    DEVMODEA mode;
-    ZeroMemory(&mode, sizeof(DEVMODEA));
-    mode.dmSize = sizeof(DEVMODEA);
-
-    if (SUCCEEDED(hr = sugar_get_display_mode(self->manager, &mode))) {
-        // TODO properly set all necessary fields
-        desc->dwWidth = mode.dmPelsWidth;
-        desc->dwHeight = mode.dmPelsHeight;
-        desc->dwRefreshRate = mode.dmDisplayFrequency;
-        // TODO pixel format
-        desc->ddpfPixelFormat.dwSize = sizeof(DDPIXELFORMAT);
-        desc->ddpfPixelFormat.dwFlags = DDPF_RGB;
-        desc->ddpfPixelFormat.dwRGBBitCount = mode.dmBitsPerPel;
-        switch (desc->ddpfPixelFormat.dwRGBBitCount) {
-        case 1:
-        case 2:
-        case 4: {
-            // TODO
-        }break;
-        case 8: {
-            // TODO
-        }break;
-        case 16: {
-            // TODO
-        }break;
-        case 24: {
-            // TODO
-        }break;
-        case 32: {
-            desc->ddpfPixelFormat.dwRGBAlphaBitMask = 0xFF000000;
-            desc->ddpfPixelFormat.dwRBitMask = 0x00FF0000;
-            desc->ddpfPixelFormat.dwGBitMask = 0x0000FF00;
-            desc->ddpfPixelFormat.dwBBitMask = 0x000000FF;
-        }break;
-        }
-    }
+    hr = ddsurfacedesc2_from_devmodea(desc, &self->cooperation.mode);
 
     LeaveCriticalSection(&self->lock);
 
@@ -763,12 +659,12 @@ HRESULT dd_get_fourcc_codes(dd* self, u32* count, u32* codes) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (count == NULL) {
-        return DDERR_INVALIDPARAMS;
-    }
-
     if (self->graphics == NULL) {
         return DDERR_NOTINITIALIZED;
+    }
+
+    if (count == NULL) {
+        return DDERR_INVALIDPARAMS;
     }
 
     // TODO
@@ -781,12 +677,12 @@ HRESULT dd_get_gdi_surface(dd* self, const GUID* riid, void** object) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (riid == NULL || object == NULL) {
-        return DDERR_INVALIDPARAMS;
-    }
-
     if (self->graphics == NULL) {
         return DDERR_NOTINITIALIZED;
+    }
+
+    if (riid == NULL || object == NULL) {
+        return DDERR_INVALIDPARAMS;
     }
 
     // TODO
@@ -799,24 +695,18 @@ HRESULT dd_get_monitor_frequency(dd* self, u32* frequency) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (frequency == NULL) {
-        return DDERR_INVALIDPARAMS;
-    }
-
     if (self->graphics == NULL) {
         return DDERR_NOTINITIALIZED;
+    }
+
+    if (frequency == NULL) {
+        return DDERR_INVALIDPARAMS;
     }
 
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
-    DEVMODEA mode;
-    ZeroMemory(&mode, sizeof(DEVMODEA));
-    mode.dmSize = sizeof(DEVMODEA);
-
-    if (SUCCEEDED(hr = sugar_get_display_mode(self->manager, &mode))) {
-        *frequency = mode.dmDisplayFrequency;
-    }
+    *frequency = self->cooperation.mode.dmDisplayFrequency;
 
     LeaveCriticalSection(&self->lock);
 
@@ -828,12 +718,12 @@ HRESULT dd_get_scan_line(dd* self, u32* line) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (line == NULL) {
-        return DDERR_INVALIDPARAMS;
-    }
-
     if (self->graphics == NULL) {
         return DDERR_NOTINITIALIZED;
+    }
+
+    if (line == NULL) {
+        return DDERR_INVALIDPARAMS;
     }
 
     HRESULT hr = DD_OK;
@@ -842,14 +732,8 @@ HRESULT dd_get_scan_line(dd* self, u32* line) {
     u32 status = DDGSTATUS_NONE;
     if (SUCCEEDED(hr = ddg_get_status(self->graphics, &status))) {
         if (status & DDGSTATUS_UPDATING) {
-            DEVMODEA mode;
-            ZeroMemory(&mode, sizeof(DEVMODEA));
-            mode.dmSize = sizeof(DEVMODEA);
-
-            if (SUCCEEDED(hr = sugar_get_display_mode(self->manager, &mode))) {
-                *line = mode.dmPelsHeight;
-                goto exit;
-            }
+            *line = self->cooperation.mode.dmPelsHeight;
+            goto exit;
         }
     }
 
@@ -866,22 +750,26 @@ HRESULT dd_get_vertical_blank_status(dd* self, bool* status) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (status == NULL) {
-        return DDERR_INVALIDPARAMS;
-    }
-
     if (self->graphics == NULL) {
         return DDERR_NOTINITIALIZED;
+    }
+
+    if (status == NULL) {
+        return DDERR_INVALIDPARAMS;
     }
 
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
     u32 value = DDGSTATUS_NONE;
-    hr = ddg_get_status(self->graphics, &value);
+    if (SUCCEEDED(hr = ddg_get_status(self->graphics, &value))) {
+        *status = !(value & DDGSTATUS_UPDATING);
+        goto exit;
+    }
 
-    *status = !(value & DDGSTATUS_UPDATING);
+    *status = FALSE;
 
+exit:
     LeaveCriticalSection(&self->lock);
 
     return hr;
@@ -899,14 +787,16 @@ HRESULT dd_initialize(dd* self, const GUID* device) {
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
-    ddg* instance = NULL;
-    if (SUCCEEDED(hr = ddg_create(self->manager, self->driver, &instance))) {
-        if (SUCCEEDED(hr = ddg_initialize(instance, self))) {
-            self->graphics = instance;
-            goto exit;
-        }
+    if (SUCCEEDED(hr = sugar_get_display_mode(self->manager, &self->cooperation.mode))) {
+        ddg* instance = NULL;
+        if (SUCCEEDED(hr = ddg_create(self->manager, self->driver, &instance))) {
+            if (SUCCEEDED(hr = ddg_initialize(instance, self))) {
+                self->graphics = instance;
+                goto exit;
+            }
 
-        ddg_release(instance);
+            ddg_release(instance);
+        }
     }
 
 exit:
@@ -935,14 +825,16 @@ HRESULT dd_restore_display_mode(dd* self) {
 
     if (SUCCEEDED(hr = dd_can_change_display_mode(self))) {
         if (SUCCEEDED(hr = sugar_restore_display_mode(self->manager))) {
-            if (!(self->cooperation.flags & DDSCL_NOWINDOWCHANGES)) {
-                SetWindowPos(self->cooperation.hwnd, HWND_TOPMOST,
-                    self->cooperation.rect.left, self->cooperation.rect.top,
-                    self->cooperation.rect.right - self->cooperation.rect.left,
-                    self->cooperation.rect.bottom - self->cooperation.rect.top, SWP_NOACTIVATE);
-            }
+            if (SUCCEEDED(hr = sugar_get_display_mode(self->manager, &self->cooperation.mode))) {
+                if (!(self->cooperation.flags & DDSCL_NOWINDOWCHANGES)) {
+                    SetWindowPos(self->cooperation.hwnd, HWND_TOPMOST,
+                        self->cooperation.rect.left, self->cooperation.rect.top,
+                        self->cooperation.rect.right - self->cooperation.rect.left,
+                        self->cooperation.rect.bottom - self->cooperation.rect.top, SWP_NOACTIVATE);
+                }
 
-            hr = ddg_recreate_surface(self->graphics);
+                hr = ddg_recreate_surface(self->graphics);
+            }
         }
     }
 
@@ -954,6 +846,10 @@ HRESULT dd_restore_display_mode(dd* self) {
 HRESULT dd_set_cooperative_level(dd* self, HWND hwnd, u32 flags) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
+    }
+
+    if (self->graphics == NULL) {
+        return DDERR_NOTINITIALIZED;
     }
 
     if (flags & ~DDSCL_VALID) {
@@ -1004,10 +900,6 @@ HRESULT dd_set_cooperative_level(dd* self, HWND hwnd, u32 flags) {
 
     // TODO DDERR_HWNDALREADYSET
 
-    if (self->graphics == NULL) {
-        return DDERR_NOTINITIALIZED;
-    }
-
     if (self->cooperation.hwnd == hwnd && self->cooperation.flags == flags) {
         return DD_OK;
     }
@@ -1037,25 +929,29 @@ HRESULT dd_set_cooperative_level(dd* self, HWND hwnd, u32 flags) {
     self->cooperation.flags = flags;
 
     if (self->cooperation.flags & (DDSCL_EXCLUSIVE | DDSCL_FULLSCREEN)) {
-        DEVMODEA mode;
-        ZeroMemory(&mode, sizeof(DEVMODEA));
-        mode.dmSize = sizeof(DEVMODEA);
-
-        if (SUCCEEDED(hr = sugar_get_display_mode(self->manager, &mode))) {
-            if (!(self->cooperation.flags & DDSCL_NOWINDOWCHANGES)) {
-                SetWindowPos(self->cooperation.hwnd, HWND_TOPMOST, 0, 0, mode.dmPelsWidth, mode.dmPelsHeight, SWP_SHOWWINDOW);
-            }
-
-            hr = ddg_recreate_surface(self->graphics);
+        if (!(self->cooperation.flags & DDSCL_NOWINDOWCHANGES)) {
+            SetWindowPos(self->cooperation.hwnd, HWND_TOPMOST, 0, 0,
+                self->cooperation.mode.dmPelsWidth, self->cooperation.mode.dmPelsHeight, SWP_SHOWWINDOW);
         }
     }
 
-    if (SUCCEEDED(hr) && reset_display_mode) {
-        // See article Restoring Display Modes in the documentation.
+    if (reset_display_mode) {
+        // See Restoring Display Modes in the documentation.
         // This behavior was first offered in the IDirectDraw2 interface,
         // and is offered by all newer versions of the interface.
-        if (SUCCEEDED(hr = sugar_restore_display_mode(self->manager))) {
-            hr = ddg_recreate_surface(self->graphics);
+        if (SUCCEEDED(hr = dd_can_change_display_mode(self))) {
+            if (SUCCEEDED(hr = sugar_restore_display_mode(self->manager))) {
+                if (SUCCEEDED(hr = sugar_get_display_mode(self->manager, &self->cooperation.mode))) {
+                    if (!(self->cooperation.flags & DDSCL_NOWINDOWCHANGES)) {
+                        SetWindowPos(self->cooperation.hwnd, HWND_TOPMOST,
+                            self->cooperation.rect.left, self->cooperation.rect.top,
+                            self->cooperation.rect.right - self->cooperation.rect.left,
+                            self->cooperation.rect.bottom - self->cooperation.rect.top, SWP_NOACTIVATE);
+                    }
+
+                    hr = ddg_recreate_surface(self->graphics);
+                }
+            }
         }
     }
 
@@ -1090,18 +986,19 @@ HRESULT dd_set_display_mode(dd* self, u32 width, u32 height, u32 bpp, u32 rate, 
     EnterCriticalSection(&self->lock);
 
     if (SUCCEEDED(hr = dd_can_change_display_mode(self))) {
+        RECT rect;
+        GetClientRect(self->cooperation.hwnd, &rect);
+        ClientToScreen(self->cooperation.hwnd, (POINT*)&rect.left);
+        ClientToScreen(self->cooperation.hwnd, (POINT*)&rect.right);
+        CopyMemory(&self->cooperation.rect, &rect, sizeof(RECT));
         if (SUCCEEDED(hr = sugar_set_display_mode(self->manager, width, height, bpp, rate))) {
-            RECT rect;
-            GetClientRect(self->cooperation.hwnd, &rect);
-            ClientToScreen(self->cooperation.hwnd, (POINT*)&rect.left);
-            ClientToScreen(self->cooperation.hwnd, (POINT*)&rect.right);
-            CopyMemory(&self->cooperation.rect, &rect, sizeof(RECT));
+            if (SUCCEEDED(hr = sugar_get_display_mode(self->manager, &self->cooperation.mode))) {
+                if (!(self->cooperation.flags & DDSCL_NOWINDOWCHANGES)) {
+                    SetWindowPos(self->cooperation.hwnd, HWND_TOPMOST, 0, 0, width, height, SWP_SHOWWINDOW);
+                }
 
-            if (!(self->cooperation.flags & DDSCL_NOWINDOWCHANGES)) {
-                SetWindowPos(self->cooperation.hwnd, HWND_TOPMOST, 0, 0, width, height, SWP_SHOWWINDOW);
+                hr = ddg_recreate_surface(self->graphics);
             }
-
-            hr = ddg_recreate_surface(self->graphics);
         }
     }
 
@@ -1115,16 +1012,16 @@ HRESULT dd_wait_for_vertical_blank(dd* self, u32 flags, HANDLE event) {
         return DDERR_INVALIDOBJECT;
     }
 
+    if (self->graphics == NULL) {
+        return DDERR_NOTINITIALIZED;
+    }
+
     if (flags == DDWAITVB_NONE || (flags & ~DDWAITVB_VALID)) {
         return DDERR_INVALIDPARAMS;
     }
 
     if (event != NULL) {
         return DDERR_INVALIDPARAMS;
-    }
-
-    if (self->graphics == NULL) {
-        return DDERR_NOTINITIALIZED;
     }
 
     return (flags & DDWAITVB_BLOCKBEGIN)
@@ -1137,12 +1034,12 @@ HRESULT dd_get_available_vid_mem(dd* self, DDSCAPS2* caps, u32* total, u32* free
         return DDERR_INVALIDOBJECT;
     }
 
-    if (caps == NULL) {
-        return DDERR_INVALIDPARAMS;
-    }
-
     if (self->graphics == NULL) {
         return DDERR_NOTINITIALIZED;
+    }
+
+    if (caps == NULL) {
+        return DDERR_INVALIDPARAMS;
     }
 
     // TODO proper implementation
@@ -1155,12 +1052,12 @@ HRESULT dd_get_surface_from_dc(dd* self, HDC hdc, const GUID* riid, void** objec
         return DDERR_INVALIDOBJECT;
     }
 
-    if (hdc == NULL || riid == NULL || object == NULL) {
-        return DDERR_INVALIDPARAMS;
-    }
-
     if (self->graphics == NULL) {
         return DDERR_NOTINITIALIZED;
+    }
+
+    if (hdc == NULL || riid == NULL || object == NULL) {
+        return DDERR_INVALIDPARAMS;
     }
 
     // TODO proper implementation
@@ -1207,15 +1104,36 @@ HRESULT dd_test_cooperative_level(dd* self) {
         return DDERR_NOTINITIALIZED;
     }
 
-    // TODO DDERR_EXCLUSIVEMODEALREADYSET
-    // TODO DDERR_NOEXCLUSIVEMODE
-    // TODO DDERR_WRONGMODE
+    if (self->cooperation.flags == DDCSCL_NONE) {
+        return DDERR_NOCOOPERATIVELEVELSET;
+    }
 
+    HRESULT hr = DD_OK;
+    EnterCriticalSection(&self->lock);
 
-    // TODO proper implementation
-    // See Testing Cooperative Levels page in the documentation
+    dd* exclusive = NULL;
+    if (SUCCEEDED(hr = sugar_get_exclusive(self->manager, &exclusive))) {
+        if (self->cooperation.flags & (DDSCL_EXCLUSIVE | DDSCL_FULLSCREEN)) {
+            EXITCODE(self == exclusive ? DD_OK : DDERR_NOEXCLUSIVEMODE);
+        }
 
-    return DD_OK;
+        if (self->cooperation.flags & DDSCL_NORMAL) {
+            if (exclusive != NULL) {
+                EXITCODE(DDERR_EXCLUSIVEMODEALREADYSET);
+            }
+
+            MAKEDEVMODEA(mode);
+            if (SUCCEEDED(hr = sugar_get_display_mode(self->manager, &mode))) {
+                hr = devmodea_equal(&self->cooperation.mode, &mode)
+                    ? DD_OK : DDERR_WRONGMODE;
+            }
+        }
+    }
+
+    exit:
+    LeaveCriticalSection(&self->lock);
+
+    return hr;
 }
 
 HRESULT dd_get_device_identifier(dd* self, DDDEVICEIDENTIFIER2* identifier) {
@@ -1226,6 +1144,8 @@ HRESULT dd_get_device_identifier(dd* self, DDDEVICEIDENTIFIER2* identifier) {
     if (self->graphics == NULL) {
         return DDERR_NOTINITIALIZED;
     }
+
+    // TODO version from resource
 
     strcpy_s(identifier->szDriver, MAX_DDDEVICEID_STRING, SUGARDRAW_DEVICE_FILE);
     strcpy_s(identifier->szDescription, MAX_DDDEVICEID_STRING, SUGARDRAW_DEVICE_NAME);
@@ -1242,11 +1162,11 @@ HRESULT dd_start_mode_test(dd* self, SIZE* modes, u32 count, u32 flags) {
         return DDERR_INVALIDOBJECT;
     }
 
-    // TODO validation
-
     if (self->graphics == NULL) {
         return DDERR_NOTINITIALIZED;
     }
+
+    // TODO validation
 
     // TODO proper implementation
 
@@ -1258,11 +1178,11 @@ HRESULT dd_evaluate_mode(dd* self, u32 flags, u32* timeout) {
         return DDERR_INVALIDOBJECT;
     }
 
-    // TODO validation
-
     if (self->graphics == NULL) {
         return DDERR_NOTINITIALIZED;
     }
+
+    // TODO validation
 
     // TODO proper implementation
 
@@ -1274,12 +1194,12 @@ HRESULT dd_set_driver(dd* self, driver* driver) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (driver == NULL) {
-        return DDERR_INVALIDPARAMS;
-    }
-
     if (self->graphics == NULL) {
         return DDERR_NOTINITIALIZED;
+    }
+
+    if (driver == NULL) {
+        return DDERR_INVALIDPARAMS;
     }
 
     HRESULT hr = DD_OK;

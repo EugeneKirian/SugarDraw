@@ -140,26 +140,15 @@ void dds_release(dds* self, u32 flags) {
 }
 
 HRESULT dds_get_interface(dds* self, const GUID* riid, void** object) {
-    HRESULT hr = DD_OK;
-    EnterCriticalSection(&self->lock);
-
-    const s32 item_count = intfc_get_count(self->interfaces);
-    for (s32 i = 0; i < item_count; i++) {
-        idds* instance = NULL;
-        if (SUCCEEDED(hr = intfc_get_item(self->interfaces, i, &instance))) {
-            if (IsEqualGUID(riid, &instance->id)) {
-                *object = instance;
-                goto exit;
-            }
-        }
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
     }
 
-    hr = E_NOINTERFACE;
+    if (riid == NULL || object == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
 
-exit:
-    LeaveCriticalSection(&self->lock);
-
-    return hr;
+    return intfc_query_item(self->interfaces, riid, object);
 }
 
 HRESULT dds_query_interface(dds* self, const GUID* riid, void** object) {
@@ -167,12 +156,11 @@ HRESULT dds_query_interface(dds* self, const GUID* riid, void** object) {
     EnterCriticalSection(&self->lock);
 
     if (IsEqualGUID(&IID_IDirectDrawColorControl, riid)) {
-        hr = dds_query_color_control(self, riid, object);
-        goto exit;
+        EXITCODE(dds_query_color_control(self, riid, object));
     }
-    else if (IsEqualGUID(&IID_IDirectDrawGammaControl, riid)) {
-        hr = dds_query_gamma_control(self, riid, object);
-        goto exit;
+    
+    if (IsEqualGUID(&IID_IDirectDrawGammaControl, riid)) {
+        EXITCODE(dds_query_gamma_control(self, riid, object));
     }
 
     idds* instance = NULL;
@@ -234,16 +222,16 @@ HRESULT dds_add_attached_surface(dds* self, iddsconn* surface) {
         return DDERR_INVALIDOBJECT;
     }
 
+    if (self->instance == NULL) {
+        return DDERR_NOTINITIALIZED;
+    }
+
     if (surface == NULL) {
         return DDERR_INVALIDPARAMS;
     }
 
     if (self->instance != surface->instance->instance) {
         return DDERR_INVALIDPARAMS;
-    }
-
-    if (self->instance == NULL) {
-        return DDERR_NOTINITIALIZED;
     }
 
     if (self->flags & DDS_LOST) {
@@ -265,12 +253,12 @@ HRESULT dds_add_overlay_dirty_rect(dds* self, RECT* rect) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (rect == NULL) {
-        return DDERR_INVALIDPARAMS; // Can rect be NULL?
-    }
-
     if (self->instance == NULL) {
         return DDERR_NOTINITIALIZED;
+    }
+
+    if (rect == NULL) {
+        return DDERR_INVALIDPARAMS; // Can rect be NULL?
     }
 
     if (self->flags & DDS_LOST) {
@@ -287,11 +275,11 @@ HRESULT dds_blt(dds* self, RECT* dst, dds* surface, RECT* src, u32 flags, DDBLTF
         return DDERR_INVALIDOBJECT;
     }
 
-    // TODO validations
-
     if (self->instance == NULL) {
         return DDERR_NOTINITIALIZED;
     }
+
+    // TODO validations
 
     if (self->flags & DDS_LOST) {
         return DDERR_SURFACELOST;
@@ -301,7 +289,22 @@ HRESULT dds_blt(dds* self, RECT* dst, dds* surface, RECT* src, u32 flags, DDBLTF
 
     // TODO proper implementation
 
-    return DD_OK; // TODO
+    HRESULT hr = DD_OK;
+    EnterCriticalSection(&self->lock);
+
+    MAKETYPE(RECT, destination);
+    if (SUCCEEDED(hr = dds_get_rect(self, dst, &destination))) {
+        if (surface == NULL) {
+            // TODO
+        }
+        else {
+            // TODO NOT IMPLEMENTED
+        }
+    }
+
+    LeaveCriticalSection(&self->lock);
+
+    return hr;
 }
 
 HRESULT dds_blt_batch(dds* self, DDBLTBATCH* batch, u32 count, u32 flags) {
@@ -309,11 +312,11 @@ HRESULT dds_blt_batch(dds* self, DDBLTBATCH* batch, u32 count, u32 flags) {
         return DDERR_INVALIDOBJECT;
     }
 
-    // TODO validations
-
     if (self->instance == NULL) {
         return DDERR_NOTINITIALIZED;
     }
+
+    // TODO validations
 
     if (self->flags & DDS_LOST) {
         return DDERR_SURFACELOST;
@@ -341,7 +344,7 @@ HRESULT dds_blt_fast(dds* self, u32 x, u32 y, dds* surface, RECT* rect, u32 tran
         return DDERR_INVALIDPARAMS;
     }
 
-    if (self->clipper.instance != NULL || surface->clipper.instance != NULL) {
+    if (self->clipper.instance != NULL) {
         return DDERR_BLTFASTCANTCLIP;
     }
 
@@ -369,8 +372,7 @@ HRESULT dds_blt_fast(dds* self, u32 x, u32 y, dds* surface, RECT* rect, u32 tran
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
-    RECT src;
-    ZeroMemory(&src, sizeof(RECT));
+    MAKETYPE(RECT, src);
     if (SUCCEEDED(hr = dds_get_rect(surface, rect, &src))) {
         if (SUCCEEDED(hr = ddsd_inside_rect(surface->surface, &src))) {
             RECT target;
@@ -406,12 +408,12 @@ HRESULT dds_delete_attached_surface(dds* self, iddsconn* surface) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (surface == NULL) {
-        return DDERR_INVALIDPARAMS;
-    }
-
     if (self->instance == NULL) {
         return DDERR_NOTINITIALIZED;
+    }
+
+    if (surface == NULL) {
+        return DDERR_INVALIDPARAMS;
     }
 
     if (self->flags & DDS_LOST) {
@@ -466,15 +468,15 @@ HRESULT dds_flip(dds* self, dds* override, u32 flags) {
         return DDERR_INVALIDOBJECT;
     }
 
+    if (self->instance == NULL) {
+        return DDERR_NOTINITIALIZED;
+    }
+
     // TODO validate flags DDSCAPS_VALID
 
     if ((flags & (DDFLIP_EVEN | DDFLIP_ODD))
         && !(self->desc.ddsCaps.dwCaps & DDSCAPS_OVERLAY)) {
         return DDERR_INVALIDPARAMS;
-    }
-
-    if (self->instance == NULL) {
-        return DDERR_NOTINITIALIZED;
     }
 
     if (self->flags & DDS_LOST) {
@@ -517,12 +519,12 @@ HRESULT dds_get_attached_surface(dds* self, DDSCAPS2* caps, dds** surface) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (caps == NULL || surface == NULL) {
-        return DDERR_INVALIDPARAMS;
-    }
-
     if (self->instance == NULL) {
         return DDERR_NOTINITIALIZED;
+    }
+
+    if (caps == NULL || surface == NULL) {
+        return DDERR_INVALIDPARAMS;
     }
 
     if (self->flags & DDS_LOST) {
@@ -568,8 +570,8 @@ HRESULT dds_get_attached_surface(dds* self, DDSCAPS2* caps, dds** surface) {
                     match = connector.instance;
                 }
                 else {
-                    hr = DDERR_INVALIDPARAMS; // TODO correct error code. Multiple matches are not allowed?
-                    goto exit;
+                    // TODO correct error code. Multiple matches are not allowed?
+                    EXITCODE(DDERR_INVALIDPARAMS)
                 }
             }
         }
@@ -593,12 +595,12 @@ HRESULT dds_get_blt_status(dds* self, u32 flags) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (flags != DDGBS_CANBLT && flags != DDGBS_ISBLTDONE) {
-        return DDERR_INVALIDPARAMS;
-    }
-
     if (self->instance == NULL) {
         return DDERR_NOTINITIALIZED;
+    }
+
+    if (flags != DDGBS_CANBLT && flags != DDGBS_ISBLTDONE) {
+        return DDERR_INVALIDPARAMS;
     }
 
     if (self->flags & DDS_LOST) {
@@ -635,12 +637,12 @@ HRESULT dds_get_caps(dds* self, DDSCAPS2* caps) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (caps == NULL) {
-        return DDERR_INVALIDPARAMS;
-    }
-
     if (self->instance == NULL) {
         return DDERR_NOTINITIALIZED;
+    }
+
+    if (caps == NULL) {
+        return DDERR_INVALIDPARAMS;
     }
 
     CopyMemory(caps, &self->desc.ddsCaps, sizeof(DDSCAPS2));
@@ -653,12 +655,12 @@ HRESULT dds_get_clipper(dds* self, iddcconn* clipper) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (clipper == NULL) {
-        return DDERR_INVALIDPARAMS;
-    }
-
     if (self->instance == NULL) {
         return DDERR_NOTINITIALIZED;
+    }
+
+    if (clipper == NULL) {
+        return DDERR_INVALIDPARAMS;
     }
 
     if (self->clipper.instance == NULL) {
@@ -743,12 +745,12 @@ HRESULT dds_get_dc(dds* self, HDC* hdc) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (hdc == NULL) {
-        return DDERR_INVALIDPARAMS;
-    }
-
     if (self->instance == NULL) {
         return DDERR_NOTINITIALIZED;
+    }
+
+    if (hdc == NULL) {
+        return DDERR_INVALIDPARAMS;
     }
 
     if (self->flags & DDS_LOST) {
@@ -851,12 +853,12 @@ HRESULT dds_get_palette(dds* self, iddpconn* palette) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (palette == NULL) {
-        return DDERR_INVALIDPARAMS;
-    }
-
     if (self->instance == NULL) {
         return DDERR_NOTINITIALIZED;
+    }
+
+    if (palette == NULL) {
+        return DDERR_INVALIDPARAMS;
     }
 
     if (self->flags & DDS_LOST) {
@@ -883,16 +885,16 @@ HRESULT dds_get_pixel_format(dds* self, DDPIXELFORMAT* format) {
         return DDERR_INVALIDOBJECT;
     }
 
+    if (self->instance == NULL) {
+        return DDERR_NOTINITIALIZED;
+    }
+
     if (format == NULL) {
         return DDERR_INVALIDPARAMS;
     }
 
     if (format->dwSize != sizeof(DDPIXELFORMAT)) {
         return DDERR_INVALIDPARAMS;
-    }
-
-    if (self->instance == NULL) {
-        return DDERR_NOTINITIALIZED;
     }
 
     CopyMemory(format, &self->desc.ddpfPixelFormat, sizeof(DDPIXELFORMAT));
@@ -905,16 +907,16 @@ HRESULT dds_get_surface_desc(dds* self, DDSURFACEDESC2* desc) {
         return DDERR_INVALIDOBJECT;
     }
 
+    if (self->instance == NULL) {
+        return DDERR_NOTINITIALIZED;
+    }
+
     if (desc == NULL) {
         return DDERR_INVALIDPARAMS;
     }
 
     if (desc->dwSize != sizeof(DDSURFACEDESC2)) {
         return DDERR_INVALIDPARAMS;
-    }
-
-    if (self->instance == NULL) {
-        return DDERR_NOTINITIALIZED;
     }
 
     CopyMemory(desc, &self->desc, sizeof(DDSURFACEDESC2));
@@ -939,18 +941,20 @@ HRESULT dds_initialize(dds* self, dd* object, DDSURFACEDESC2* desc) {
         return DDERR_ALREADYINITIALIZED;
     }
 
+    // TODO: use validation rules from dd_create_surface (refactoring needed).
+    if (FAILED(ddpixelformat_validate(&desc->ddpfPixelFormat))) {
+        return DDERR_INVALIDPIXELFORMAT;
+    }
+
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
     self->instance = object;
     self->graphics = object->graphics;
     CopyMemory(&self->desc, desc, sizeof(DDSURFACEDESC2));
+    CopyMemory(&self->mode, &self->instance->cooperation.mode, sizeof(DEVMODEA));
 
-    ZeroMemory(&self->mode, sizeof(DEVMODEA));
-    self->mode.dmSize = sizeof(DEVMODEA);
-    sugar_get_display_mode(self->manager, &self->mode); // TODO error checking
-
-    // TODO: use validation rules from dds_create (refactoring needed).
+    // TODO: use validation rules from dd_create_surface (refactoring needed).
 
     // TODO DDERR_DDSCAPSCOMPLEXREQUIRED
 
@@ -967,8 +971,7 @@ HRESULT dds_initialize(dds* self, dd* object, DDSURFACEDESC2* desc) {
                 case 2:
                 case 4: {
                     // TODO clean-up...
-                    hr = DDERR_UNSUPPORTED;
-                    goto exit;
+                    EXITCODE(DDERR_UNSUPPORTED);
                 }break;
                 case 8: {
                     flags = DDPCAPS_8BIT | DDPCAPS_ALLOW256;
@@ -1075,16 +1078,16 @@ HRESULT dds_lock(dds* self, RECT* rect, DDSURFACEDESC2* desc, u32 flags) {
         return DDERR_INVALIDOBJECT;
     }
 
+    if (self->instance == NULL) {
+        return DDERR_NOTINITIALIZED;
+    }
+
     if (desc == NULL) {
         return DDERR_INVALIDPARAMS;
     }
 
     if (desc->dwSize != sizeof(DDSURFACEDESC2)) {
         return DDERR_INVALIDPARAMS;
-    }
-
-    if (self->instance == NULL) {
-        return DDERR_NOTINITIALIZED;
     }
 
     if (self->flags & DDS_LOST) {
@@ -1117,12 +1120,12 @@ HRESULT dds_release_dc(dds* self, HDC hdc) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (hdc == NULL) {
-        return DDERR_INVALIDPARAMS;
-    }
-
     if (self->instance == NULL) {
         return DDERR_NOTINITIALIZED;
+    }
+
+    if (hdc == NULL) {
+        return DDERR_INVALIDPARAMS;
     }
 
     if (self->flags & DDS_LOST) {
@@ -1177,13 +1180,10 @@ HRESULT dds_restore(dds* self) {
     // before they are lost and after they are restored are the same, therefore
     // it is only needed to mark them as found, or not lost again.
 
-    DEVMODEA mode;
-    ZeroMemory(&mode, sizeof(DEVMODEA));
-    mode.dmSize = sizeof(DEVMODEA);
+    MAKEDEVMODEA(mode);
     if (SUCCEEDED(hr = sugar_get_display_mode(self->manager, &mode))) {
         if (!devmodea_equal(&self->mode, &mode)) {
-            hr = DDERR_WRONGMODE;
-            goto exit;
+            EXITCODE(DDERR_WRONGMODE);
         }
 
         hr = dds_restore_surface(self);
@@ -1200,12 +1200,12 @@ HRESULT dds_set_clipper(dds* self, iddcconn* clipper) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (clipper == NULL) {
-        return DDERR_INVALIDPARAMS;
-    }
-
     if (self->instance == NULL) {
         return DDERR_NOTINITIALIZED;
+    }
+
+    if (clipper == NULL) {
+        return DDERR_INVALIDPARAMS;
     }
 
     if (self->flags & DDS_LOST) {
@@ -1365,12 +1365,12 @@ HRESULT dds_set_palette(dds* self, iddpconn* palette) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (palette == NULL) {
-        return DDERR_INVALIDPARAMS;
-    }
-
     if (self->instance == NULL) {
         return DDERR_NOTINITIALIZED;
+    }
+
+    if (palette == NULL) {
+        return DDERR_INVALIDPARAMS;
     }
 
     if (self->flags & DDS_LOST) {
@@ -1521,12 +1521,12 @@ HRESULT dds_update_overlay(dds* self, const GUID* riid,
         return DDERR_INVALIDOBJECT;
     }
 
-    if (riid == NULL || surface == NULL) {
-        return DDERR_INVALIDPARAMS;
-    }
-
     if (self->instance == NULL) {
         return DDERR_NOTINITIALIZED;
+    }
+
+    if (riid == NULL || surface == NULL) {
+        return DDERR_INVALIDPARAMS;
     }
 
     if (self->flags & DDS_LOST) {
@@ -1665,12 +1665,12 @@ HRESULT dds_update_overlay_z_order(dds* self, u32 flags, iddsconn* surface) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (surface == NULL) {
-        return DDERR_INVALIDPARAMS;
-    }
-
     if (self->instance == NULL) {
         return DDERR_NOTINITIALIZED;
+    }
+
+    if (surface == NULL) {
+        return DDERR_INVALIDPARAMS;
     }
 
     if (self->flags & DDS_LOST) {
@@ -1687,12 +1687,12 @@ HRESULT dds_get_dd_interface(dds* self, void** object) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (object == NULL) {
-        return DDERR_INVALIDPARAMS;
-    }
-
     if (self->instance == NULL) {
         return DDERR_NOTINITIALIZED;
+    }
+
+    if (object == NULL) {
+        return DDERR_INVALIDPARAMS;
     }
 
     return dd_query_interface(self->instance, &IID_IUnknown, object);
@@ -1739,6 +1739,10 @@ HRESULT dds_set_surface_desc(dds* self, DDSURFACEDESC2* desc) {
         return DDERR_INVALIDOBJECT;
     }
 
+    if (self->instance == NULL) {
+        return DDERR_NOTINITIALIZED;
+    }
+
     if (desc == NULL) {
         return DDERR_INVALIDPARAMS;
     }
@@ -1747,16 +1751,11 @@ HRESULT dds_set_surface_desc(dds* self, DDSURFACEDESC2* desc) {
         return DDERR_INVALIDPARAMS;
     }
 
-    if (self->instance == NULL) {
-        return DDERR_NOTINITIALIZED;
-    }
-
     if (self->flags & DDS_LOST) {
         return DDERR_SURFACELOST;
     }
 
-    // TODO
-    // See Updating Surface Characteristics in documentation
+    // TODO Updating Surface Characteristics in documentation
 
     return ddsd_set_surface_desc(self->surface, desc);
 }
@@ -1766,16 +1765,16 @@ HRESULT dds_set_private_data(dds* self, const GUID* tag, void* data, u32 size, u
         return DDERR_INVALIDOBJECT;
     }
 
+    if (self->instance == NULL) {
+        return DDERR_NOTINITIALIZED;
+    }
+
     if (tag == NULL || data == NULL) {
         return DDERR_INVALIDPARAMS;
     }
 
     // TODO validate size
     // TODO validate flags
-
-    if (self->instance == NULL) {
-        return DDERR_NOTINITIALIZED;
-    }
 
     if (self->flags & DDS_LOST) {
         return DDERR_SURFACELOST;
@@ -1791,12 +1790,12 @@ HRESULT dds_get_private_data(dds* self, const GUID* tag, void* buffer, u32* size
         return DDERR_INVALIDOBJECT;
     }
 
-    if (tag == NULL || size == NULL) {
-        return DDERR_INVALIDPARAMS;
-    }
-
     if (self->instance == NULL) {
         return DDERR_NOTINITIALIZED;
+    }
+
+    if (tag == NULL || size == NULL) {
+        return DDERR_INVALIDPARAMS;
     }
 
     if (self->flags & DDS_LOST) {
@@ -1813,12 +1812,12 @@ HRESULT dds_free_private_data(dds* self, const GUID* tag) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (tag == NULL) {
-        return DDERR_INVALIDPARAMS;
-    }
-
     if (self->instance == NULL) {
         return DDERR_NOTINITIALIZED;
+    }
+
+    if (tag == NULL) {
+        return DDERR_INVALIDPARAMS;
     }
 
     if (self->flags & DDS_LOST) {
@@ -1835,12 +1834,12 @@ HRESULT dds_get_uniqueness_value(dds* self, u32* value) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (value == NULL) {
-        return DDERR_INVALIDPARAMS;
-    }
-
     if (self->instance == NULL) {
         return DDERR_NOTINITIALIZED;
+    }
+
+    if (value == NULL) {
+        return DDERR_INVALIDPARAMS;
     }
 
     if (self->flags & DDS_LOST) {
@@ -1889,12 +1888,12 @@ HRESULT dds_get_priority(dds* self, u32* priority) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (priority == NULL) {
-        return DDERR_INVALIDPARAMS;
-    }
-
     if (self->instance == NULL) {
         return DDERR_NOTINITIALIZED;
+    }
+
+    if (priority == NULL) {
+        return DDERR_INVALIDPARAMS;
     }
 
     if (self->flags & DDS_LOST) {
@@ -1929,12 +1928,12 @@ HRESULT dds_get_lod(dds* self, u32* lod) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (lod == NULL) {
-        return DDERR_INVALIDPARAMS;
-    }
-
     if (self->instance == NULL) {
         return DDERR_NOTINITIALIZED;
+    }
+
+    if (lod == NULL) {
+        return DDERR_INVALIDPARAMS;
     }
 
     if (self->flags & DDS_LOST) {
@@ -1951,12 +1950,12 @@ HRESULT dds_get_rect(dds* self, RECT* rect, RECT* result) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (result == NULL) {
-        return DDERR_INVALIDPARAMS;
-    }
-
     if (self->instance == NULL) {
         return DDERR_NOTINITIALIZED;
+    }
+
+    if (result == NULL) {
+        return DDERR_INVALIDPARAMS;
     }
 
     if (self->flags & DDS_LOST) {

@@ -35,7 +35,7 @@ HRESULT arr_create(allocator* allocator, memory_tag tag, arr** object) {
             return hr;
         }
 
-        arr_release(instance);
+        allocator_free(allocator, instance);
     }
 
     return hr;
@@ -63,7 +63,7 @@ HRESULT arr_add_item(arr* self, void* object) {
     EnterCriticalSection(&self->lock);
 
     if (self->capacity < self->count + 1) {
-        if (SUCCEEDED(hr = arr_resize(self))) {
+        if (FAILED(hr = arr_resize(self))) {
             goto exit;
         }
     }
@@ -114,7 +114,6 @@ HRESULT arr_remove_item(arr* self, const void* object) {
             }
 
             self->count--;
-
             goto exit;
         }
     }

@@ -794,11 +794,9 @@ HRESULT SUGARCALL idds_get_attached_surface1(idds* self, LPDDSCAPS lpDDSCaps, LP
 
     HRESULT hr = DD_OK;
 
-    DDSCAPS2 caps;
-    ZeroMemory(&caps, sizeof(DDSCAPS2));
-    CopyMemory(&caps, lpDDSCaps, sizeof(DDSCAPS));
-
     dds* instance = NULL;
+    MAKETYPE(DDSCAPS2, caps);
+    CopyMemory(&caps, lpDDSCaps, sizeof(DDSCAPS));
     if (SUCCEEDED(hr = dds_get_attached_surface(self->instance, &caps, &instance))) {
         hr = dds_query_interface(instance, &IID_IDirectDrawSurface, lplpDDAttachedSurface);
     }
@@ -1330,11 +1328,9 @@ HRESULT SUGARCALL idds_get_attached_surface2(idds* self, LPDDSCAPS lpDDSCaps, LP
 
     HRESULT hr = DD_OK;
 
-    DDSCAPS2 caps;
-    ZeroMemory(&caps, sizeof(DDSCAPS2));
-    CopyMemory(&caps, lpDDSCaps, sizeof(DDSCAPS));
-
     dds* instance = NULL;
+    MAKETYPE(DDSCAPS2, caps);
+    CopyMemory(&caps, lpDDSCaps, sizeof(DDSCAPS));
     if (SUCCEEDED(hr = dds_get_attached_surface(self->instance, &caps, &instance))) {
         hr = dds_query_interface(instance, &IID_IDirectDrawSurface2, lplpDDAttachedSurface);
     }
@@ -1537,11 +1533,9 @@ HRESULT SUGARCALL idds_get_attached_surface3(idds* self, LPDDSCAPS lpDDSCaps, LP
 
     HRESULT hr = DD_OK;
 
-    DDSCAPS2 caps;
-    ZeroMemory(&caps, sizeof(DDSCAPS2));
-    CopyMemory(&caps, lpDDSCaps, sizeof(DDSCAPS));
-
     dds* instance = NULL;
+    MAKETYPE(DDSCAPS2, caps);
+    CopyMemory(&caps, lpDDSCaps, sizeof(DDSCAPS));
     if (SUCCEEDED(hr = dds_get_attached_surface(self->instance, &caps, &instance))) {
         hr = dds_query_interface(instance, &IID_IDirectDrawSurface3, lplpDDAttachedSurface);
     }
@@ -1730,12 +1724,10 @@ HRESULT SUGARCALL idds_get_attached_surface4(idds* self, LPDDSCAPS2 lpDDSCaps, L
     }
 
     HRESULT hr = DD_OK;
+
     dds* instance = NULL;
-
-    // Turns out IDirectDrawSurface4 only checks for dwCaps value.
     MAKETYPE(DDSCAPS2, caps);
-    caps.dwCaps = lpDDSCaps->dwCaps;
-
+    CopyMemory(&caps, lpDDSCaps, sizeof(DDSCAPS));
     if (SUCCEEDED(hr = dds_get_attached_surface(self->instance, &caps, &instance))) {
         hr = dds_query_interface(instance, &IID_IDirectDrawSurface4, lplpDDAttachedSurface);
     }

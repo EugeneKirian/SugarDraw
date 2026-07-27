@@ -27,9 +27,7 @@ HRESULT sugar_create(allocator* allocator, logger* logger, driver* driver, sugar
                         if (SUCCEEDED(hr = arr_create(allocator, MEM_TAG_SUGAR, &instance->ddfs))) {
                             logger_log(logger, LOG_LEVEL_TRACE, "SugarDraw started successfully.");
                             InitializeCriticalSection(&instance->lock);
-
                             *object = instance;
-
                             return hr;
                         }
                     }

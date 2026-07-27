@@ -12,7 +12,6 @@
 static DWORD WINAPI ddg_worker(ddg* self);
 
 static HRESULT ddg_get_surface_desc(ddg* self, DDSURFACEDESC2* desc);
-static HRESULT ddg_need_surface_change(ddg* self, bool* change);
 static HRESULT ddg_stop_worker(ddg* self);
 
 HRESULT ddg_create(sugar* manager, driver* driver, ddg** object) {
@@ -25,15 +24,22 @@ HRESULT ddg_create(sugar* manager, driver* driver, ddg** object) {
     if (SUCCEEDED(hr = allocator_allocate(manager->allocator, MEM_TAG_DIRECTDRAWGRAPHICS, sizeof(ddg), &instance))) {
         instance->manager = manager;
         instance->driver = driver;
-        InitializeCriticalSection(&instance->lock);
 
-        instance->done = CreateEventA(NULL, FALSE, FALSE, NULL);
-        instance->stop = CreateEventA(NULL, FALSE, FALSE, NULL);
-        instance->ready = CreateEventA(NULL, TRUE, TRUE, NULL);
-        instance->updating = CreateEventA(NULL, TRUE, TRUE, NULL);
-        instance->worker = CreateThread(NULL, 0, ddg_worker, instance, CREATE_SUSPENDED, NULL);
+        instance->desc.dwSize = sizeof(DDSURFACEDESC2);
+        if (SUCCEEDED(hr = ddg_get_surface_desc(instance, &instance->desc))) {
+            InitializeCriticalSection(&instance->lock);
 
-        *object = instance;
+            instance->done = CreateEventA(NULL, FALSE, FALSE, NULL);
+            instance->stop = CreateEventA(NULL, FALSE, FALSE, NULL);
+            instance->ready = CreateEventA(NULL, TRUE, TRUE, NULL);
+            instance->updating = CreateEventA(NULL, TRUE, TRUE, NULL);
+            instance->worker = CreateThread(NULL, 0, ddg_worker, instance, CREATE_SUSPENDED, NULL);
+
+            *object = instance;
+            return hr;
+        }
+
+        ddg_release(instance);
     }
 
     return hr;
@@ -132,17 +138,11 @@ HRESULT ddg_initialize(ddg* self, dd* object) {
 
     ddsd* instance = NULL;
     if (SUCCEEDED(hr = ddsd_create(self->manager->allocator, &instance))) {
-        DDSURFACEDESC2 desc;
-        ZeroMemory(&desc, sizeof(DDSURFACEDESC2));
-        desc.dwSize = sizeof(DDSURFACEDESC2);
-
-        if (SUCCEEDED(hr = ddg_get_surface_desc(self, &desc))) {
-            if (SUCCEEDED(hr = ddsd_initialize(instance, &desc))) {
-                self->instance = object;
-                self->surface = instance;
-                ResumeThread(self->worker);
-                goto exit;
-            }
+        if (SUCCEEDED(hr = ddsd_initialize(instance, &self->desc))) {
+            self->instance = object;
+            self->surface = instance;
+            ResumeThread(self->worker);
+            goto exit;
         }
 
         ddsd_release(instance);
@@ -175,9 +175,11 @@ HRESULT ddg_recreate_surface(ddg* self) {
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
-    bool change = FALSE;
-    if (SUCCEEDED(hr = ddg_need_surface_change(self, &change))) {
-        if (change) {
+    DEVMODEA mode;
+    ZeroMemory(&mode, sizeof(DEVMODEA));
+    mode.dmSize = sizeof(DEVMODEA);
+    if (SUCCEEDED(hr = sugar_get_display_mode(self->manager, &mode))) {
+        if (mode.dmPelsWidth > self->desc.dwWidth || mode.dmPelsHeight > self->desc.dwHeight) {
             if (SUCCEEDED(hr = ddg_stop_worker(self))) {
                 ddsd* instance = NULL;
                 if (SUCCEEDED(hr = ddsd_create(self->manager->allocator, &instance))) {
@@ -346,41 +348,13 @@ static HRESULT ddg_get_surface_desc(ddg* self, DDSURFACEDESC2* desc) {
         desc->ddsCaps.dwCaps = DDSCAPS_SYSTEMMEMORY;
 
         desc->ddpfPixelFormat.dwSize = sizeof(DDPIXELFORMAT);
+        desc->ddpfPixelFormat.dwFlags = DDPF_RGB;
         desc->ddpfPixelFormat.dwRGBBitCount = 32;
         desc->ddpfPixelFormat.dwRGBAlphaBitMask = 0xFF000000;
         desc->ddpfPixelFormat.dwRBitMask = 0x00FF0000;
         desc->ddpfPixelFormat.dwGBitMask = 0x0000FF00;
         desc->ddpfPixelFormat.dwBBitMask = 0x000000FF;
     }
-
-    return hr;
-}
-
-HRESULT ddg_need_surface_change(ddg* self, bool* change) {
-    if (self == NULL) {
-        return DDERR_INVALIDOBJECT;
-    }
-
-    if (change == NULL) {
-        return DDERR_INVALIDPARAMS;
-    }
-
-    HRESULT hr = DD_OK;
-
-    DEVMODEA mode;
-    ZeroMemory(&mode, sizeof(DEVMODEA));
-    mode.dmSize = sizeof(DEVMODEA);
-    if (SUCCEEDED(hr = sugar_get_display_mode(self->manager, &mode))) {
-        DDSURFACEDESC2 desc;
-        ZeroMemory(&desc, sizeof(DDSURFACEDESC2));
-        desc.dwSize = sizeof(DDSURFACEDESC2);
-        if (SUCCEEDED(hr = ddsd_get_surface_desc(self->surface, &desc))) {
-            *change = mode.dmPelsWidth > desc.dwWidth || mode.dmPelsHeight > desc.dwHeight;
-            return hr;
-        }
-    }
-
-    *change = FALSE;
 
     return hr;
 }

@@ -118,7 +118,7 @@ void dd_release(dd* self, u32 flags) {
 }
 
 HRESULT dd_get_interface(dd* self, const GUID* riid, void** object) {
-    HRESULT hr = E_NOINTERFACE;
+    HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
     const s32 item_count = intfc_get_count(self->interfaces);
@@ -131,6 +131,8 @@ HRESULT dd_get_interface(dd* self, const GUID* riid, void** object) {
             }
         }
     }
+
+    hr = E_NOINTERFACE;
 
 exit:
     LeaveCriticalSection(&self->lock);
@@ -151,7 +153,7 @@ HRESULT dd_query_interface(dd* self, const GUID* riid, void** object) {
         return E_NOINTERFACE;
     }
 
-    HRESULT hr = E_NOINTERFACE;
+    HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
     idd* instance = NULL;
@@ -175,8 +177,11 @@ HRESULT dd_query_interface(dd* self, const GUID* riid, void** object) {
             }
 
             idd_release(instance);
+            goto exit;
         }
     }
+
+    hr = E_NOINTERFACE;
 
 exit:
     LeaveCriticalSection(&self->lock);

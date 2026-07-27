@@ -25,6 +25,7 @@ HRESULT ddc_create(sugar* manager, const GUID* rclsid, ddc** object) {
         if (SUCCEEDED(hr = intfc_create(manager->allocator, MEM_TAG_DIRECTDRAWCLIPPER, &instance->interfaces))) {
             InitializeCriticalSection(&instance->lock);
             *object = instance;
+            return hr;
         }
 
         allocator_free(manager->allocator, instance);
@@ -66,7 +67,7 @@ void ddc_release(ddc* self, u32 flags) {
 }
 
 HRESULT ddc_get_interface(ddc* self, const GUID* riid, void** object) {
-    HRESULT hr = E_NOINTERFACE;
+    HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
     const s32 item_count = intfc_get_count(self->interfaces);
@@ -80,6 +81,8 @@ HRESULT ddc_get_interface(ddc* self, const GUID* riid, void** object) {
         }
     }
 
+    hr = E_NOINTERFACE;
+
 exit:
     LeaveCriticalSection(&self->lock);
 
@@ -87,7 +90,7 @@ exit:
 }
 
 HRESULT ddc_query_interface(ddc* self, const GUID* riid, void** object) {
-    HRESULT hr = E_NOINTERFACE;
+    HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
     iddc* instance = NULL;
@@ -107,8 +110,11 @@ HRESULT ddc_query_interface(ddc* self, const GUID* riid, void** object) {
             }
 
             iddc_release(instance);
+            goto exit;
         }
     }
+
+    hr = E_NOINTERFACE;
 
 exit:
     LeaveCriticalSection(&self->lock);

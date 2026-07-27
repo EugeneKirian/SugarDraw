@@ -140,7 +140,7 @@ void dds_release(dds* self, u32 flags) {
 }
 
 HRESULT dds_get_interface(dds* self, const GUID* riid, void** object) {
-    HRESULT hr = E_NOINTERFACE;
+    HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
     const s32 item_count = intfc_get_count(self->interfaces);
@@ -154,6 +154,8 @@ HRESULT dds_get_interface(dds* self, const GUID* riid, void** object) {
         }
     }
 
+    hr = E_NOINTERFACE;
+
 exit:
     LeaveCriticalSection(&self->lock);
 
@@ -161,7 +163,7 @@ exit:
 }
 
 HRESULT dds_query_interface(dds* self, const GUID* riid, void** object) {
-    HRESULT hr = E_NOINTERFACE;
+    HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
     if (IsEqualGUID(&IID_IDirectDrawColorControl, riid)) {
@@ -194,8 +196,11 @@ HRESULT dds_query_interface(dds* self, const GUID* riid, void** object) {
             }
 
             idds_release(instance);
+            goto exit;
         }
     }
+
+    hr = E_NOINTERFACE;
 
 exit:
     LeaveCriticalSection(&self->lock);
@@ -1329,7 +1334,7 @@ HRESULT dds_set_color_key(dds* self, u32 flags, DDCOLORKEY* key) {
         }
     }
 
-    return ddsd_set_color_key(self->surface, flags, key);
+    return DD_OK;
 }
 
 HRESULT dds_set_overlay_position(dds* self, s32 x, s32 y) {

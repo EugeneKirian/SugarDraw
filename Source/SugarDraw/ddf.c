@@ -53,7 +53,7 @@ void ddf_release(ddf* self, u32 flags) {
 }
 
 HRESULT ddf_get_interface(ddf* self, const GUID* riid, void** object) {
-    HRESULT hr = E_NOINTERFACE;
+    HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
     const s32 item_count = intfc_get_count(self->interfaces);
@@ -67,6 +67,8 @@ HRESULT ddf_get_interface(ddf* self, const GUID* riid, void** object) {
         }
     }
 
+    hr = E_NOINTERFACE;
+
 exit:
     LeaveCriticalSection(&self->lock);
 
@@ -74,7 +76,7 @@ exit:
 }
 
 HRESULT ddf_query_interface(ddf* self, const GUID* riid, void** object) {
-    HRESULT hr = E_NOINTERFACE;
+    HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
     iddf* instance = NULL;
@@ -95,8 +97,11 @@ HRESULT ddf_query_interface(ddf* self, const GUID* riid, void** object) {
             }
 
             iddf_release(instance);
+            goto exit;
         }
     }
+
+    hr = E_NOINTERFACE;
 
 exit:
     LeaveCriticalSection(&self->lock);

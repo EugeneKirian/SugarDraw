@@ -14,6 +14,7 @@ typedef struct ddg {
     sugar*              manager;
     dd*                 instance;
     driver*             driver;
+    DDSURFACEDESC2      desc;
     CRITICAL_SECTION    lock;
     HANDLE              worker;
     u32                 status;

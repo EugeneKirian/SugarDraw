@@ -84,7 +84,7 @@ HRESULT intfc_query_item(intfc* self, const GUID* riid, void** object) {
         return DDERR_NOTFOUND;
     }
 
-    HRESULT hr = E_NOINTERFACE;
+    HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
     for (s32 i = 0; i < self->count; i++) {
@@ -94,6 +94,8 @@ HRESULT intfc_query_item(intfc* self, const GUID* riid, void** object) {
             goto exit;
         }
     }
+
+    hr = E_NOINTERFACE;
 
 exit:
     LeaveCriticalSection(&self->lock);

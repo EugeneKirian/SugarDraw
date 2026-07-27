@@ -54,7 +54,7 @@ void cf_release(cf* self, u32 flags) {
 }
 
 HRESULT cf_get_interface(cf* self, const GUID* riid, void** object) {
-    HRESULT hr = E_NOINTERFACE;
+    HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
     const s32 item_count = intfc_get_count(self->interfaces);
@@ -68,6 +68,8 @@ HRESULT cf_get_interface(cf* self, const GUID* riid, void** object) {
         }
     }
 
+    hr = E_NOINTERFACE;
+
 exit:
     LeaveCriticalSection(&self->lock);
 
@@ -75,7 +77,7 @@ exit:
 }
 
 HRESULT cf_query_interface(cf* self, const GUID* riid, void** object) {
-    HRESULT hr = E_NOINTERFACE;
+    HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
     icf* instance = NULL;
@@ -95,8 +97,11 @@ HRESULT cf_query_interface(cf* self, const GUID* riid, void** object) {
             }
 
             icf_release(instance);
+            goto exit;
         }
     }
+
+    hr = E_NOINTERFACE;
 
 exit:
     LeaveCriticalSection(&self->lock);
@@ -148,6 +153,7 @@ HRESULT cf_create_instance(cf* self, const GUID* riid, void** object) {
             }
 
             dd_release(instance, RELEASE_NONE);
+            goto exit;
         }
     }
     else if (IsEqualGUID(&CLSID_DirectDrawClipper, &self->id)) {
@@ -162,6 +168,7 @@ HRESULT cf_create_instance(cf* self, const GUID* riid, void** object) {
             }
 
             ddc_release(instance, RELEASE_NONE);
+            goto exit;
         }
     }
     else if (IsEqualGUID(&CLSID_DirectDrawFactory, &self->id)
@@ -177,6 +184,7 @@ HRESULT cf_create_instance(cf* self, const GUID* riid, void** object) {
             }
 
             ddf_release(instance, RELEASE_NONE);
+            goto exit;
         }
     }
 

@@ -20,7 +20,7 @@ typedef struct ddsd {
     allocator*          allocator;
     s32                 refs;
     bool                exposed;
-    DDSURFACEDESC2      desc;
+    DDSURFACEDESC2*     desc;
     CRITICAL_SECTION    lock;
     lock*               locks;
     bitmap              bitmap;
@@ -41,9 +41,7 @@ HRESULT ddsd_create(allocator* allocator, ddsd** object) {
         if (SUCCEEDED(hr = lock_create(allocator, MEM_TAG_DIRECTDRAWSURFACEDATA, &instance->locks))) {
             InitializeCriticalSection(&instance->lock);
             instance->refs = 1;
-            
             *object = instance;
-
             return hr;
         }
 
@@ -57,7 +55,7 @@ void ddsd_release(ddsd* self) {
     if (self != NULL) {
         EnterCriticalSection(&self->lock);
 
-        if (!(self->desc.dwFlags & DDSD_LPSURFACE)) {
+        if (!(self->desc->dwFlags & DDSD_LPSURFACE)) {
             // TODO hdc, hbitmap, maping
 
             if (self->data != NULL) {
@@ -117,10 +115,10 @@ HRESULT ddsd_initialize(ddsd* self, DDSURFACEDESC2* desc) {
 
     // TODO all kinds of verifications
 
+    self->desc = desc;
     self->uniqueness++;
-    CopyMemory(&self->desc, desc, sizeof(DDSURFACEDESC2));
 
-    if (self->desc.dwFlags & DDSD_LPSURFACE) {
+    if (self->desc->dwFlags & DDSD_LPSURFACE) {
         self->data = desc->lpSurface;
     }
     else {
@@ -136,15 +134,15 @@ HRESULT ddsd_initialize(ddsd* self, DDSURFACEDESC2* desc) {
 
         // TODO make stride aligned to a reasonable value for SIMD processing
 
-        const u32 bpp = self->desc.ddpfPixelFormat.dwRGBBitCount;
-        const u32 stride = ((self->desc.dwWidth * bpp + 63) & ~63) >> 3; // TODO
-        const u32 size = stride * self->desc.dwHeight;
+        const u32 bpp = self->desc->ddpfPixelFormat.dwRGBBitCount;
+        const u32 stride = ((self->desc->dwWidth * bpp + 63) & ~63) >> 3; // TODO
+        const u32 size = stride * self->desc->dwHeight;
         const u32 aligned_width = stride / (bpp / 8); // TODO
 
         BITMAPINFOHEADER* header = &self->bitmap.header.info;
         header->biSize = sizeof(BITMAPINFOHEADER);
         header->biWidth = (LONG)aligned_width;
-        header->biHeight = -(LONG)self->desc.dwHeight;
+        header->biHeight = -(LONG)self->desc->dwHeight;
         header->biPlanes = 1;
         header->biBitCount = bpp;
         header->biCompression = (bpp == 15 || bpp == 16) ? BI_BITFIELDS : BI_RGB;
@@ -184,25 +182,25 @@ HRESULT ddsd_initialize(ddsd* self, DDSURFACEDESC2* desc) {
         case 16: {
             header->biClrUsed = 3;
             ((DWORD*)self->bitmap.header.palette)[0]
-                = self->desc.ddpfPixelFormat.dwRBitMask;
+                = self->desc->ddpfPixelFormat.dwRBitMask;
             ((DWORD*)self->bitmap.header.palette)[1]
-                = self->desc.ddpfPixelFormat.dwGBitMask;
+                = self->desc->ddpfPixelFormat.dwGBitMask;
             ((DWORD*)self->bitmap.header.palette)[2]
-                = self->desc.ddpfPixelFormat.dwBBitMask;
+                = self->desc->ddpfPixelFormat.dwBBitMask;
         }break;
                // TODO
                //case 24:
                //case 32: {
                //    ((DWORD*)self->bitmap.header.palette)[0]
-               //        = self->desc.ddpfPixelFormat.dwRBitMask;
+               //        = self->desc->ddpfPixelFormat.dwRBitMask;
                //    ((DWORD*)self->bitmap.header.palette)[1]
-               //        = self->desc.ddpfPixelFormat.dwGBitMask;
+               //        = self->desc->ddpfPixelFormat.dwGBitMask;
                //    ((DWORD*)self->bitmap.header.palette)[2]
-               //        = self->desc.ddpfPixelFormat.dwBBitMask;
+               //        = self->desc->ddpfPixelFormat.dwBBitMask;
                //}break;
         }
 
-        header->biSizeImage = ((aligned_width * bpp + 63) & ~63) / 8 * self->desc.dwHeight; // TODO
+        header->biSizeImage = ((aligned_width * bpp + 63) & ~63) / 8 * self->desc->dwHeight; // TODO
 
         self->bitmap.mapping = CreateFileMappingA(INVALID_HANDLE_VALUE,
             NULL, PAGE_READWRITE | SEC_COMMIT, 0, size, NULL);
@@ -212,7 +210,7 @@ HRESULT ddsd_initialize(ddsd* self, DDSURFACEDESC2* desc) {
             goto exit;
         }
 
-        self->desc.lPitch = stride;
+        self->desc->lPitch = stride;
         self->bitmap.bitmap = CreateDIBSection(self->bitmap.dc,
             (BITMAPINFO*)&self->bitmap.header.info, DIB_RGB_COLORS,
             &self->data, self->bitmap.mapping, 0);
@@ -260,26 +258,26 @@ HRESULT ddsd_blt_fast(ddsd* self, RECT* dst, ddsd* surface, RECT* src, u32 trans
 
         if (transfer & DDBLTFAST_SRCCOLORKEY) {
             blt_src_color_key(self->data, (u32)dst->left, (u32)dst->top, (u32)dst->right, (u32)dst->bottom,
-                self->desc.ddpfPixelFormat.dwRGBBitCount, self->desc.lPitch,
+                self->desc->ddpfPixelFormat.dwRGBBitCount, self->desc->lPitch,
                 surface->data, (u32)src->left, (u32)src->top, (u32)src->right, (u32)src->bottom,
-                surface->desc.ddpfPixelFormat.dwRGBBitCount, surface->desc.lPitch,
-                surface->desc.ddckCKSrcBlt.dwColorSpaceLowValue,
-                surface->desc.ddckCKSrcBlt.dwColorSpaceHighValue);
+                surface->desc->ddpfPixelFormat.dwRGBBitCount, surface->desc->lPitch,
+                surface->desc->ddckCKSrcBlt.dwColorSpaceLowValue,
+                surface->desc->ddckCKSrcBlt.dwColorSpaceHighValue);
         }
         else if (transfer & DDBLTFAST_DESTCOLORKEY) {
             blt_dst_color_key(self->data, (u32)dst->left, (u32)dst->top, (u32)dst->right, (u32)dst->bottom,
-                self->desc.ddpfPixelFormat.dwRGBBitCount, self->desc.lPitch,
+                self->desc->ddpfPixelFormat.dwRGBBitCount, self->desc->lPitch,
                 surface->data, (u32)src->left, (u32)src->top, (u32)src->right, (u32)src->bottom,
-                surface->desc.ddpfPixelFormat.dwRGBBitCount, surface->desc.lPitch,
-                self->desc.ddckCKDestBlt.dwColorSpaceLowValue,
-                self->desc.ddckCKDestBlt.dwColorSpaceHighValue);
+                surface->desc->ddpfPixelFormat.dwRGBBitCount, surface->desc->lPitch,
+                self->desc->ddckCKDestBlt.dwColorSpaceLowValue,
+                self->desc->ddckCKDestBlt.dwColorSpaceHighValue);
         }
         else {
             blt_blit(self->data, (u32)dst->left, (u32)dst->top, (u32)dst->right, (u32)dst->bottom,
-                &self->desc.ddpfPixelFormat, self->desc.lPitch,
+                &self->desc->ddpfPixelFormat, self->desc->lPitch,
                 self->bitmap.header.palette,
                 surface->data, (u32)src->left, (u32)src->top, (u32)src->right, (u32)src->bottom,
-                &surface->desc.ddpfPixelFormat, surface->desc.lPitch,
+                &surface->desc->ddpfPixelFormat, surface->desc->lPitch,
                 surface->bitmap.header.palette);
         }
 
@@ -374,7 +372,7 @@ HRESULT ddsd_get_dc(ddsd* self, HDC* hdc) {
         return DDERR_NOTINITIALIZED;
     }
 
-    if (self->desc.dwFlags & DDSD_LPSURFACE) {
+    if (self->desc->dwFlags & DDSD_LPSURFACE) {
         return DDERR_UNSUPPORTED;
     }
 
@@ -390,7 +388,7 @@ HRESULT ddsd_get_dc(ddsd* self, HDC* hdc) {
         if (SUCCEEDED(hr = ddsd_lock_rect(self, &lock))) {
             self->exposed = TRUE;
 
-            if (self->desc.ddsCaps.dwCaps & DDSCAPS_OWNDC) {
+            if (self->desc->ddsCaps.dwCaps & DDSCAPS_OWNDC) {
                 self->bitmap.checkpoint = SaveDC(self->bitmap.dc);
             }
 
@@ -416,7 +414,7 @@ HRESULT ddsd_release_dc(ddsd* self, HDC hdc) {
         return DDERR_NOTINITIALIZED;
     }
 
-    if (self->desc.dwFlags & DDSD_LPSURFACE) {
+    if (self->desc->dwFlags & DDSD_LPSURFACE) {
         return DDERR_UNSUPPORTED;
     }
 
@@ -437,7 +435,7 @@ HRESULT ddsd_release_dc(ddsd* self, HDC hdc) {
             self->exposed = FALSE;
             self->uniqueness++;
 
-            if (self->desc.ddsCaps.dwCaps & DDSCAPS_OWNDC) {
+            if (self->desc->ddsCaps.dwCaps & DDSCAPS_OWNDC) {
                 hr = RestoreDC(self->bitmap.dc, self->bitmap.checkpoint)
                     ? DD_OK : DDERR_GENERIC;
             }
@@ -473,12 +471,12 @@ HRESULT ddsd_lock(ddsd* self, RECT* rect, DDSURFACEDESC2* desc) {
 
     if (SUCCEEDED(hr = ddsd_lock_rect(self, rect))) {
         // TODO 1,2,4-bit support
-        const u32 bits = self->desc.ddpfPixelFormat.dwRGBBitCount;
+        const u32 bits = self->desc->ddpfPixelFormat.dwRGBBitCount;
         const u32 bytes = (bits == 15 ? 16 : bits) / 8;
         // TODO proper offset calculation
         // TODO properly fill in desc
-        desc->lpSurface = self->data + rect->left * bytes + rect->top * self->desc.lPitch;
-        desc->lPitch = self->desc.lPitch;
+        desc->lpSurface = self->data + rect->left * bytes + rect->top * self->desc->lPitch;
+        desc->lPitch = self->desc->lPitch;
     }
 
     LeaveCriticalSection(&self->lock);
@@ -549,24 +547,6 @@ HRESULT ddsd_page_unlock(ddsd* self) {
     if ((result = max(result, 0)) == 0) {
         self->pages = 0;
     }
-
-    return DD_OK;
-}
-
-HRESULT ddsd_get_surface_desc(ddsd* self, DDSURFACEDESC2* desc) {
-    if (self == NULL) {
-        return DDERR_INVALIDOBJECT;
-    }
-
-    if (desc == NULL) {
-        return DDERR_INVALIDPARAMS;
-    }
-
-    if (desc->dwSize != sizeof(DDSURFACEDESC2)) {
-        return DDERR_INVALIDPARAMS;
-    }
-
-    CopyMemory(desc, &self->desc, sizeof(DDSURFACEDESC2));
 
     return DD_OK;
 }
@@ -646,8 +626,8 @@ HRESULT ddsd_get_rect(ddsd* self, RECT* rect) {
 
     rect->left = 0;
     rect->top = 0;
-    rect->right = self->desc.dwWidth;
-    rect->bottom = self->desc.dwHeight;
+    rect->right = self->desc->dwWidth;
+    rect->bottom = self->desc->dwHeight;
 
     return DD_OK;
 }
@@ -671,8 +651,8 @@ HRESULT ddsd_inside_rect(ddsd* self, RECT* rect) {
 
     RECT bounds;
     ZeroMemory(&bounds, sizeof(RECT));
-    bounds.right = (s32)self->desc.dwWidth;
-    bounds.bottom = (s32)self->desc.dwHeight;
+    bounds.right = (s32)self->desc->dwWidth;
+    bounds.bottom = (s32)self->desc->dwHeight;
 
     return IsInsideRect(&bounds, rect) ? DD_OK : DDERR_INVALIDRECT;
 }
@@ -725,65 +705,4 @@ HRESULT ddsd_restore_surface(ddsd* self) {
     }
 
     return hr;
-}
-
-HRESULT ddsd_set_color_key(ddsd* self, u32 flags, DDCOLORKEY* key) {
-    if (self == NULL) {
-        return DDERR_INVALIDOBJECT;
-    }
-
-    // TODO This is a code duplication. Refactor this...
-
-    if (self->data == NULL) {
-        return DDERR_NOTINITIALIZED;
-    }
-
-    if (key == NULL) {
-        if (flags & DDCKEY_DESTBLT) {
-            self->desc.dwFlags &= ~DDSD_CKDESTBLT;
-        }
-
-        if (flags & DDCKEY_DESTOVERLAY) {
-            self->desc.dwFlags &= ~DDSD_CKDESTOVERLAY;
-        }
-
-        if (flags & DDCKEY_SRCBLT) {
-            self->desc.dwFlags &= ~DDSD_CKSRCBLT;
-        }
-
-        if (flags & DDCKEY_SRCOVERLAY) {
-            self->desc.dwFlags &= ~DDSD_CKSRCOVERLAY;
-        }
-    }
-    else {
-        DDCOLORKEY color;
-        color.dwColorSpaceLowValue = key->dwColorSpaceLowValue;
-        color.dwColorSpaceHighValue = key->dwColorSpaceLowValue;
-
-        if (flags & DDCKEY_COLORSPACE) {
-            color.dwColorSpaceHighValue = key->dwColorSpaceHighValue;
-        }
-
-        if (flags & DDCKEY_DESTBLT) {
-            self->desc.dwFlags |= DDSD_CKDESTBLT;
-            CopyMemory(&self->desc.ddckCKDestBlt, &color, sizeof(DDCOLORKEY));
-        }
-
-        if (flags & DDCKEY_DESTOVERLAY) {
-            self->desc.dwFlags |= DDSD_CKDESTOVERLAY;
-            CopyMemory(&self->desc.ddckCKDestOverlay, &color, sizeof(DDCOLORKEY));
-        }
-
-        if (flags & DDCKEY_SRCBLT) {
-            self->desc.dwFlags |= DDSD_CKSRCBLT;
-            CopyMemory(&self->desc.ddckCKSrcBlt, &color, sizeof(DDCOLORKEY));
-        }
-
-        if (flags & DDCKEY_SRCOVERLAY) {
-            self->desc.dwFlags |= DDSD_CKSRCOVERLAY;
-            CopyMemory(&self->desc.ddckCKSrcOverlay, &color, sizeof(DDCOLORKEY));
-        }
-    }
-
-    return DD_OK;
 }

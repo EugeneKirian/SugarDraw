@@ -22,12 +22,11 @@ void blt_blit(u8* dst, u32 dst_x, u32 dst_y, u32 dst_w, u32 dst_h, const DDPIXEL
         const u32 bytes = dst_format->dwRGBBitCount / 8;
         const u32 min_w = max(0, min(dst_w - dst_x, src_w - src_x));
         const u32 min_h = max(0, min(dst_h - dst_y, src_h - src_y));
-        const u32 length = min_w * bytes;
 
         for (u32 i = 0; i < min_h; i++) {
             const u8* source = (src + (i + src_y) * src_stride + src_x * bytes);
             u8* destination = (dst + (i + dst_y) * dst_stride + dst_x * bytes);
-            blt_copy(destination, source, length);
+            blt_copy(destination, source, min_w * bytes);
         }
     }
     else if (dst_format->dwRGBBitCount == 32 && src_format->dwRGBBitCount == 16) {
@@ -119,7 +118,6 @@ void blt_dst_color_key(u8* dst, u32 dst_x, u32 dst_y, u32 dst_w, u32 dst_h, u32 
         const u32 bytes = dst_bpp / 8;
         const u32 min_w = max(0, min(dst_w - dst_x, src_w));
         const u32 min_h = max(0, min(dst_h - dst_y, src_h));
-        const u32 length = min_w * bytes;
 
         // TODO SIMD
 
@@ -127,8 +125,20 @@ void blt_dst_color_key(u8* dst, u32 dst_x, u32 dst_y, u32 dst_w, u32 dst_h, u32 
             for (u32 i = 0; i < min_h; i++) {
                 const u8* source = (src + (i + src_y) * src_stride + src_x * bytes);
                 u8* destination = (dst + (i + dst_y) * dst_stride + dst_x * bytes);
-                for (u32 x = 0; x < length; x++) {
+                for (u32 x = 0; x < min_w; x++) {
                     const u8 target = destination[x];
+                    if (ckl <= target && target <= ckh) {
+                        destination[x] = source[x];
+                    }
+                }
+            }
+        }
+        else if (dst_bpp == 32) {
+            for (u32 i = 0; i < min_h; i++) {
+                const u32* source = (u32*)(src + (i + src_y) * src_stride + src_x * bytes);
+                u32* destination = (u32*)(dst + (i + dst_y) * dst_stride + dst_x * bytes);
+                for (u32 x = 0; x < min_w; x++) {
+                    const u32 target = destination[x];
                     if (ckl <= target && target <= ckh) {
                         destination[x] = source[x];
                     }
@@ -154,7 +164,6 @@ void blt_src_color_key(u8* dst, u32 dst_x, u32 dst_y, u32 dst_w, u32 dst_h, u32 
         const u32 bytes = dst_bpp / 8;
         const u32 min_w = max(0, min(dst_w - dst_x, src_w));
         const u32 min_h = max(0, min(dst_h - dst_y, src_h));
-        const u32 length = min_w * bytes;
 
         // TODO SIMD
 
@@ -162,8 +171,19 @@ void blt_src_color_key(u8* dst, u32 dst_x, u32 dst_y, u32 dst_w, u32 dst_h, u32 
             for (u32 i = 0; i < min_h; i++) {
                 const u8* source = (src + (i + src_y) * src_stride + src_x * bytes);
                 u8* destination = (dst + (i + dst_y) * dst_stride + dst_x * bytes);
-                for (u32 x = 0; x < length; x++) {
+                for (u32 x = 0; x < min_w; x++) {
                     const u8 color = source[x];
+                    if (color < ckl || ckh < color) {
+                        destination[x] = color;
+                    }
+                }
+            }
+        } else if (dst_bpp == 32) {
+            for (u32 i = 0; i < min_h; i++) {
+                const u32* source = (u32*)(src + (i + src_y) * src_stride + src_x * bytes);
+                u32* destination = (u32*)(dst + (i + dst_y) * dst_stride + dst_x * bytes);
+                for (u32 x = 0; x < min_w; x++) {
+                    const u32 color = source[x];
                     if (color < ckl || ckh < color) {
                         destination[x] = color;
                     }

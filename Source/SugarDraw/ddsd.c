@@ -269,8 +269,8 @@ HRESULT ddsd_blt_fast(ddsd* self, RECT* dst, ddsd* surface, RECT* src, u32 trans
                 self->desc->ddpfPixelFormat.dwRGBBitCount, self->desc->lPitch,
                 surface->data, (u32)src->left, (u32)src->top, (u32)src->right, (u32)src->bottom,
                 surface->desc->ddpfPixelFormat.dwRGBBitCount, surface->desc->lPitch,
-                self->desc->ddckCKDestBlt.dwColorSpaceLowValue,
-                self->desc->ddckCKDestBlt.dwColorSpaceHighValue);
+                surface->desc->ddckCKDestBlt.dwColorSpaceLowValue,
+                surface->desc->ddckCKDestBlt.dwColorSpaceHighValue);
         }
         else {
             blt_blit(self->data, (u32)dst->left, (u32)dst->top, (u32)dst->right, (u32)dst->bottom,
@@ -474,7 +474,7 @@ HRESULT ddsd_lock(ddsd* self, RECT* rect, DDSURFACEDESC2* desc) {
         const u32 bits = self->desc->ddpfPixelFormat.dwRGBBitCount;
         const u32 bytes = (bits == 15 ? 16 : bits) / 8;
         // TODO proper offset calculation
-        // TODO properly fill in desc
+        CopyMemory(desc, self->desc, sizeof(DDSURFACEDESC2));
         desc->lpSurface = self->data + rect->left * bytes + rect->top * self->desc->lPitch;
         desc->lPitch = self->desc->lPitch;
     }

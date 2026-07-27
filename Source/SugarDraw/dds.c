@@ -354,13 +354,13 @@ HRESULT dds_blt_fast(dds* self, u32 x, u32 y, dds* surface, RECT* rect, u32 tran
 
     if (transfer & DDBLTFAST_SRCCOLORKEY) {
         if (!(surface->desc.dwFlags & DDSD_CKSRCBLT)) {
-            return DDERR_NOCOLORKEY;
+            return DDERR_INVALIDPARAMS;
         }
     }
 
     if (transfer & DDBLTFAST_DESTCOLORKEY) {
-        if (!(self->desc.dwFlags & DDSD_CKDESTBLT)) {
-            return DDERR_NOCOLORKEY;
+        if (!(surface->desc.dwFlags & DDSD_CKDESTBLT)) {
+            return DDERR_INVALIDPARAMS;
         }
     }
 

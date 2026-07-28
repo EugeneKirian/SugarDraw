@@ -548,13 +548,16 @@ HRESULT dd_enum_display_modes(dd* self, u32 flags, DDSURFACEDESC2* desc, ENUMDIS
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
+    // TODO DDEDM_STANDARDVGAMODES 
+    // TODO values from DDSURFACEDESC2
+
     u32 count = 0;
     DEVMODEA* modes = NULL;
     if (SUCCEEDED(hr = sugar_get_display_modes(self->manager, &count, &modes))) {
         for (u32 i = 0; i < count; i++) {
             MAKEDDSURFACEDESC2(current);
             if (SUCCEEDED(hr = ddsurfacedesc2_from_devmodea(&current, &modes[i]))) {
-                if (modes[i].dmFields & DM_DISPLAYFREQUENCY) {
+                if ((flags & DDEDM_REFRESHRATES) && (modes[i].dmFields & DM_DISPLAYFREQUENCY)) {
                     current.dwFlags |= DDSD_REFRESHRATE;
                     current.dwRefreshRate = modes[i].dmDisplayFrequency;
                 }
@@ -1014,11 +1017,7 @@ HRESULT dd_set_display_mode(dd* self, u32 width, u32 height, u32 bpp, u32 rate, 
     EnterCriticalSection(&self->lock);
 
     if (SUCCEEDED(hr = dd_can_change_display_mode(self))) {
-        RECT rect;
-        GetClientRect(self->cooperation.hwnd, &rect);
-        ClientToScreen(self->cooperation.hwnd, (POINT*)&rect.left);
-        ClientToScreen(self->cooperation.hwnd, (POINT*)&rect.right);
-        CopyMemory(&self->cooperation.rect, &rect, sizeof(RECT));
+        GetWindowRect(self->cooperation.hwnd, &self->cooperation.rect);
         if (SUCCEEDED(hr = sugar_set_display_mode(self->manager, width, height, bpp, rate))) {
             if (SUCCEEDED(hr = sugar_get_display_mode(self->manager, &self->cooperation.mode))) {
                 if (!(self->cooperation.flags & DDSCL_NOWINDOWCHANGES)) {

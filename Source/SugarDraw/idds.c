@@ -1170,7 +1170,7 @@ HRESULT SUGARCALL idds_update_overlay1(idds* self, LPRECT lpSrcRect, LPDIRECTDRA
         LEAVE(DDERR_INVALIDPARAMS);
     }
 
-    if ((dwFlags == DDOVER_NONE) || (dwFlags & ~DDOVER_VALID)) {
+    if (dwFlags == DDOVER_NONE || (dwFlags & ~DDOVER_VALID)) {
         LEAVE(DDERR_INVALIDPARAMS);
     }
 
@@ -1349,7 +1349,7 @@ HRESULT SUGARCALL idds_update_overlay2(idds* self, LPRECT lpSrcRect, LPDIRECTDRA
         LEAVE(DDERR_INVALIDPARAMS);
     }
 
-    if ((dwFlags == DDOVER_NONE) || (dwFlags & ~DDOVER_VALID)) {
+    if (dwFlags == DDOVER_NONE || (dwFlags & ~DDOVER_VALID)) {
         LEAVE(DDERR_INVALIDPARAMS);
     }
 
@@ -1554,7 +1554,7 @@ HRESULT SUGARCALL idds_update_overlay3(idds* self, LPRECT lpSrcRect, LPDIRECTDRA
         LEAVE(DDERR_INVALIDPARAMS);
     }
 
-    if ((dwFlags == DDOVER_NONE) || (dwFlags & ~DDOVER_VALID)) {
+    if (dwFlags == DDOVER_NONE || (dwFlags & ~DDOVER_VALID)) {
         LEAVE(DDERR_INVALIDPARAMS);
     }
 
@@ -1838,7 +1838,7 @@ HRESULT SUGARCALL idds_update_overlay4(idds* self, LPRECT lpSrcRect, LPDIRECTDRA
         LEAVE(DDERR_INVALIDPARAMS);
     }
 
-    if ((dwFlags == DDOVER_NONE) || (dwFlags & ~DDOVER_VALID)) {
+    if (dwFlags == DDOVER_NONE || (dwFlags & ~DDOVER_VALID)) {
         LEAVE(DDERR_INVALIDPARAMS);
     }
 
@@ -2140,7 +2140,7 @@ HRESULT SUGARCALL idds_update_overlay7(idds* self, LPRECT lpSrcRect, LPDIRECTDRA
         LEAVE(DDERR_INVALIDPARAMS);
     }
 
-    if ((dwFlags == DDOVER_NONE) || (dwFlags & ~DDOVER_VALID)) {
+    if (dwFlags == DDOVER_NONE || (dwFlags & ~DDOVER_VALID)) {
         LEAVE(DDERR_INVALIDPARAMS);
     }
 

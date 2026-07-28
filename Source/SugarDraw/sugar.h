@@ -51,6 +51,7 @@ HRESULT sugar_get_exclusive(sugar* self, dd** object);
 HRESULT sugar_set_exclusive(sugar* self, dd* object);
 
 HRESULT sugar_get_display_mode(sugar* self, DEVMODEA* mode);
+HRESULT sugar_get_display_modes(sugar* self, u32* count, const DEVMODEA** modes);
 HRESULT sugar_set_display_mode(sugar* self, u32 width, u32 height, u32 bpp, u32 rate);
 HRESULT sugar_supports_display_mode(sugar* self, const DEVMODEA* mode);
 HRESULT sugar_restore_display_mode(sugar* self);

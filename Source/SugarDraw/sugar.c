@@ -369,6 +369,29 @@ HRESULT sugar_get_display_mode(sugar* self, DEVMODEA* mode) {
     return DD_OK;
 }
 
+HRESULT sugar_get_display_modes(sugar* self, u32* count, const DEVMODEA** modes) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (count == NULL && modes == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    HRESULT hr = DD_OK;
+    EnterCriticalSection(&self->lock);
+
+    *count = self->modes.count;
+
+    if (modes != NULL) {
+        *modes = self->modes.modes;
+    }
+
+    LeaveCriticalSection(&self->lock);
+
+    return hr;
+}
+
 HRESULT sugar_set_display_mode(sugar* self, u32 width, u32 height, u32 bpp, u32 rate) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
@@ -531,7 +554,9 @@ HRESULT sugar_enumerate_dispaly_modes(sugar* self) {
         MEM_TAG_SUGAR, count * sizeof(DEVMODEA), &self->modes.modes))) {
         self->modes.count = count;
         for (u32 i = 0; i < count; i++) {
+            self->modes.modes[i].dmSize = sizeof(DEVMODEA);
             EnumDisplaySettingsA(NULL, i, &self->modes.modes[i]);
+            self->modes.modes[i].dmSize = sizeof(DEVMODEA);
         }
 
         HDC hdc = GetDC(NULL);

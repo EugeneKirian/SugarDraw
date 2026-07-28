@@ -29,6 +29,12 @@ typedef struct dd {
     arr*                surfaces;
 } dd;
 
+typedef struct ddedmc {
+    LPVOID callback, context;
+} ddedmc;
+
+typedef HRESULT(SUGARCALL* ENUMDISPLAYMODESCALLBACK)(ddedmc* context, DDSURFACEDESC2* desc);
+
 HRESULT dd_create(sugar* manager, const GUID* rclsid, driver* driver, dd** object);
 void dd_release(dd* self, u32 flags);
 HRESULT dd_get_interface(dd* self, const GUID* riid, void** object);
@@ -42,7 +48,7 @@ HRESULT dd_create_clipper(dd* self, void** object);
 HRESULT dd_create_palette(dd* self, u32 flags, PALETTEENTRY* entries, void** object);
 HRESULT dd_create_surface(dd* self, const GUID* riid, DDSURFACEDESC2* desc, void** object);
 HRESULT dd_duplicate_surface(dd* self, dds* surface, const GUID* riid, void** object);
-HRESULT dd_enum_display_modes(dd* self); // TODO
+HRESULT dd_enum_display_modes(dd* self, u32 flags, DDSURFACEDESC2* desc, ENUMDISPLAYMODESCALLBACK callback, ddedmc* context);
 HRESULT dd_enum_surfaces(dd* self); // TODO
 HRESULT dd_flip_to_gdi_surface(dd* self);
 HRESULT dd_get_caps(dd* self, DDCAPS* caps);

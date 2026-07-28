@@ -177,7 +177,7 @@ direct_draw_enumerate_ex_ansi(LPDDENUMCALLBACKEXA lpCallback, LPVOID lpContext, 
         LOGLEAVE(manager->logger, DDERR_INVALIDPARAMS);
     }
 
-    if ((dwFlags == DDENUM_NONE) || (dwFlags & ~DDENUM_VALID)) {
+    if (dwFlags == DDENUM_NONE || (dwFlags & ~DDENUM_VALID)) {
         LOGLEAVE(manager->logger, DDERR_INVALIDPARAMS);
     }
 
@@ -203,7 +203,7 @@ direct_draw_enumerate_ex_wide(LPDDENUMCALLBACKEXW lpCallback, LPVOID lpContext, 
         LOGLEAVE(manager->logger, DDERR_INVALIDPARAMS);
     }
 
-    if ((dwFlags == DDENUM_NONE) || (dwFlags & ~DDENUM_VALID)) {
+    if (dwFlags == DDENUM_NONE || (dwFlags & ~DDENUM_VALID)) {
         LOGLEAVE(manager->logger, DDERR_INVALIDPARAMS);
     }
 

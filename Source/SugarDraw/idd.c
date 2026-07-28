@@ -351,6 +351,9 @@ const static idd7_vft idd7_self = {
     idd_evaluate_mode7
 };
 
+static HRESULT SUGARCALL idd_enum_display_modes_callback1(ddedmc* context, DDSURFACEDESC2* desc);
+static HRESULT SUGARCALL idd_enum_display_modes_callback4(ddedmc* context, DDSURFACEDESC2* desc);
+
 HRESULT SUGARCALL idd_create(sugar* manager, const GUID* riid, idd** object) {
     if (manager == NULL) {
         return DDERR_INVALIDPARAMS;
@@ -526,9 +529,28 @@ HRESULT SUGARCALL idd_enum_display_modes1(idd* self, DWORD dwFlags, LPDDSURFACED
 
     ENTER("%s, %s, 0x%p, 0x%p", ddedm_to_string(dwFlags), ddsurfacedesc_to_string(lpDDSurfaceDesc), lpContext, lpEnumModesCallback);
 
-    // TODO proper implementation
+    if (dwFlags != DDEDM_NONE && (dwFlags & ~DDEDM_VALID)) {
+        LEAVE(DDERR_INVALIDPARAMS);
+    }
 
-    LEAVE(dd_enum_display_modes(self->instance)); // TODO
+    if (lpDDSurfaceDesc != NULL) {
+        if (lpDDSurfaceDesc->dwSize != sizeof(DDSURFACEDESC)) {
+            LEAVE(DDERR_INVALIDPARAMS);
+        }
+    }
+
+    ddedmc context;
+    context.callback = lpEnumModesCallback;
+    context.context = lpContext;
+
+    MAKEDDSURFACEDESC2(desc);
+    if (lpDDSurfaceDesc != NULL) {
+        CopyMemory(&desc, lpDDSurfaceDesc, sizeof(DDSURFACEDESC));
+        desc.dwSize = sizeof(DDSURFACEDESC2);
+    }
+
+    LEAVE(dd_enum_display_modes(self->instance, dwFlags,
+        lpDDSurfaceDesc == NULL ? NULL : &desc, idd_enum_display_modes_callback1, &context));
 }
 
 HRESULT SUGARCALL idd_enum_surfaces1(idd* self, DWORD dwFlags, LPDDSURFACEDESC lpDDSD, LPVOID lpContext, LPDDENUMSURFACESCALLBACK lpEnumSurfacesCallback) {
@@ -808,9 +830,21 @@ HRESULT SUGARCALL idd_enum_display_modes4(idd* self, DWORD dwFlags, LPDDSURFACED
 
     ENTER("%s, %s, 0x%p, 0x%p", ddedm_to_string(dwFlags), ddsurfacedesc2_to_string(lpDDSurfaceDesc), lpContext, lpEnumModesCallback);
 
-    // TODO proper implementation
+    if (dwFlags != DDEDM_NONE && (dwFlags & ~DDEDM_VALID)) {
+        LEAVE(DDERR_INVALIDPARAMS);
+    }
 
-    LEAVE(dd_enum_display_modes(self->instance)); // TODO
+    if (lpDDSurfaceDesc != NULL) {
+        if (lpDDSurfaceDesc->dwSize != sizeof(DDSURFACEDESC2)) {
+            LEAVE(DDERR_INVALIDPARAMS);
+        }
+    }
+
+    ddedmc context;
+    context.callback = lpEnumModesCallback;
+    context.context = lpContext;
+
+    LEAVE(dd_enum_display_modes(self->instance, dwFlags, lpDDSurfaceDesc, idd_enum_display_modes_callback4, &context));
 }
 
 HRESULT SUGARCALL idd_enum_surfaces4(idd* self, DWORD dwFlags, LPDDSURFACEDESC2 lpDDSD, LPVOID lpContext, LPDDENUMSURFACESCALLBACK2 lpEnumSurfacesCallback) {
@@ -1046,4 +1080,24 @@ HRESULT SUGARCALL idd_evaluate_mode7(idd* self, DWORD dwFlags, DWORD* pSecondsUn
     // TODO proper implementation
 
     LEAVE(dd_evaluate_mode(self->instance, dwFlags, pSecondsUntilTimeout));
+}
+
+HRESULT SUGARCALL idd_enum_display_modes_callback1(ddedmc* context, DDSURFACEDESC2* desc) {
+    if (context == NULL || desc == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    MAKEDDSURFACEDESC(current);
+    CopyMemory(&current, desc, sizeof(DDSURFACEDESC));
+    current.dwSize = sizeof(DDSURFACEDESC);
+
+    return ((LPDDENUMMODESCALLBACK)context->callback)(&current, context->context);
+}
+
+HRESULT SUGARCALL idd_enum_display_modes_callback4(ddedmc* context, DDSURFACEDESC2* desc) {
+    if (context == NULL || desc == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    return ((LPDDENUMMODESCALLBACK2)context->callback)(desc, context->context);
 }

@@ -201,7 +201,7 @@ HRESULT SUGARCALL iddf_direct_draw_enumerate2(iddf* self, LPDDENUMCALLBACKEXA lp
         LEAVE(DDERR_INVALIDPARAMS);
     }
 
-    if ((dwFlags == DDENUM_NONE) || (dwFlags & ~DDENUM_VALID)) {
+    if (dwFlags == DDENUM_NONE || (dwFlags & ~DDENUM_VALID)) {
         LEAVE(DDERR_INVALIDPARAMS);
     }
 

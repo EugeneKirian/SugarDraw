@@ -532,7 +532,7 @@ HRESULT dd_duplicate_surface(dd* self, dds* surface, const GUID* riid, void** ob
     return DDERR_UNSUPPORTED; // TODO
 }
 
-HRESULT dd_enum_display_modes(dd* self) {
+HRESULT dd_enum_display_modes(dd* self, u32 flags, DDSURFACEDESC2* desc, ENUMDISPLAYMODESCALLBACK callback, ddedmc* context) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
@@ -541,9 +541,37 @@ HRESULT dd_enum_display_modes(dd* self) {
         return DDERR_NOTINITIALIZED;
     }
 
-    // TODO
+    if (callback == NULL || context == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
 
-    return DDERR_UNSUPPORTED; // TODO
+    HRESULT hr = DD_OK;
+    EnterCriticalSection(&self->lock);
+
+    u32 count = 0;
+    DEVMODEA* modes = NULL;
+    if (SUCCEEDED(hr = sugar_get_display_modes(self->manager, &count, &modes))) {
+        for (u32 i = 0; i < count; i++) {
+            MAKEDDSURFACEDESC2(current);
+            if (SUCCEEDED(hr = ddsurfacedesc2_from_devmodea(&current, &modes[i]))) {
+                if (modes[i].dmFields & DM_DISPLAYFREQUENCY) {
+                    current.dwFlags |= DDSD_REFRESHRATE;
+                    current.dwRefreshRate = modes[i].dmDisplayFrequency;
+                }
+
+                if (callback(context, &current) == DDENUMRET_OK) {
+                    continue;
+                }
+            }
+
+            goto exit;
+        }
+    }
+
+exit:
+    LeaveCriticalSection(&self->lock);
+
+    return hr;
 }
 
 HRESULT dd_enum_surfaces(dd* self) {

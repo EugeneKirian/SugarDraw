@@ -20,6 +20,9 @@
 #define RELEASE_NONE                            0x00000000
 #define RELEASE_NOTIFY                          0x00000001
 
+#define DDEDM_NONE                              0x00000000L
+#define DDEDM_VALID                             (DDEDM_REFRESHRATES | DDEDM_STANDARDVGAMODES)
+
 #define DDENUM_NONE								0x00000000L
 #define DDENUM_VALID							(DDENUM_ATTACHEDSECONDARYDEVICES \
                                                     | DDENUM_DETACHEDSECONDARYDEVICES | DDENUM_NONDISPLAYDEVICES)
@@ -264,6 +267,10 @@ const extern GUID IID_IDirectDrawFactory2;
 #define MAKEDEVMODEA(X)                         \
     MAKETYPE(DEVMODEA, X);                      \
     X.dmSize = sizeof(DEVMODEA);
+
+#define MAKEDDSURFACEDESC(X)                    \
+    MAKETYPE(DDSURFACEDESC, X);                 \
+    X.dwSize = sizeof(DDSURFACEDESC);
 
 #define MAKEDDSURFACEDESC2(X)                   \
     MAKETYPE(DDSURFACEDESC2, X);                \

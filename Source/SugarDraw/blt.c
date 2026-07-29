@@ -71,8 +71,8 @@ void blt_blit(u8* dst, u32 dst_x, u32 dst_y, u32 dst_w, u32 dst_h, const DDPIXEL
                 u32* destination = (u32*)(dst + (i + dst_y) * dst_stride + dst_x * dst_bytes);
                 for (u32 ii = 0; ii < min_w; ii++) {
                     const u16 color = (u32)source[ii];
-                    const u32 r = (color >> 10) & 0x1F;
-                    const u32 g = (color >> 5) & 0x1F;
+                    const u32 r = (color >> 11) & 0x1F;
+                    const u32 g = (color >> 5) & 0x3F;
                     const u32 b = (color >> 0) & 0x1F;
 
                     const u32 nr = (r << 3) | (r >> 2);

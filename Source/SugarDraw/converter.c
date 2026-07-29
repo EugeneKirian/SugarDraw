@@ -15,7 +15,7 @@ typedef struct flag {
     const char* name;
 } flag;
 
-#define DDID_COUNT                  26
+#define DDID_COUNT                  53
 static const identifier ddid[DDID_COUNT];
 
 #define DDBLT_FLAG_COUNT            27
@@ -83,6 +83,8 @@ static const flag dms[DM_FLAG_COUNT];
 
 static u32 index = 0;
 static char messages[CONVERTER_MAX_MESSAGE_COUNT][CONVERTER_MAX_MESSAGE_LENGTH];
+
+static const char* ddpixelformat_rgb_to_string(const DDPIXELFORMAT* format);
 
 static const char* flag_to_string(const u32 flags, u32 count, const flag* values);
 
@@ -165,6 +167,10 @@ const char* ddpixelformat_to_string(const DDPIXELFORMAT* format) {
         return "NULL";
     }
 
+    if (format->dwFlags & DDPF_RGB) {
+        return ddpixelformat_rgb_to_string(format);
+    }
+
     const u32 result =
         index = (index + 1) % CONVERTER_MAX_MESSAGE_COUNT;
 
@@ -228,7 +234,7 @@ const char* ddsurfacedesc_to_string(const DDSURFACEDESC* desc) {
         "ddpfPixelFormat = %s, ddsCaps = %s }",
         desc->dwSize, ddsd_to_string(desc->dwFlags),
         desc->dwHeight, desc->dwWidth,
-        (desc->dwFlags & DDSD_PIXELFORMAT) ? ddpixelformat_to_string(&desc->ddpfPixelFormat) : "{}",
+        (desc->dwFlags & DDSD_PIXELFORMAT) ? ddpixelformat_to_string(&desc->ddpfPixelFormat) : "{ }",
         ddscaps_to_string(&desc->ddsCaps));
 
     return messages[result];
@@ -251,7 +257,7 @@ const char* ddsurfacedesc2_to_string(const DDSURFACEDESC2* desc) {
         "ddpfPixelFormat = %s, ddsCaps = %s }",
         desc->dwSize, ddsd_to_string(desc->dwFlags),
         desc->dwHeight, desc->dwWidth,
-        (desc->dwFlags & DDSD_PIXELFORMAT) ? ddpixelformat_to_string(&desc->ddpfPixelFormat) : "{}",
+        (desc->dwFlags & DDSD_PIXELFORMAT) ? ddpixelformat_to_string(&desc->ddpfPixelFormat) : "{ }",
         ddscaps2_to_string(&desc->ddsCaps));
 
     return messages[result];
@@ -539,6 +545,27 @@ const char* rect_to_string(const RECT* rect) {
     return messages[index];
 }
 
+const char* ddpixelformat_rgb_to_string(const DDPIXELFORMAT* format) {
+    if (format == NULL) {
+        return "NULL";
+    }
+
+    const u32 result =
+        index = (index + 1) % CONVERTER_MAX_MESSAGE_COUNT;
+
+    sprintf(messages[result],
+        "{ dwSize = %u, dwFlags = %s, "
+        "dwFourCC = %u, dwRGBBitCount = %u, "
+        "dwRBitMask = 0x%08X, dwGBitMask = 0x%08X, "
+        "dwBBitMask = 0x%08X, dwRGBAlphaBitMask = 0x%08X }",
+        format->dwSize, ddpf_to_string(format->dwFlags),
+        format->dwFourCC, format->dwRGBBitCount,
+        format->dwRBitMask, format->dwGBitMask,
+        format->dwBBitMask, (format->dwFlags & DDPF_ALPHAPIXELS) ? format->dwRGBAlphaBitMask : 0);
+
+    return messages[result];
+}
+
 const char* flag_to_string(const u32 flags, u32 count, const flag* values) {
     u32 value = flags;
     const bool parens = value != 0;
@@ -611,7 +638,34 @@ const identifier ddid[DDID_COUNT] = {
     { &IID_IDirectDrawSurface4,         "IID_IDirectDrawSurface4" },
     { &IID_IDirectDrawSurface7,         "IID_IDirectDrawSurface7" },
     { &IID_IDirectDrawVideoPort,        "IID_IDirectDrawVideoPort" },
-    { &IID_IDirectDrawVideoPortNotify,  "IID_IDirectDrawVideoPortNotify" }
+    { &IID_IDirectDrawVideoPortNotify,  "IID_IDirectDrawVideoPortNotify" },
+    { &IID_IDirect3D,                   "IID_IDirect3D" },
+    { &IID_IDirect3D2,                  "IID_IDirect3D2" },
+    { &IID_IDirect3D3,                  "IID_IDirect3D3" },
+    { &IID_IDirect3D7,                  "IID_IDirect3D7" },
+    { &IID_IDirect3DRampDevice,         "IID_IDirect3DRampDevice" },
+    { &IID_IDirect3DRGBDevice,          "IID_IDirect3DRGBDevice" },
+    { &IID_IDirect3DHALDevice,          "IID_IDirect3DHALDevice" },
+    { &IID_IDirect3DMMXDevice,          "IID_IDirect3DMMXDevice" },
+    { &IID_IDirect3DRefDevice,          "IID_IDirect3DRefDevice" },
+    { &IID_IDirect3DNullDevice,         "IID_IDirect3DNullDevice" },
+    { &IID_IDirect3DTnLHalDevice,       "IID_IDirect3DTnLHalDevice" },
+    { &IID_IDirect3DDevice,             "IID_IDirect3DDevice" },
+    { &IID_IDirect3DDevice2,            "IID_IDirect3DDevice2" },
+    { &IID_IDirect3DDevice3,            "IID_IDirect3DDevice3" },
+    { &IID_IDirect3DDevice7,            "IID_IDirect3DDevice7" },
+    { &IID_IDirect3DTexture,            "IID_IDirect3DTexture" },
+    { &IID_IDirect3DTexture2,           "IID_IDirect3DTexture2" },
+    { &IID_IDirect3DLight,              "IID_IDirect3DLight" },
+    { &IID_IDirect3DMaterial,           "IID_IDirect3DMaterial" },
+    { &IID_IDirect3DMaterial2,          "IID_IDirect3DMaterial2" },
+    { &IID_IDirect3DMaterial3,          "IID_IDirect3DMaterial3" },
+    { &IID_IDirect3DExecuteBuffer,      "IID_IDirect3DExecuteBuffer" },
+    { &IID_IDirect3DViewport,           "IID_IDirect3DViewport" },
+    { &IID_IDirect3DViewport2,          "IID_IDirect3DViewport2" },
+    { &IID_IDirect3DViewport3,          "IID_IDirect3DViewport3" },
+    { &IID_IDirect3DVertexBuffer,       "IID_IDirect3DVertexBuffer" },
+    { &IID_IDirect3DVertexBuffer7,      "IID_IDirect3DVertexBuffer7" }
 };
 
 const flag ddblts[DDBLT_FLAG_COUNT] = {

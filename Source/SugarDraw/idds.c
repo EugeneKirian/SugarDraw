@@ -946,7 +946,7 @@ HRESULT SUGARCALL idds_get_pixel_format(idds* self, LPDDPIXELFORMAT lpDDPixelFor
         return DDERR_INVALIDOBJECT;
     }
 
-    ENTER("%s", ddpixelformat_to_string(lpDDPixelFormat));
+    ENTER("0x%p", lpDDPixelFormat);
 
     if (lpDDPixelFormat == NULL) {
         LEAVE(DDERR_INVALIDPARAMS);

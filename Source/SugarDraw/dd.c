@@ -552,7 +552,7 @@ HRESULT dd_enum_display_modes(dd* self, u32 flags, DDSURFACEDESC2* desc, ENUMDIS
     // TODO values from DDSURFACEDESC2
 
     u32 count = 0;
-    DEVMODEA* modes = NULL;
+    const DEVMODEA* modes = NULL;
     if (SUCCEEDED(hr = sugar_get_display_modes(self->manager, &count, &modes))) {
         for (u32 i = 0; i < count; i++) {
             MAKEDDSURFACEDESC2(current);
@@ -861,7 +861,7 @@ HRESULT dd_restore_display_mode(dd* self) {
                     SetWindowPos(self->cooperation.hwnd, HWND_TOPMOST,
                         self->cooperation.rect.left, self->cooperation.rect.top,
                         self->cooperation.rect.right - self->cooperation.rect.left,
-                        self->cooperation.rect.bottom - self->cooperation.rect.top, SWP_NOACTIVATE);
+                        self->cooperation.rect.bottom - self->cooperation.rect.top, SWP_NOACTIVATE | SWP_NOZORDER);
                 }
 
                 hr = ddg_recreate_surface(self->graphics);
@@ -962,7 +962,7 @@ HRESULT dd_set_cooperative_level(dd* self, HWND hwnd, u32 flags) {
     if (self->cooperation.flags & (DDSCL_EXCLUSIVE | DDSCL_FULLSCREEN)) {
         if (!(self->cooperation.flags & DDSCL_NOWINDOWCHANGES)) {
             SetWindowPos(self->cooperation.hwnd, HWND_TOPMOST, 0, 0,
-                self->cooperation.mode.dmPelsWidth, self->cooperation.mode.dmPelsHeight, SWP_SHOWWINDOW);
+                self->cooperation.mode.dmPelsWidth, self->cooperation.mode.dmPelsHeight, SWP_SHOWWINDOW | SWP_NOZORDER);
         }
     }
 
@@ -977,7 +977,7 @@ HRESULT dd_set_cooperative_level(dd* self, HWND hwnd, u32 flags) {
                         SetWindowPos(self->cooperation.hwnd, HWND_TOPMOST,
                             self->cooperation.rect.left, self->cooperation.rect.top,
                             self->cooperation.rect.right - self->cooperation.rect.left,
-                            self->cooperation.rect.bottom - self->cooperation.rect.top, SWP_NOACTIVATE);
+                            self->cooperation.rect.bottom - self->cooperation.rect.top, SWP_NOACTIVATE | SWP_NOZORDER);
                     }
 
                     hr = ddg_recreate_surface(self->graphics);
@@ -1021,7 +1021,7 @@ HRESULT dd_set_display_mode(dd* self, u32 width, u32 height, u32 bpp, u32 rate, 
         if (SUCCEEDED(hr = sugar_set_display_mode(self->manager, width, height, bpp, rate))) {
             if (SUCCEEDED(hr = sugar_get_display_mode(self->manager, &self->cooperation.mode))) {
                 if (!(self->cooperation.flags & DDSCL_NOWINDOWCHANGES)) {
-                    SetWindowPos(self->cooperation.hwnd, HWND_TOPMOST, 0, 0, width, height, SWP_SHOWWINDOW);
+                    SetWindowPos(self->cooperation.hwnd, HWND_TOPMOST, 0, 0, width, height, SWP_SHOWWINDOW | SWP_NOZORDER);
                 }
 
                 hr = ddg_recreate_surface(self->graphics);

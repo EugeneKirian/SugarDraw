@@ -5,7 +5,10 @@
 #define NOMINMAX
 #include <windows.h>
 
-#define DIRECTDRAW_VERSION 0x0700
+#define DIRECTDRAW_VERSION      0x0700
+#define DIRECT3D_VERSION        0x0700
+
+#include <d3d.h>
 #include <ddraw.h>
 #include <dvp.h>
 

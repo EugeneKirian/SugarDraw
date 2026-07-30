@@ -476,6 +476,9 @@ HRESULT dd_create_surface(dd* self, const GUID* riid, DDSURFACEDESC2* desc, void
         desc->ddsCaps.dwCaps |= DDSCAPS_SYSTEMMEMORY;// | DDSCAPS_VIDEOMEMORY; // TODO verify...
     }
 
+    // TODO: For primary surface - get the window background color.
+    // DD keeps the window color (or whole image??) as the initial state of the primary surface...
+
     EnterCriticalSection(&self->lock);
 
     if (SUCCEEDED(hr = ddpixelformat_validate(&desc->ddpfPixelFormat))) {

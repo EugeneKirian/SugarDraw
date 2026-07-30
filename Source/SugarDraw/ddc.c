@@ -423,11 +423,6 @@ HRESULT ddc_compact_region(ddc* self, RGNDATA* region) {
         return DDERR_INVALIDPARAMS;
     }
 
-    // This function compacts the rects in the region,
-    // so that the valid rects are at the start of the array.
-
-    // Implementation: classic "two-pointer" problem.
-
     u32 target = 0;
     RECT* rects = (RECT*)region->Buffer;
 

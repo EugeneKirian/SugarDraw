@@ -353,8 +353,6 @@ HRESULT dds_blt_fast(dds* self, u32 x, u32 y, dds* surface, RECT* rect, u32 tran
         return DDERR_UNSUPPORTED; // TODO verify
     }
 
-    // TODO overlay: DDSD_CKDESTOVERLAY and DDSD_CKSRCOVERLAY 
-
     if (transfer & DDBLTFAST_SRCCOLORKEY) {
         if (!(surface->desc.dwFlags & DDSD_CKSRCBLT)) {
             return DDERR_INVALIDPARAMS;
@@ -366,8 +364,6 @@ HRESULT dds_blt_fast(dds* self, u32 x, u32 y, dds* surface, RECT* rect, u32 tran
             return DDERR_INVALIDPARAMS;
         }
     }
-
-    // TODO can transfer be both DDBLTFAST_SRCCOLORKEY and DDBLTFAST_DESTCOLORKEY?
 
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);

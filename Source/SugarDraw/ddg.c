@@ -5,8 +5,9 @@
 #include "ddsd.h"
 #include "driver.h"
 
-#define FREQUENCY       60 /* TODO Settings*/
+#define FREQUENCY       60 /* TODO Settings */
 
+#define INSTANT         0
 #define WAIT_NONE       0
 
 static DWORD WINAPI ddg_worker(ddg* self);
@@ -29,11 +30,12 @@ HRESULT ddg_create(sugar* manager, driver* driver, ddg** object) {
         if (SUCCEEDED(hr = ddg_get_surface_desc(instance, &instance->desc))) {
             InitializeCriticalSection(&instance->lock);
 
-            instance->done = CreateEventA(NULL, FALSE, FALSE, NULL);
+            instance->start = CreateEventA(NULL, TRUE, FALSE, NULL);
             instance->stop = CreateEventA(NULL, FALSE, FALSE, NULL);
+            instance->exit = CreateEventA(NULL, FALSE, FALSE, NULL);
             instance->ready = CreateEventA(NULL, TRUE, TRUE, NULL);
             instance->updating = CreateEventA(NULL, TRUE, TRUE, NULL);
-            instance->worker = CreateThread(NULL, 0, ddg_worker, instance, CREATE_SUSPENDED, NULL);
+            instance->worker = CreateThread(NULL, 0, ddg_worker, instance, INSTANT, NULL);
 
             *object = instance;
             return hr;
@@ -53,8 +55,9 @@ void ddg_release(ddg* self) {
 
         // TODO driver - what to do?
 
-        CloseHandle(self->done);
+        CloseHandle(self->start);
         CloseHandle(self->stop);
+        CloseHandle(self->exit);
         CloseHandle(self->ready);
         CloseHandle(self->updating);
         CloseHandle(self->worker);
@@ -136,12 +139,14 @@ HRESULT ddg_initialize(ddg* self, dd* object) {
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
+    // TODO create surface with a color of window's hbrush
+
     ddsd* instance = NULL;
     if (SUCCEEDED(hr = ddsd_create(self->manager->allocator, &instance))) {
         if (SUCCEEDED(hr = ddsd_initialize(instance, &self->desc))) {
             self->instance = object;
             self->surface = instance;
-            ResumeThread(self->worker);
+            SetEvent(self->start);
             goto exit;
         }
 
@@ -174,6 +179,8 @@ HRESULT ddg_recreate_surface(ddg* self) {
 
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
+
+    // TODO create surface with a color of window's hbrush
 
     MAKEDEVMODEA(mode);
     if (SUCCEEDED(hr = sugar_get_display_mode(self->manager, &mode))) {
@@ -223,6 +230,8 @@ DWORD WINAPI ddg_worker(ddg* self) {
     QueryPerformanceCounter(&time);
 
     interval.QuadPart = counter.QuadPart / FREQUENCY;
+
+    if (WaitForSingleObject(self->start, INFINITE) != WAIT_OBJECT_0) { goto exit; }
 
     while (TRUE) {
         bool sleep = TRUE;
@@ -312,7 +321,8 @@ DWORD WINAPI ddg_worker(ddg* self) {
         if (sleep) { Sleep(1); }
     }
 
-    SetEvent(self->done);
+exit:
+    SetEvent(self->exit);
 
     return EXIT_SUCCESS;
 }
@@ -359,11 +369,11 @@ HRESULT ddg_stop_worker(ddg* self) {
 
     if (self->worker != NULL) {
         u32 code = 0;
-        ResumeThread(self->worker);
+        SetEvent(self->start);
         if (GetExitCodeThread(self->worker, &code)) {
             if (code == STILL_ACTIVE) {
                 SetEvent(self->stop);
-                if (WaitForSingleObject(self->done, INFINITE) != WAIT_OBJECT_0) {
+                if (WaitForSingleObject(self->exit, INFINITE) != WAIT_OBJECT_0) {
                     return DDERR_GENERIC;
                 }
             }

@@ -959,6 +959,10 @@ HRESULT dds_initialize(dds* self, dd* object, DDSURFACEDESC2* desc) {
         if (SUCCEEDED(hr = ddsd_initialize(surface, &self->desc))) {
             self->surface = surface;
 
+            // TODO support 1, 2, 4 bit surfaces for non-primary.
+            // Use paint.net to create test images with 1, 2, 4 bit color depth and verify
+            // the behavior of the original DirectDraw implementation.
+
             if (self->desc.ddsCaps.dwCaps & (DDSCAPS_PRIMARYSURFACE | DDSCAPS_PRIMARYSURFACELEFT)) {
                 u32 flags = DDPCAPS_NONE;
 

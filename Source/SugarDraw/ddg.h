@@ -17,9 +17,9 @@ typedef struct ddg {
     DDSURFACEDESC2      desc;
     CRITICAL_SECTION    lock;
     HANDLE              worker;
-    u32                 status;
+    volatile u32        status;
     ddsd*               surface;
-    HANDLE              stop, done, ready, updating;
+    HANDLE              start, stop, exit, ready, updating;
 } ddg;
 
 HRESULT ddg_create(sugar* manager, driver* driver, ddg** object);

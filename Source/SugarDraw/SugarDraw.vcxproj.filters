@@ -114,6 +114,9 @@
     <ClInclude Include="ddsfc.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="arena.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="sugar.c">
@@ -210,6 +213,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="ddsfc.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="arena.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

@@ -22,6 +22,7 @@
     <ClInclude Include="allocator.h" />
     <ClInclude Include="arena.h" />
     <ClInclude Include="arr.h" />
+    <ClInclude Include="blitter.h" />
     <ClInclude Include="blt.h" />
     <ClInclude Include="cf.h" />
     <ClInclude Include="common.h" />
@@ -51,6 +52,9 @@
     <ClInclude Include="intfc.h" />
     <ClInclude Include="lock.h" />
     <ClInclude Include="logger.h" />
+    <ClInclude Include="plt.h" />
+    <ClInclude Include="sampler.h" />
+    <ClInclude Include="spanner.h" />
     <ClInclude Include="sugar.h" />
     <ClInclude Include="utilities.h" />
   </ItemGroup>
@@ -58,6 +62,7 @@
     <ClCompile Include="allocator.c" />
     <ClCompile Include="arena.c" />
     <ClCompile Include="arr.c" />
+    <ClCompile Include="blitter.c" />
     <ClCompile Include="blt.c" />
     <ClCompile Include="cf.c" />
     <ClCompile Include="common.c" />
@@ -86,6 +91,9 @@
     <ClCompile Include="intfc.c" />
     <ClCompile Include="lock.c" />
     <ClCompile Include="logger.c" />
+    <ClCompile Include="plt.c" />
+    <ClCompile Include="sampler.c" />
+    <ClCompile Include="spanner.c" />
     <ClCompile Include="sugar.c" />
     <ClCompile Include="utilities.c" />
   </ItemGroup>

@@ -704,8 +704,6 @@ HRESULT dds_get_color_key(dds* self, u32 flags, DDCOLORKEY* key) {
         return DDERR_NOCOLORKEY;
     }
 
-    // TODO check overlay flags with non-overlay surface
-
     if (flags & DDSD_CKDESTOVERLAY) {
         if (self->desc.dwFlags & DDCKEY_DESTOVERLAY) {
             CopyMemory(key, &self->desc.ddckCKDestOverlay, sizeof(DDCOLORKEY));
@@ -1284,8 +1282,6 @@ HRESULT dds_set_color_key(dds* self, u32 flags, DDCOLORKEY* key) {
     }
 
     // TODO mip maps
-
-    // TODO check overlay flags with non-overlay surface
 
     if (key == NULL) {
         if (flags & DDCKEY_DESTBLT) {

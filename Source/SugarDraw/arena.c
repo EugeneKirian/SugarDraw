@@ -156,5 +156,5 @@ HRESULT block_allocate(block* self, const size_t size, void** object) {
 
     *object = result;
 
-    return S_OK;
+    return DD_OK;
 }

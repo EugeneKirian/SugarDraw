@@ -117,6 +117,18 @@
     <ClInclude Include="arena.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="blitter.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="spanner.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="sampler.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="plt.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="sugar.c">
@@ -216,6 +228,18 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="arena.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="blitter.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="spanner.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="sampler.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="plt.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

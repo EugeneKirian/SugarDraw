@@ -3,6 +3,7 @@
 #include "blitter.h"
 
 typedef struct ddsd ddsd;
+typedef struct plt plt;
 
 HRESULT ddsd_create(allocator* allocator, blitter* blitter, ddsd** object);
 void ddsd_release(ddsd* self);
@@ -16,8 +17,9 @@ HRESULT ddsd_blt(ddsd* self, RECT* dst, ddsd* surface, RECT* src, RGNDATA* regio
 
 HRESULT ddsd_blt_fast(ddsd* self, RECT* dst, ddsd* surface, RECT* src, u32 transfer);
 
-HRESULT ddsd_get_palette(ddsd* self, u32 start, u32 count, RGBQUAD* quads);
-HRESULT ddsd_set_palette(ddsd* self, u32 start, u32 count, RGBQUAD* quads);
+HRESULT ddsd_get_palette(ddsd* self, u32 count, RGBQUAD* quads);
+HRESULT ddsd_set_palette(ddsd* self, u32 count, RGBQUAD* quads, plt* lookup);
+HRESULT ddsd_remove_palette(ddsd* self);
 
 HRESULT ddsd_get_dc(ddsd* self, HDC* hdc);
 HRESULT ddsd_release_dc(ddsd* self, HDC hdc);

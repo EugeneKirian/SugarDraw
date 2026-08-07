@@ -111,7 +111,10 @@ HRESULT dds_remove_gamma_control(dds* self);
 HRESULT dds_remove_palette(dds* self);
 
 HRESULT dds_set_lost(dds* self);
-HRESULT dds_set_palette_entries(dds* self, u32 start, u32 count, RGBQUAD* quads);
+HRESULT dds_set_palette_entries(dds* self, u32 count, RGBQUAD* quads, plt* lookup);
 
 HRESULT dds_register_overlay(dds* self, iddsconn* overlay);
 HRESULT dds_unregister_overlay(dds* self, iddsconn* overlay);
+
+HRESULT dds_signal_update(dds* self);
+HRESULT dds_wait_for_vertical_blank(dds* self, bool wait);

@@ -23,6 +23,10 @@ typedef struct ddsd {
     DDSURFACEDESC2*     desc;
     CRITICAL_SECTION    lock;
     lock*               locks;
+    struct {
+        RGBQUAD*        quads;
+        plt*            lookup;
+    } palette;
     bitmap              bitmap;
     u8*                 pixels;
     s32                 pages;
@@ -155,7 +159,7 @@ HRESULT ddsd_initialize(ddsd* self, DDSURFACEDESC2* desc) {
         }break;
         case 8: {
             header->biClrUsed = PALETTE_MAX_ENTRY_COUNT;
-            RGBQUAD* palette = self->bitmap.header.palette;
+            self->palette.quads = self->bitmap.header.palette;
 
             bool is_set = FALSE;
             if (GetDeviceCaps(self->bitmap.dc, RASTERCAPS) & RC_PALETTE) {
@@ -164,16 +168,16 @@ HRESULT ddsd_initialize(ddsd* self, DDSURFACEDESC2* desc) {
                     0, PALETTE_MAX_ENTRY_COUNT, entries) == PALETTE_MAX_ENTRY_COUNT;
 
                 if (is_set) {
-                    palette_entry_to_rgb_quad(entries, PALETTE_MAX_ENTRY_COUNT, palette);
+                    palette_entry_to_rgb_quad(entries, PALETTE_MAX_ENTRY_COUNT, self->palette.quads);
                 }
             }
 
             if (!is_set) {
-                // Default palette to gray scale.
-                for (s32 i = 0; i < PALETTE_MAX_ENTRY_COUNT; i++) {
-                    palette[i].rgbRed = i;
-                    palette[i].rgbGreen = i;
-                    palette[i].rgbBlue = i;
+                // Set default palette to gray scale.
+                for (u32 i = 0; i < PALETTE_MAX_ENTRY_COUNT; i++) {
+                    self->palette.quads[i].rgbRed = (u8)i;
+                    self->palette.quads[i].rgbGreen = (u8)i;
+                    self->palette.quads[i].rgbBlue = (u8)i;
                 }
             }
         }break;
@@ -318,10 +322,8 @@ HRESULT ddsd_blt(ddsd* self, RECT* dst, ddsd* surface, RECT* src, RGNDATA* regio
                     || (submission.images.destination.format.dwFlags & DDPF_PALETTEINDEXED2)
                     || (submission.images.destination.format.dwFlags & DDPF_PALETTEINDEXED4)
                     || (submission.images.destination.format.dwFlags & DDPF_PALETTEINDEXED8)) {
-                    // TODO count based on palette caps
-                    submission.images.destination.palette.count =
-                        1 << submission.images.destination.format.dwRGBBitCount;
-                    submission.images.destination.palette.palette = self->bitmap.header.palette;
+                    submission.images.destination.palette.palette = self->palette.quads;
+                    submission.images.destination.palette.lookup = self->palette.lookup;
                 }
 
                 if (surface != NULL) {
@@ -336,10 +338,8 @@ HRESULT ddsd_blt(ddsd* self, RECT* dst, ddsd* surface, RECT* src, RGNDATA* regio
                         || (submission.images.source.format.dwFlags & DDPF_PALETTEINDEXED2)
                         || (submission.images.source.format.dwFlags & DDPF_PALETTEINDEXED4)
                         || (submission.images.source.format.dwFlags & DDPF_PALETTEINDEXED8)) {
-                        // TODO count based on palette caps
-                        submission.images.source.palette.count =
-                            1 << submission.images.source.format.dwRGBBitCount;
-                        submission.images.source.palette.palette = surface->bitmap.header.palette;
+                        submission.images.source.palette.palette = surface->palette.quads;
+                        submission.images.source.palette.lookup = surface->palette.lookup;
                     }
                 }
 
@@ -419,10 +419,8 @@ HRESULT ddsd_blt_fast(ddsd* self, RECT* dst, ddsd* surface, RECT* src, u32 trans
             || (submission.images.destination.format.dwFlags & DDPF_PALETTEINDEXED2)
             || (submission.images.destination.format.dwFlags & DDPF_PALETTEINDEXED4)
             || (submission.images.destination.format.dwFlags & DDPF_PALETTEINDEXED8)) {
-            // TODO get palette count from the palette caps
-            submission.images.destination.palette.count =
-                1 << submission.images.destination.format.dwRGBBitCount;
-            submission.images.destination.palette.palette = self->bitmap.header.palette;
+            submission.images.destination.palette.palette = self->palette.quads;
+            submission.images.destination.palette.lookup = self->palette.lookup;
         }
 
         submission.images.source.pixels = surface->pixels;
@@ -440,10 +438,8 @@ HRESULT ddsd_blt_fast(ddsd* self, RECT* dst, ddsd* surface, RECT* src, u32 trans
             || (submission.images.source.format.dwFlags & DDPF_PALETTEINDEXED2)
             || (submission.images.source.format.dwFlags & DDPF_PALETTEINDEXED4)
             || (submission.images.source.format.dwFlags & DDPF_PALETTEINDEXED8)) {
-            // TODO get palette count from the palette caps
-            submission.images.source.palette.count =
-                1 << submission.images.source.format.dwRGBBitCount;
-            submission.images.source.palette.palette = surface->bitmap.header.palette;
+            submission.images.source.palette.palette = surface->palette.quads;
+            submission.images.source.palette.lookup = surface->palette.lookup;
         }
 
         CopyMemory(&submission.rects.destination, dst, sizeof(RECT));
@@ -463,7 +459,7 @@ exit:
     return hr;
 }
 
-HRESULT ddsd_get_palette(ddsd* self, u32 base, u32 count, RGBQUAD* quads) {
+HRESULT ddsd_get_palette(ddsd* self, u32 count, RGBQUAD* quads) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
@@ -472,26 +468,20 @@ HRESULT ddsd_get_palette(ddsd* self, u32 base, u32 count, RGBQUAD* quads) {
         return DDERR_NOTINITIALIZED;
     }
 
-    if (base >= PALETTE_MAX_ENTRY_COUNT
-        || count > PALETTE_MAX_ENTRY_COUNT
-        || (base + count) > PALETTE_MAX_ENTRY_COUNT) {
-        return DDERR_INVALIDPARAMS;
-    }
-
     if (quads == NULL) {
         return DDERR_INVALIDPARAMS;
     }
 
     EnterCriticalSection(&self->lock);
 
-    CopyMemory(quads, &self->bitmap.header.palette[base], count * sizeof(RGBQUAD));
+    CopyMemory(quads, self->bitmap.header.palette, count * sizeof(RGBQUAD));
 
     LeaveCriticalSection(&self->lock);
 
     return DD_OK;
 }
 
-HRESULT ddsd_set_palette(ddsd* self, u32 start, u32 count, RGBQUAD* quads) {
+HRESULT ddsd_set_palette(ddsd* self, u32 count, RGBQUAD* quads, plt* lookup) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
@@ -500,29 +490,37 @@ HRESULT ddsd_set_palette(ddsd* self, u32 start, u32 count, RGBQUAD* quads) {
         return DDERR_NOTINITIALIZED;
     }
 
-    if (start >= PALETTE_MAX_ENTRY_COUNT
-        || count > PALETTE_MAX_ENTRY_COUNT
-        || (start + count) > PALETTE_MAX_ENTRY_COUNT) {
-        return DDERR_INVALIDPARAMS;
-    }
-
-    if (quads == NULL) {
+    if (quads == NULL || lookup == NULL) {
         return DDERR_INVALIDPARAMS;
     }
 
     EnterCriticalSection(&self->lock);
 
-    // TODO do I have all parameters here?
-    // TODO proper implementation.
+    // TODO indexed palette
+
+    self->palette.lookup = lookup;
+
+    CopyMemory(self->bitmap.header.palette, quads, count * sizeof(RGBQUAD));
 
     if (self->bitmap.dc != NULL) {
-        // TODO what about 1,2,4,8 bits of palette caps?
-        SetDIBColorTable(self->bitmap.dc, start, count, quads);
+        SetDIBColorTable(self->bitmap.dc, 0, count, quads);
     }
 
-    CopyMemory(&self->bitmap.header.palette[start], quads, count * sizeof(RGBQUAD));
-
     LeaveCriticalSection(&self->lock);
+
+    return DD_OK;
+}
+
+HRESULT ddsd_remove_palette(ddsd* self) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (self->pixels == NULL) {
+        return DDERR_NOTINITIALIZED;
+    }
+
+    self->palette.lookup = NULL;
 
     return DD_OK;
 }

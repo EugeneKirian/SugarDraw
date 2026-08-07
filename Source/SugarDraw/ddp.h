@@ -6,6 +6,7 @@
 typedef struct dd dd;
 typedef struct dds dds;
 typedef struct iddp iddp;
+typedef struct plt plt;
 
 typedef struct ddp {
     sugar*              manager;
@@ -13,8 +14,9 @@ typedef struct ddp {
     intfc*              interfaces;
     arr*                surfaces;
     CRITICAL_SECTION    lock;
-    u32                 caps;
+    u32                 caps, count;
     u32                 uniqueness;
+    plt*                lookup;
     RGBQUAD             quads[PALETTE_MAX_ENTRY_COUNT];
     PALETTEENTRY        entries[PALETTE_MAX_ENTRY_COUNT];
 } ddp;

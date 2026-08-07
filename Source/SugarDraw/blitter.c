@@ -629,7 +629,7 @@ static RGBQUAD pixel_read_4byte(const u8* surface, u32 stride, u32 x, u32 y, con
 typedef void (PIXELWRITE)(u8* surface, u32 stride, u32 x, u32 y, RGBQUAD color, const plt* lookup);
 
 static void pixel_write_1byte(u8* surface, u32 stride, u32 x, u32 y, RGBQUAD color, const plt* lookup) {
-    *(surface + y * stride + x) = lookup->colors[color.rgbRed >> 3][color.rgbGreen >> 3][color.rgbBlue >> 3];
+    *(surface + y * stride + x) = PLT_QUAD_INDEX(lookup, color);
 }
 
 static void pixel_write_2byte_555(u8* surface, u32 stride, u32 x, u32 y, RGBQUAD color, const plt* lookup) {
@@ -770,11 +770,6 @@ static HRESULT blitter_pixel_transform(blt* submission, arena* arena, spanner* s
     case 8: {
         write_dst_function = pixel_write_1byte;
         check_dst_color_key = pixel_check_dst_1byte;
-
-        if (FAILED(hr = plt_create(arena, submission->images.destination.palette.count,
-            submission->images.destination.palette.palette, &lookup))) {
-            return hr;
-        }
     }break;
     case 15:
     case 16: {
@@ -830,8 +825,11 @@ static HRESULT blitter_pixel_transform(blt* submission, arena* arena, spanner* s
     for (u32 i = 0; i < count; i++) {
         const span* s = &spanner->spans[i];
         transform(dst_pixels, dst_stride, src_pixels, src_stride,
-            s->x0, s->y, s->x1 - s->x0, sampler, submission->images.source.palette.palette, lookup,
-            read_src_function, write_dst_function, check_src_color_key, check_dst_color_key, src_ck, dst_ck);
+            s->x0, s->y, s->x1 - s->x0, sampler,
+            submission->images.source.palette.palette,
+            submission->images.destination.palette.lookup,
+            read_src_function, write_dst_function,
+            check_src_color_key, check_dst_color_key, src_ck, dst_ck);
     }
 
     return hr;

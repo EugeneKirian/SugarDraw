@@ -7,9 +7,6 @@
 #include "ddsfc.h"
 #include "utilities.h"
 
-#define SYNCHRONIZED(S) ((S->desc.ddsCaps.dwCaps & (DDSCAPS_PRIMARYSURFACE | DDSCAPS_PRIMARYSURFACELEFT)) \
-                            || (S->desc.ddsCaps.dwCaps & (DDSCAPS_OVERLAY | DDSCAPS_VISIBLE)))
-
 HRESULT dds_can_flip(dds* self);
 HRESULT dds_restore_surface(dds* self);
 
@@ -55,9 +52,7 @@ void dds_release(dds* self, u32 flags) {
     if (self != NULL) {
         EnterCriticalSection(&self->lock);
 
-        if (SYNCHRONIZED(self)) {
-            ddg_is_ready(self->graphics, TRUE);
-        }
+        dds_wait_for_vertical_blank(self, TRUE);
 
         if (self->interfaces != NULL) {
             const s32 item_count = intfc_get_count(self->interfaces);
@@ -392,22 +387,16 @@ HRESULT dds_blt(dds* self, RECT* dst, dds* surface, RECT* src, u32 flags, DDBLTF
             }
         }
 
-        if (SYNCHRONIZED(self)) {
-            if (FAILED(hr = ddg_is_ready(self->graphics, flags & DDBLT_WAIT))) {
-                goto exit;
+        if (SUCCEEDED(hr = dds_wait_for_vertical_blank(self, flags & DDBLT_WAIT))) {
+            RGNDATA* region = NULL;
+            if (self->clipper.instance != NULL) {
+                ddc_get_region(self->clipper.instance, &region);
             }
-        }
 
-        RGNDATA* region = NULL;
-        if (self->clipper.instance != NULL) {
-            ddc_get_region(self->clipper.instance, &region);
-        }
-
-        if (SUCCEEDED(hr = ddsd_blt(self->surface, &destination,
-            surface == NULL ? NULL : surface->surface,
-            surface == NULL ? NULL : &source, region, flags, effects))) {
-            if (SYNCHRONIZED(self)) {
-                hr = ddg_signal_update(self->graphics);
+            if (SUCCEEDED(hr = ddsd_blt(self->surface, &destination,
+                surface == NULL ? NULL : surface->surface,
+                surface == NULL ? NULL : &source, region, flags, effects))) {
+                hr = dds_signal_update(self);
             }
         }
     }
@@ -453,7 +442,7 @@ HRESULT dds_blt_fast(dds* self, u32 x, u32 y, dds* surface, RECT* rect, u32 tran
         return DDERR_INVALIDPARAMS;
     }
 
-    if((transfer & DDBLTFAST_WAIT) && (transfer & DDBLTFAST_DONOTWAIT)) {
+    if ((transfer & DDBLTFAST_WAIT) && (transfer & DDBLTFAST_DONOTWAIT)) {
         return DDERR_INVALIDPARAMS;
     }
 
@@ -508,22 +497,15 @@ HRESULT dds_blt_fast(dds* self, u32 x, u32 y, dds* surface, RECT* rect, u32 tran
             target.bottom = target.top + src.bottom - src.top;
 
             if (SUCCEEDED(hr = ddsd_inside_rect(self->surface, &target))) {
-                if (SYNCHRONIZED(self)) {
-                    if (FAILED(hr = ddg_is_ready(self->graphics, transfer & DDBLTFAST_WAIT))) {
-                        goto exit;
-                    }
-                }
-
-                if (SUCCEEDED(hr = ddsd_blt_fast(self->surface, &target, surface->surface, &src, transfer))) {
-                    if (SYNCHRONIZED(self)) {
-                        hr = ddg_signal_update(self->graphics);
+                if (SUCCEEDED(hr = dds_wait_for_vertical_blank(self, transfer & DDBLTFAST_WAIT))) {
+                    if (SUCCEEDED(hr = ddsd_blt_fast(self->surface, &target, surface->surface, &src, transfer))) {
+                        hr = dds_signal_update(self);
                     }
                 }
             }
         }
     }
 
-exit:
     LeaveCriticalSection(&self->lock);
 
     return hr;
@@ -620,21 +602,13 @@ HRESULT dds_flip(dds* self, dds* override, u32 flags) {
     EnterCriticalSection(&self->lock);
 
     if (SUCCEEDED(hr = dds_can_flip(self))) {
-        if ((self->desc.ddsCaps.dwCaps & (DDSCAPS_PRIMARYSURFACE | DDSCAPS_PRIMARYSURFACELEFT))
-            || (self->desc.ddsCaps.dwCaps & (DDSCAPS_OVERLAY | DDSCAPS_VISIBLE))) {
-            if (FAILED(hr = ddg_is_ready(self->graphics, flags & DDFLIP_WAIT))) {
-                goto exit;
-            }
-        }
-
-        if (SUCCEEDED(hr = ddsfc_flip(self->chain, override))) {
-            if (SYNCHRONIZED(self)) {
-                hr = ddg_signal_update(self->graphics);
+        if (SUCCEEDED(hr = dds_wait_for_vertical_blank(self, flags & DDFLIP_WAIT))) {
+            if (SUCCEEDED(hr = ddsfc_flip(self->chain, override))) {
+                hr = dds_signal_update(self);
             }
         }
     }
 
-exit:
     LeaveCriticalSection(&self->lock);
 
     return hr;
@@ -904,17 +878,14 @@ HRESULT dds_get_dc(dds* self, HDC* hdc) {
                 // however, palettized surfaces that have no explicitly attached palette
                 // must use the palette of primary surface, if it exists.
 
-                // TODO support indexed palettes
                 ddp* palette = self->palette.instance != NULL
                     ? self->palette.instance
                     : (self->instance->primary == NULL ? NULL : self->instance->primary->palette.instance);
 
+                // TODO indexed palettes
                 if (palette != NULL) {
-                    // TODO what about 1,2,4,8 bits of palette caps?
-                    // TODO get count based on the palette caps
-                    const u32 count = 1 << self->desc.ddpfPixelFormat.dwRGBBitCount;
-                    SetDIBColorTable(dc, 0, count, palette->quads);
-                    dds_set_palette_entries(self, 0, count, palette->quads);
+                    SetDIBColorTable(dc, 0, palette->count, palette->quads);
+                    dds_set_palette_entries(self, palette->count, palette->quads, palette->lookup);
                 }
             }
 
@@ -1117,7 +1088,7 @@ HRESULT dds_initialize(dds* self, dd* object, DDSURFACEDESC2* desc) {
                         RGBQUAD quads[PALETTE_MAX_ENTRY_COUNT];
                         PALETTEENTRY entries[PALETTE_MAX_ENTRY_COUNT];
                         const u32 count = 1 << self->desc.ddpfPixelFormat.dwRGBBitCount;
-                        if (SUCCEEDED(hr = ddsd_get_palette(self->surface, 0, count, quads))) {
+                        if (SUCCEEDED(hr = ddsd_get_palette(self->surface, count, quads))) {
                             if (SUCCEEDED(hr = rgb_quad_to_palette_entry(quads, count, entries))) {
                                 iddp* instance = NULL;
                                 if (SUCCEEDED(hr = dd_create_palette(self->instance, flags, entries, &instance))) {
@@ -1289,9 +1260,7 @@ HRESULT dds_release_dc(dds* self, HDC hdc) {
     EnterCriticalSection(&self->lock);
 
     if (SUCCEEDED(hr = ddsd_release_dc(self->surface, hdc))) {
-        if (SYNCHRONIZED(self)) {
-            hr = ddg_signal_update(self->graphics);
-        }
+        hr = dds_signal_update(self);
     }
 
     LeaveCriticalSection(&self->lock);
@@ -1565,6 +1534,7 @@ HRESULT dds_set_palette(dds* self, iddpconn* palette) {
         if (self->palette.instance != NULL) {
             ddp* instance = self->palette.instance;
             ddp_unregister_surface(instance, self);
+            ddsd_remove_palette(self->surface);
 
             iddp* intfc = NULL;
             if (SUCCEEDED(ddp_get_interface(instance, &self->palette.id, &intfc))) {
@@ -1583,6 +1553,8 @@ HRESULT dds_set_palette(dds* self, iddpconn* palette) {
         }
 
         ddp_unregister_surface(instance, self);
+        ddsd_remove_palette(self->surface);
+
         iddp* intfc = NULL;
         if (SUCCEEDED(ddp_get_interface(instance, &self->palette.id, &intfc))) {
             iddp_remove_ref(intfc);
@@ -1600,8 +1572,7 @@ HRESULT dds_set_palette(dds* self, iddpconn* palette) {
         // TODO validate palette capabillities
         // TODO handle flags
 
-        ddsd_set_palette(self->surface,
-            0, 1 << self->desc.ddpfPixelFormat.dwRGBBitCount, self->palette.instance->quads);
+        ddsd_set_palette(self->surface, instance->count, instance->quads, instance->lookup);
     }
 
     ddsd_change_uniqueness_value(self->surface);
@@ -1650,9 +1621,7 @@ HRESULT dds_unlock(dds* self, RECT* rect) {
         EnterCriticalSection(&self->lock);
 
         if (SUCCEEDED(hr = ddsd_unlock(self->surface, &lock))) {
-            if (SYNCHRONIZED(self)) {
-                hr = ddg_signal_update(self->graphics);
-            }
+            hr = dds_signal_update(self);
         }
 
         LeaveCriticalSection(&self->lock);
@@ -2211,7 +2180,7 @@ HRESULT dds_remove_palette(dds* self) {
 
     ZeroMemory(&self->palette, sizeof(iddpconn));
 
-    return DD_OK;
+    return ddsd_remove_palette(self->surface);
 }
 
 HRESULT dds_set_lost(dds* self) {
@@ -2250,19 +2219,16 @@ exit:
     return hr;
 }
 
-HRESULT dds_set_palette_entries(dds* self, u32 start, u32 count, RGBQUAD* quads) {
+HRESULT dds_set_palette_entries(dds* self, u32 count, RGBQUAD* quads, plt* lookup) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
 
-    HRESULT hr = DD_OK;
-    if (SUCCEEDED(hr = ddsd_set_palette(self->surface, start, count, quads))) {
-        if (SYNCHRONIZED(self)) {
-            hr = ddg_signal_update(self->graphics);
-        }
+    if (quads == NULL || lookup == NULL) {
+        return DDERR_INVALIDPARAMS;
     }
 
-    return hr;
+    return ddsd_set_palette(self->surface, count, quads, lookup);
 }
 
 HRESULT dds_register_overlay(dds* self, iddsconn* overlay) {
@@ -2298,6 +2264,48 @@ HRESULT dds_unregister_overlay(dds* self, iddsconn* overlay) {
     }
 
     return DDERR_NOTFOUND;
+}
+
+HRESULT dds_signal_update(dds* self) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (self->flags & DDS_LOST) {
+        return DDERR_SURFACELOST;
+    }
+
+    if (self->graphics == NULL) {
+        return DDERR_NOTINITIALIZED;
+    }
+
+    if ((self->desc.ddsCaps.dwCaps & (DDSCAPS_PRIMARYSURFACE | DDSCAPS_PRIMARYSURFACELEFT))
+        || (self->desc.ddsCaps.dwCaps & (DDSCAPS_OVERLAY | DDSCAPS_VISIBLE))) {
+        return ddg_signal_update(self->graphics);
+    }
+
+    return DD_OK;
+}
+
+HRESULT dds_wait_for_vertical_blank(dds* self, bool wait) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (self->flags & DDS_LOST) {
+        return DDERR_SURFACELOST;
+    }
+
+    if (self->graphics == NULL) {
+        return DDERR_NOTINITIALIZED;
+    }
+
+    if ((self->desc.ddsCaps.dwCaps & (DDSCAPS_PRIMARYSURFACE | DDSCAPS_PRIMARYSURFACELEFT))
+        || (self->desc.ddsCaps.dwCaps & (DDSCAPS_OVERLAY | DDSCAPS_VISIBLE))) {
+        return ddg_is_ready(self->graphics, wait);
+    }
+
+    return DD_OK;
 }
 
 HRESULT dds_can_flip(dds* self) {

@@ -1,71 +1,89 @@
 #include "plt.h"
 
-// TODO This should be precomputed and held as part of palette and/or surface
-// so that it does not being computed on each frame, even multiple times per frame.
-// TODO optimization
-
-HRESULT plt_create(arena* arena, u32 count, const RGBQUAD* quads, plt** object) {
-    if (arena == NULL || object == NULL || quads == NULL) {
-        return DDERR_INVALIDPARAMS;
-    }
-
-    if (count != 2 && count != 4 && count != 16 && count != 256) {
+HRESULT plt_create(allocator* allocator, memory_tag tag, plt** object) {
+    if (allocator == NULL || object == NULL) {
         return DDERR_INVALIDPARAMS;
     }
 
     HRESULT hr = DD_OK;
     plt* instance = NULL;
-    if (SUCCEEDED(hr = arena_allocate(arena, sizeof(plt), &instance))) {
-        // Traversal of the 32 x 32 x 32 quantized color cube.
-        for (u32 r = 0; r < 32; r++) {
-            // Map 5-bit cell coordinate [0..31] to
-            // the center of its 8-bit intensity range [0..255]
-            const u32 r8 = (r << 3) | (r >> 2);
-
-            for (u32 g = 0; g < 32; g++) {
-                const u32 g8 = (g << 3) | (g >> 2);
-
-                for (u32 b = 0; b < 32; b++) {
-                    const u32 b8 = (b << 3) | (b >> 2);
-
-                    u32 index = 0;
-                    u32 min_distance = UINT_MAX;
-
-                    // Find closest palette color using integer Redmean color distance.
-                    for (u32 i = 0; i < count; i++) {
-                        // Mean red component accounts for
-                        // non-linear human eye response across red intensities.
-                        const s32 rmean = ((s32)r8 + (s32)quads[i].rgbRed) / 2;
-
-                        const s32 dr = (s32)r8 - (s32)quads[i].rgbRed;
-                        const s32 dg = (s32)g8 - (s32)quads[i].rgbGreen;
-                        const s32 db = (s32)b8 - (s32)quads[i].rgbBlue;
-
-                        // Redmean formula: ΔE^2 = (2 + rbar/256) * ΔR^2 + 4 * ΔG^2 + (2 + (255-rbar)/256) * ΔB^2
-                        // Uses bitwise shifts (>> 8) instead of float divisions for fast execution.
-
-                        const u32 distance = (u32)((((512 + rmean) * dr * dr) >> 8)
-                            + (4 * dg * dg) + (((767 - rmean) * db * db) >> 8));
-
-                        if (distance < min_distance) {
-                            min_distance = distance;
-                            index = i;
-
-                            // Early exit: 0 distance indicates an exact color match.
-                            if (distance == 0) {
-                                break;
-                            }
-                        }
-                    }
-
-                    // Store closest palette index into table cell.
-                    instance->colors[r][g][b] = (u8)index;
-                }
-            }
-        }
-
+    if (SUCCEEDED(hr = allocator_allocate(allocator, tag, sizeof(plt), &instance))) {
+        instance->allocator = allocator;
         *object = instance;
     }
 
     return hr;
+}
+
+void plt_release(plt* self) {
+    if (self != NULL) {
+        allocator_free(self->allocator, self);
+    }
+}
+
+HRESULT plt_set_entries(plt* self, u32 count, const RGBQUAD* quads) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (count != 2 && count != 4
+        && count != 16 && count != PALETTE_MAX_ENTRY_COUNT) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if (quads == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    ZeroMemory(self->colors, 32 * 32 * 32 * sizeof(u8));
+
+    // Traversal of the 32 x 32 x 32 quantized color cube.
+    for (u32 r = 0; r < 32; r++) {
+        // Map 5-bit cell coordinate [0..31] to
+        // the center of its 8-bit intensity range [0..255]
+        const u32 r8 = (r << 3) | (r >> 2);
+
+        for (u32 g = 0; g < 32; g++) {
+            const u32 g8 = (g << 3) | (g >> 2);
+
+            for (u32 b = 0; b < 32; b++) {
+                const u32 b8 = (b << 3) | (b >> 2);
+
+                u32 index = 0;
+                u32 min_distance = UINT_MAX;
+
+                // Find closest palette color using integer Redmean color distance.
+                for (u32 i = 0; i < count; i++) {
+                    // Mean red component accounts for
+                    // non-linear human eye response across red intensities.
+                    const s32 rmean = ((s32)r8 + (s32)quads[i].rgbRed) / 2;
+
+                    const s32 dr = (s32)r8 - (s32)quads[i].rgbRed;
+                    const s32 dg = (s32)g8 - (s32)quads[i].rgbGreen;
+                    const s32 db = (s32)b8 - (s32)quads[i].rgbBlue;
+
+                    // Redmean formula: ΔE^2 = (2 + rbar/256) * ΔR^2 + 4 * ΔG^2 + (2 + (255-rbar)/256) * ΔB^2
+                    // Uses bitwise shifts (>> 8) instead of float divisions for fast execution.
+
+                    const u32 distance = (u32)((((512 + rmean) * dr * dr) >> 8)
+                        + (4 * dg * dg) + (((767 - rmean) * db * db) >> 8));
+
+                    if (distance < min_distance) {
+                        min_distance = distance;
+                        index = i;
+
+                        // Zero distance indicates an exact color match.
+                        if (distance == 0) {
+                            break;
+                        }
+                    }
+                }
+
+                // Store closest palette index into table cell.
+                self->colors[r][g][b] = (u8)index;
+            }
+        }
+    }
+
+    return DD_OK;
 }

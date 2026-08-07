@@ -1,6 +1,6 @@
 #pragma once
 
-#include "arena.h"
+#include "allocator.h"
 
 // 3D Color Palette Lookup Table (LUT) for 24-bit to 8-bit color quantization.
 //
@@ -11,7 +11,8 @@
 // Indexing: index = colors[R >> 3][G >> 3][B >> 3]
 
 typedef struct plt {
-    u8 colors[32][32][32]; // Stores palette indices [0..255]
+    allocator*  allocator;
+    u8          colors[32][32][32]; // Stores palette indices [0..255]
 } plt;
 
 #define PLT_X8R8G8B8_INDEX(PAL, COL)    (PAL->colors[((COL & 0x00FF0000) >> 16) >> 3][((COL & 0x0000FF00) >> 8) >> 3][(COL & 0x00FF00FF) >> 3])
@@ -21,4 +22,7 @@ typedef struct plt {
 // in the provided palette. Uses the Redmean weighted Euclidean distance metric
 // to approximate human visual sensitivity (perceptually favoring green over blue).
 
-HRESULT plt_create(arena* arena, u32 count, const RGBQUAD* quads, plt** object);
+HRESULT plt_create(allocator* allocator, memory_tag tag, plt** object);
+void plt_release(plt* self);
+
+HRESULT plt_set_entries(plt* self, u32 count, const RGBQUAD* quads);

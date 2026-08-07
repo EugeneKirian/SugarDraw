@@ -1,7 +1,9 @@
 #include "dd.h"
+#include "ddg.h"
 #include "ddp.h"
 #include "dds.h"
 #include "iddp.h"
+#include "plt.h"
 #include "utilities.h"
 
 HRESULT ddp_create(sugar* manager, ddp** object) {
@@ -13,14 +15,18 @@ HRESULT ddp_create(sugar* manager, ddp** object) {
     ddp* instance = NULL;
     if (SUCCEEDED(hr = allocator_allocate(manager->allocator, MEM_TAG_DIRECTDRAWPALETTE, sizeof(ddp), &instance))) {
         instance->manager = manager;
-        if (SUCCEEDED(hr = intfc_create(manager->allocator, MEM_TAG_DIRECTDRAWPALETTE, &instance->interfaces))) {
-            if (SUCCEEDED(hr = arr_create(manager->allocator, MEM_TAG_DIRECTDRAWPALETTE, &instance->surfaces))) {
-                InitializeCriticalSection(&instance->lock);
-                *object = instance;
-                return hr;
+        if (SUCCEEDED(hr = plt_create(manager->allocator, MEM_TAG_DIRECTDRAWPALETTE, &instance->lookup))) {
+            if (SUCCEEDED(hr = intfc_create(manager->allocator, MEM_TAG_DIRECTDRAWPALETTE, &instance->interfaces))) {
+                if (SUCCEEDED(hr = arr_create(manager->allocator, MEM_TAG_DIRECTDRAWPALETTE, &instance->surfaces))) {
+                    InitializeCriticalSection(&instance->lock);
+                    *object = instance;
+                    return hr;
+                }
+
+                intfc_release(instance->interfaces);
             }
 
-            intfc_release(instance->interfaces);
+            plt_release(instance->lookup);
         }
 
         allocator_free(manager->allocator, instance);
@@ -51,11 +57,17 @@ void ddp_release(ddp* self, u32 flags) {
             for (u32 i = 0; i < item_count; i++) {
                 dds* instance = NULL;
                 if (SUCCEEDED(arr_get_item(self->surfaces, i, &instance))) {
-                    dds_remove_palette(instance);
+                    if (SUCCEEDED(dds_wait_for_vertical_blank(instance, TRUE))) {
+                        dds_remove_palette(instance);
+                    }
                 }
             }
 
             arr_release(self->surfaces);
+        }
+
+        if (self->lookup != NULL) {
+            plt_release(self->lookup);
         }
 
         LeaveCriticalSection(&self->lock);
@@ -209,6 +221,26 @@ HRESULT ddp_initialize(ddp* self, dd* object, u32 flags) {
         return DDERR_ALREADYINITIALIZED;
     }
 
+    // TODO validate flags
+
+    // TODO indexed palettes
+
+    if (flags & DDPCAPS_1BIT) {
+        self->count = 2;
+    }
+    else if (flags & DDPCAPS_2BIT) {
+        self->count = 4;
+    }
+    else if (flags & DDPCAPS_4BIT) {
+        self->count = 16;
+    }
+    else if (flags & DDPCAPS_8BIT) {
+        self->count = PALETTE_MAX_ENTRY_COUNT;
+    }
+    else {
+        return DDERR_UNSUPPORTED; // TODO
+    }
+
     self->caps = flags;
     self->instance = object;
     self->uniqueness++;
@@ -236,11 +268,8 @@ HRESULT ddp_set_entries(ddp* self, u32 flags, u32 start, u32 count, PALETTEENTRY
         return DDERR_INVALIDPARAMS;
     }
 
-    // TODO indexed palettes
-    // TODO checks for start and count for non 8-bit palettes
-
-    if (self->caps & DDPCAPS_8BITENTRIES) {
-        return DDERR_UNSUPPORTED; // TODO
+    if (self->count < start + count) {
+        return DDERR_INVALIDPARAMS;
     }
 
     HRESULT hr = DD_OK;
@@ -262,14 +291,20 @@ HRESULT ddp_set_entries(ddp* self, u32 flags, u32 start, u32 count, PALETTEENTRY
     }
 
     if (SUCCEEDED(hr = palette_entry_to_rgb_quad(&self->entries[start], count, &self->quads[start]))) {
-        const u32 item_count = arr_get_count(self->surfaces);
-        for (u32 i = 0; i < item_count; i++) {
-            dds* instance = NULL;
-            if (SUCCEEDED(arr_get_item(self->surfaces, i, &instance))) {
-                if (SUCCEEDED(hr = dds_set_palette_entries(instance, start, count, self->quads))) {
-                    self->uniqueness++;
+        if (SUCCEEDED(hr = plt_set_entries(self->lookup, self->count, self->quads))) {
+            const u32 item_count = arr_get_count(self->surfaces);
+            for (u32 i = 0; i < item_count; i++) {
+                dds* instance = NULL;
+                if (SUCCEEDED(arr_get_item(self->surfaces, i, &instance))) {
+                    hr = dds_set_palette_entries(instance, self->count, self->quads, self->lookup);
                 }
             }
+
+            if (self->caps & (DDPCAPS_PRIMARYSURFACE | DDPCAPS_PRIMARYSURFACELEFT)) {
+                hr = ddg_signal_update(self->instance->graphics);
+            }
+
+            self->uniqueness++;
         }
     }
 
@@ -290,9 +325,15 @@ HRESULT ddp_register_surface(ddp* self, dds* surface) {
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
-    // TODO update caps with DDPCAPS_PRIMARYSURFACE, DDPCAPS_PRIMARYSURFACELEFT
+    if (SUCCEEDED(hr = arr_add_item(self->surfaces, surface))) {
+        if (surface->desc.ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACE) {
+            self->caps |= DDPCAPS_PRIMARYSURFACE;
+        }
 
-    hr = arr_add_item(self->surfaces, surface);
+        if (surface->desc.ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACELEFT) {
+            self->caps |= DDPCAPS_PRIMARYSURFACELEFT;
+        }
+    }
 
     LeaveCriticalSection(&self->lock);
 
@@ -311,9 +352,15 @@ HRESULT ddp_unregister_surface(ddp* self, dds* surface) {
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
-    // TODO update caps with DDPCAPS_PRIMARYSURFACE, DDPCAPS_PRIMARYSURFACELEFT
+    if (SUCCEEDED(hr = arr_remove_item(self->surfaces, surface))) {
+        if (surface->desc.ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACE) {
+            self->caps &= ~DDPCAPS_PRIMARYSURFACE;
+        }
 
-    hr = arr_remove_item(self->surfaces, surface);
+        if (surface->desc.ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACELEFT) {
+            self->caps &= ~DDPCAPS_PRIMARYSURFACELEFT;
+        }
+    }
 
     LeaveCriticalSection(&self->lock);
 

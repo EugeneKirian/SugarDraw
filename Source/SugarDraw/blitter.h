@@ -9,14 +9,16 @@
 #define BLITTER_DEST_COLOR_KEY      0x00000008
 #define BLITTER_ROTATION_ANGLE      0x00000010
 
+typedef struct plt plt;
+
 typedef struct bltimg {
     u8*                 pixels;
     s32                 width, height;
     u32                 stride;
     DDPIXELFORMAT       format;
     struct {
-        u32             count;
         RGBQUAD*        palette;
+        plt*            lookup;
     } palette;
 } bltimg;
 

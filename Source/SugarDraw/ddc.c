@@ -368,14 +368,34 @@ HRESULT ddc_set_hwnd(ddc* self, HWND hwnd) {
 
             if (self->region != NULL) {
                 allocator_free(self->manager->allocator, self->region);
-                self->region = region;
             }
 
             self->hwnd = hwnd;
+            self->region = region;
         }
     }
 
     LeaveCriticalSection(&self->lock);
+
+    return hr;
+}
+
+HRESULT ddc_get_region(ddc* self, RGNDATA** region) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (region == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    HRESULT hr = DD_OK;
+
+    if (self->hwnd != NULL) {
+        hr = ddc_update_hwnd_region(self);
+    }
+
+    *region = self->region;
 
     return hr;
 }
@@ -393,7 +413,7 @@ HRESULT ddc_clip_region(ddc* self, RECT* rect, RGNDATA* region) {
         return DD_OK;
     }
 
-    // the rect is excatly matching or covering entire region boundaries.
+    // The rect is exactly matching or covering the entire region boundaries.
     if (rect->left <= region->rdh.rcBound.left
         && rect->top <= region->rdh.rcBound.top
         && rect->right >= region->rdh.rcBound.right

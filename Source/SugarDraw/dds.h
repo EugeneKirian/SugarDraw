@@ -83,7 +83,7 @@ HRESULT dds_set_color_key(dds* self, u32 flags, DDCOLORKEY* key);
 HRESULT dds_set_overlay_position(dds* self, s32 x, s32 y);
 HRESULT dds_set_palette(dds* self, iddpconn* palette);
 HRESULT dds_unlock(dds* self, RECT* rect);
-HRESULT dds_update_overlay(dds* self, const GUID* riid,
+HRESULT dds_update_overlay(dds* self, iddsconn* connector,
     RECT* src, iddsconn* surface, RECT* dst, u32 flags, DDOVERLAYFX* effects);
 HRESULT dds_update_overlay_display(dds* self);
 HRESULT dds_update_overlay_z_order(dds* self, u32 flags, iddsconn* surface);

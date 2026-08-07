@@ -101,6 +101,11 @@
 #define DDPCAPS_VALID							DDPCAPS_ALL
 
 #define DDBLT_NONE                              0x00000000L
+#define DDBLT_REQUIRES_FX_STRUCT                (DDBLT_ALPHADESTCONSTOVERRIDE | DDBLT_ALPHADESTSURFACEOVERRIDE | DDBLT_ALPHAEDGEBLEND \
+                                                    | DDBLT_ALPHASRCCONSTOVERRIDE | DDBLT_ALPHASRCSURFACEOVERRIDE | DDBLT_COLORFILL | DDBLT_DDFX \
+                                                    | DDBLT_DDROPS | DDBLT_KEYDESTOVERRIDE | DDBLT_KEYSRCOVERRIDE | DDBLT_ROP | DDBLT_ROTATIONANGLE \
+                                                    | DDBLT_ZBUFFER | DDBLT_ZBUFFERDESTCONSTOVERRIDE | DDBLT_ZBUFFERDESTOVERRIDE \
+                                                    | DDBLT_ZBUFFERSRCCONSTOVERRIDE | DDBLT_ZBUFFERSRCOVERRIDE | DDBLT_DEPTHFILL )
 #define DDBLT_VALID                             (DDBLT_ALPHADEST | DDBLT_ALPHADESTCONSTOVERRIDE | DDBLT_ALPHADESTNEG | DDBLT_ALPHADESTSURFACEOVERRIDE \
                                                     | DDBLT_ALPHAEDGEBLEND | DDBLT_ALPHASRC | DDBLT_ALPHASRCCONSTOVERRIDE | DDBLT_ALPHASRCNEG \
                                                     | DDBLT_ALPHASRCSURFACEOVERRIDE | DDBLT_ASYNC | DDBLT_COLORFILL | DDBLT_DDFX | DDBLT_DDROPS \
@@ -246,7 +251,7 @@ const extern GUID IID_IDirectDrawFactory2;
 #define DDERR_NOTANOPTIMIZEDSURFACE             MAKE_DDHRESULT( 652 )
 #define DDERR_ISOPTIMIZEDSURFACE                MAKE_DDHRESULT( 655 )
 
-#define SUGARDRAW_DEVICE_FILE		            "sugar.dll"
+#define SUGARDRAW_DEVICE_FILE		            "sugardraw.dll"
 #define SUGARDRAW_DEVICE_FILE_LENGTH            32
 
 #define SUGARDRAW_DEVICE_NAME		            "SugarDraw Device"
@@ -271,6 +276,14 @@ const extern GUID IID_IDirectDrawFactory2;
     MAKETYPE(DEVMODEA, X);                      \
     X.dmSize = sizeof(DEVMODEA);
 
+#define MAKEDDBLTFX(X)                          \
+    MAKETYPE(DDBLTFX, X);                       \
+    X.dwSize = sizeof(DDBLTFX);
+
+#define MAKEDDCAPSDX7(X)                        \
+    MAKETYPE(DDCAPS_DX7, X);                    \
+    X.dwSize = sizeof(DDCAPS_DX7);
+
 #define MAKEDDSURFACEDESC(X)                    \
     MAKETYPE(DDSURFACEDESC, X);                 \
     X.dwSize = sizeof(DDSURFACEDESC);
@@ -284,6 +297,7 @@ const extern GUID IID_IDirectDrawFactory2;
     X.dwSize = sizeof(DDPIXELFORMAT);
 
 BOOL IsInsideRect(const RECT* bounds, const RECT* rect);
+BOOL IsSameSizeRect(const RECT* rect, const RECT* value);
 BOOL IsValidRect(const RECT* rect);
 
 BOOL devmodea_equal(const DEVMODEA* mode, const DEVMODEA* value);

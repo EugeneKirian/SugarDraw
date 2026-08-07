@@ -499,8 +499,7 @@ HRESULT SUGARCALL idd_create_surface1(idd* self, LPDDSURFACEDESC lpDDSurfaceDesc
         LEAVE(DDERR_INVALIDPARAMS);
     }
 
-    DDSURFACEDESC2 desc;
-    ZeroMemory(&desc, sizeof(DDSURFACEDESC2));
+    MAKEDDSURFACEDESC2(desc);
     CopyMemory(&desc, lpDDSurfaceDesc, sizeof(DDSURFACEDESC));
     desc.dwSize = sizeof(DDSURFACEDESC2);
 
@@ -584,11 +583,8 @@ HRESULT SUGARCALL idd_get_caps(idd* self, LPDDCAPS lpDDDriverCaps, LPDDCAPS lpDD
         LEAVE(DDERR_INVALIDPARAMS);
     }
 
-    DDCAPS_DX7 caps;
-    ZeroMemory(&caps, sizeof(DDCAPS_DX7));
-    caps.dwSize = sizeof(DDCAPS_DX7);
-
     HRESULT hr = DD_OK;
+    MAKEDDCAPSDX7(caps);
     if (SUCCEEDED(hr = dd_get_caps(self->instance, &caps))) {
         if (lpDDDriverCaps != NULL) {
             const u32 size = lpDDDriverCaps->dwSize;
@@ -637,11 +633,8 @@ HRESULT SUGARCALL idd_get_display_mode1(idd* self, LPDDSURFACEDESC lpDDSurfaceDe
         LEAVE(DDERR_INVALIDPARAMS);
     }
 
-    DDSURFACEDESC2 desc;
-    ZeroMemory(&desc, sizeof(DDSURFACEDESC2));
-    desc.dwSize = sizeof(DDSURFACEDESC2);
-
     HRESULT hr = DD_OK;
+    MAKEDDSURFACEDESC2(desc);
     if (SUCCEEDED(hr = dd_get_display_mode(self->instance, &desc))) {
         CopyMemory(lpDDSurfaceDesc, &desc, sizeof(DDSURFACEDESC));
         lpDDSurfaceDesc->dwSize = sizeof(DDSURFACEDESC);
@@ -770,8 +763,7 @@ HRESULT SUGARCALL idd_get_available_vid_mem2(idd* self, LPDDSCAPS lpDDSCaps, LPD
         LEAVE(DDERR_INVALIDPARAMS);
     }
 
-    DDSCAPS2 caps;
-    ZeroMemory(&caps, sizeof(DDSCAPS2));
+    MAKETYPE(DDSCAPS2, caps);
     CopyMemory(&caps, lpDDSCaps, sizeof(DDSCAPS));
 
     LEAVE(dd_get_available_vid_mem(self->instance, &caps, lpdwTotal, lpdwFree));
@@ -874,11 +866,8 @@ HRESULT SUGARCALL idd_get_display_mode4(idd* self, LPDDSURFACEDESC2 lpDDSurfaceD
         LEAVE(DDERR_INVALIDPARAMS);
     }
 
-    DDSURFACEDESC2 desc;
-    ZeroMemory(&desc, sizeof(DDSURFACEDESC2));
-    desc.dwSize = sizeof(DDSURFACEDESC2);
-
     HRESULT hr = DD_OK;
+    MAKEDDSURFACEDESC2(desc);
     if (SUCCEEDED(hr = dd_get_display_mode(self->instance, &desc))) {
         CopyMemory(lpDDSurfaceDesc, &desc, sizeof(DDSURFACEDESC2));
     }
@@ -952,10 +941,8 @@ HRESULT SUGARCALL idd_get_device_identifier4(idd* self, LPDDDEVICEIDENTIFIER lpd
         LEAVE(DDERR_INVALIDPARAMS);
     }
 
-    DDDEVICEIDENTIFIER2 identifier;
-    ZeroMemory(&identifier, sizeof(DDDEVICEIDENTIFIER2));
-
     HRESULT hr = DD_OK;
+    MAKETYPE(DDDEVICEIDENTIFIER2, identifier);
     if (SUCCEEDED(hr = dd_get_device_identifier(self->instance, &identifier))) {
         CopyMemory(lpdddi, &identifier, sizeof(DDDEVICEIDENTIFIER));
     }
@@ -1043,10 +1030,8 @@ HRESULT SUGARCALL idd_get_device_identifier7(idd* self, LPDDDEVICEIDENTIFIER2 lp
         LEAVE(DDERR_INVALIDPARAMS);
     }
 
-    DDDEVICEIDENTIFIER2 identifier;
-    ZeroMemory(&identifier, sizeof(DDDEVICEIDENTIFIER2));
-
     HRESULT hr = DD_OK;
+    MAKETYPE(DDDEVICEIDENTIFIER2, identifier);
     if (SUCCEEDED(hr = dd_get_device_identifier(self->instance, &identifier))) {
         CopyMemory(lpdddi, &identifier, sizeof(DDDEVICEIDENTIFIER2));
     }

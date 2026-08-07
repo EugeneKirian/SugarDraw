@@ -23,7 +23,6 @@
     <ClInclude Include="arena.h" />
     <ClInclude Include="arr.h" />
     <ClInclude Include="blitter.h" />
-    <ClInclude Include="blt.h" />
     <ClInclude Include="cf.h" />
     <ClInclude Include="common.h" />
     <ClInclude Include="connector.h" />
@@ -63,7 +62,6 @@
     <ClCompile Include="arena.c" />
     <ClCompile Include="arr.c" />
     <ClCompile Include="blitter.c" />
-    <ClCompile Include="blt.c" />
     <ClCompile Include="cf.c" />
     <ClCompile Include="common.c" />
     <ClCompile Include="connector.c" />

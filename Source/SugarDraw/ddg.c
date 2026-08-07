@@ -1,11 +1,11 @@
-#include "blt.h"
 #include "dd.h"
+#include "ddc.h"
 #include "ddg.h"
 #include "dds.h"
 #include "ddsd.h"
 #include "driver.h"
 
-#define FREQUENCY       60 /* TODO Settings */
+#define FREQUENCY       30 /* TODO Settings */
 
 #define INSTANT         0
 #define WAIT_NONE       0
@@ -15,8 +15,8 @@ static DWORD WINAPI ddg_worker(ddg* self);
 static HRESULT ddg_get_surface_desc(ddg* self, DDSURFACEDESC2* desc);
 static HRESULT ddg_stop_worker(ddg* self);
 
-HRESULT ddg_create(sugar* manager, driver* driver, ddg** object) {
-    if (manager == NULL || driver == NULL || object == NULL) {
+HRESULT ddg_create(sugar* manager, blitter* blitter, driver* driver, ddg** object) {
+    if (manager == NULL || blitter == NULL || driver == NULL || object == NULL) {
         return DDERR_INVALIDPARAMS;
     }
 
@@ -24,6 +24,7 @@ HRESULT ddg_create(sugar* manager, driver* driver, ddg** object) {
     ddg* instance = NULL;
     if (SUCCEEDED(hr = allocator_allocate(manager->allocator, MEM_TAG_DIRECTDRAWGRAPHICS, sizeof(ddg), &instance))) {
         instance->manager = manager;
+        instance->blitter = blitter;
         instance->driver = driver;
 
         instance->desc.dwSize = sizeof(DDSURFACEDESC2);
@@ -139,10 +140,8 @@ HRESULT ddg_initialize(ddg* self, dd* object) {
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
-    // TODO create surface with a color of window's hbrush
-
     ddsd* instance = NULL;
-    if (SUCCEEDED(hr = ddsd_create(self->manager->allocator, &instance))) {
+    if (SUCCEEDED(hr = ddsd_create(self->manager->allocator, self->blitter, &instance))) {
         if (SUCCEEDED(hr = ddsd_initialize(instance, &self->desc))) {
             self->instance = object;
             self->surface = instance;
@@ -180,19 +179,17 @@ HRESULT ddg_recreate_surface(ddg* self) {
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
-    // TODO create surface with a color of window's hbrush
-
     MAKEDEVMODEA(mode);
     if (SUCCEEDED(hr = sugar_get_display_mode(self->manager, &mode))) {
         if (mode.dmPelsWidth > self->desc.dwWidth || mode.dmPelsHeight > self->desc.dwHeight) {
             if (SUCCEEDED(hr = ddg_stop_worker(self))) {
                 ddsd* instance = NULL;
-                if (SUCCEEDED(hr = ddsd_create(self->manager->allocator, &instance))) {
+                if (SUCCEEDED(hr = ddsd_create(self->manager->allocator, self->blitter, &instance))) {
                     MAKEDDSURFACEDESC2(desc);
                     if (SUCCEEDED(hr = ddg_get_surface_desc(self, &desc))) {
                         if (SUCCEEDED(hr = ddsd_initialize(instance, &desc))) {
                             ddsd_release(InterlockedExchangePointer(&self->surface, instance));
-                            self->worker = CreateThread(NULL, 0, ddg_worker, self, 0, NULL);
+                            self->worker = CreateThread(NULL, 0, ddg_worker, self, INSTANT, NULL);
                         }
                     }
                 }
@@ -224,6 +221,7 @@ DWORD WINAPI ddg_worker(ddg* self) {
         return DDERR_INVALIDOBJECT;
     }
 
+    MAKETYPE(RECT, window);
     LARGE_INTEGER counter, interval, time, now;
 
     QueryPerformanceFrequency(&counter);
@@ -239,84 +237,154 @@ DWORD WINAPI ddg_worker(ddg* self) {
 
         if (WaitForSingleObject(self->stop, WAIT_NONE) == WAIT_OBJECT_0) { break; }
 
-        // TODO keep track of window size changes...
-        // TODO keep track of window position on the screen...
+        HWND hwnd = self->instance->cooperation.hwnd;
+        if (!IsIconic(hwnd)) {
+            // TODO handle lost primary surface and overlays
 
-        // TODO what to do if window was moved to another screen?
+            if (self->instance != NULL
+                && self->instance->primary != NULL
+                && (self->status & DDGSTATUS_SIGNALED)) {
+                QueryPerformanceCounter(&now);
 
-        // TODO handle lost primary surface and overlays
+                if (now.QuadPart - time.QuadPart >= interval.QuadPart) {
+                    ResetEvent(self->ready);
+                    SetEvent(self->updating);
+                    EnterCriticalSection(&self->lock);
+                    self->status = DDGSTATUS_UPDATING;
 
-        if (self->instance != NULL
-            && self->instance->primary != NULL
-            && (self->status & DDGSTATUS_SIGNALED)) {
-            QueryPerformanceCounter(&now);
+                    sleep = FALSE;
+                    time.QuadPart = now.QuadPart;
 
-            if (now.QuadPart - time.QuadPart >= interval.QuadPart) {
-                ResetEvent(self->ready);
-                SetEvent(self->updating);
-                EnterCriticalSection(&self->lock);
-                self->status = DDGSTATUS_UPDATING;
+                    RECT client, rectangle;
+                    GetClientRect(hwnd, &client);
+                    CopyMemory(&rectangle, &client, sizeof(RECT));
+                    ClientToScreen(hwnd, (POINT*)&rectangle.left);
+                    ClientToScreen(hwnd, (POINT*)&rectangle.right);
 
-                sleep = FALSE;
-                time.QuadPart = now.QuadPart;
+                    dds* primary = self->instance->primary;
+                    ddsd* surface = primary->surface;
 
-                RECT dst, src;
-                dds* primary = self->instance->primary;
-                ddsd* surface = primary->surface;
-                if (SUCCEEDED(hr = ddsd_get_rect(self->surface, &dst))) {
-                    if (SUCCEEDED(hr = ddsd_get_rect(surface, &src))) {
-                        // TODO: use gamma control if present - primary surface only
-                        // Use it only in exclusive full screen mode?
+                    // TODO: it seems like DirectDraw keeps track of areas where user put pixels
+                    // into the primary surface after resizing/moving window
+                    // so that only those are actually being drawn, and not the whole available surface
+                    // stretch.exe
 
-                        // TODO: use color control if present - primary and overlay surfaces
-                        // How to aply those values? Need example!
-
-                        // Blit the primary surface into the grahics surface.
-                        // TODO this must be blit, and need support of clipper...
-                        if (SUCCEEDED(hr = ddsd_blt_fast(self->surface, &dst, surface, &src, DDBLTFAST_NOCOLORKEY))) {
-                            // Blit all visible overlays on top of the primary surface into the graphics surface.
-                            const u32 item_count = connector_get_count(primary->overlays);
-                            for (u32 i = 0; i < item_count; i++) {
-                                iddsconn connector;
-                                ZeroMemory(&connector, sizeof(iddsconn));
-                                if (SUCCEEDED(hr = connector_get_item(primary->overlays, i, &connector))) {
-                                    dds* overlay = connector.instance;
-                                    if (overlay->desc.ddsCaps.dwCaps & DDSCAPS_VISIBLE) {
-                                        // TODO proper implementation
-                                        hr = ddsd_blt_fast(self->surface, &overlay->overlay.dst, overlay->surface, &overlay->overlay.src, DDBLTFAST_NOCOLORKEY); // TODO color keys..
-                                    }
-                                }
+                    // TODO is this needed in case of tracking rimary surface + back buffers blit/dc/lock regions?
+                    // TODO make this configurable, same as with primary surface creation
+                    if (!CompareMemory(&window, &rectangle, sizeof(RECT))) {
+                        MAKETYPE(RECT, rect);
+                        CopyMemory(&window, &rectangle, sizeof(RECT));
+                        if (SUCCEEDED(hr = ddsd_get_rect(self->surface, &rect))) {
+                            HDC sdc = NULL;
+                            if (SUCCEEDED(hr = ddsd_get_dc(self->surface, &sdc))) {
+                                FillRect(sdc, &rect, (HBRUSH)GetClassLongPtrA(hwnd, GCLP_HBRBACKGROUND));
+                                hr = ddsd_release_dc(self->surface, sdc);
                             }
+                        }
+                    }
 
-                            // TODO move to the driver
-                            {
-                                HWND hwnd = self->instance->cooperation.hwnd;
-                                if (!IsIconic(hwnd)) {
-                                    HDC sdc = NULL;
-                                    if (SUCCEEDED(hr = ddsd_get_dc(self->surface, &sdc))) {
-                                        HDC hdc = GetDC(hwnd);
-                                        RECT rect;
-                                        GetClientRect(hwnd, &rect);
+                    RECT dst, src;
+                    if (SUCCEEDED(hr = ddsd_get_rect(self->surface, &dst))) {
+                        if (IntersectRect(&dst, &dst, &rectangle)) {
+                            // TODO what to do if window was moved to another screen?
+                            if (SUCCEEDED(hr = ddsd_get_rect(surface, &src))) {
+                                if (IntersectRect(&src, &src, &rectangle))
+                                {
+                                    // TODO what to do if window was moved to another screen?
 
-                                        ClientToScreen(hwnd, (POINT*)&rect); // TODO adjust blitting only for DDSCL_NORMAL
-                                        BitBlt(hdc, 0, 0, rect.right, rect.bottom, sdc, rect.left, rect.top, SRCCOPY);
-                                        hr = ddsd_release_dc(self->surface, sdc);
+                                    // TODO: use gamma control if present - primary surface only
+                                    // Use it only in exclusive full screen mode?
 
-                                        InvalidateRect(hwnd, NULL, FALSE); // Some windows might need WM_PAINT message.
+                                    // TODO: use color control if present - primary and overlay surfaces
+                                    // How to apply the values? Need example!
+
+                                    RGNDATA* region = NULL;
+                                    if (primary->clipper.instance != NULL) {
+                                        ddc_get_region(primary->clipper.instance, &region);
+                                    }
+
+                                    // Blit the primary surface into the grahics surface.
+                                    if (SUCCEEDED(hr = ddsd_blt(self->surface, &dst, surface, &src, region, DDBLT_WAIT, NULL))) {
+                                        // Blit all visible overlays on top of the primary surface into the graphics surface.
+                                        const u32 item_count = connector_get_count(primary->overlays);
+                                        for (u32 i = 0; i < item_count; i++) {
+                                            MAKETYPE(iddsconn, connector);
+                                            if (SUCCEEDED(hr = connector_get_item(primary->overlays, i, &connector))) {
+                                                dds* overlay = connector.instance;
+                                                if (overlay->desc.ddsCaps.dwCaps & DDSCAPS_VISIBLE) {
+
+                                                    // TODO
+                                                    // The problem with overlay keys here is that the target surface is always 32-bit
+                                                    // while rimary surface can be non-32 bit, and the color key is in the primary surface
+                                                    // color space. Therefore we need a stencil here...
+                                                    // ddoverlay.exe
+
+                                                    u32 flags = DDBLT_WAIT;
+                                                    MAKEDDBLTFX(effects);
+                                                    if (overlay->overlay.flags & DDOVER_KEYSRC) {
+                                                        flags |= DDBLT_DDFX | DDBLT_KEYSRCOVERRIDE;
+                                                        CopyMemory(&effects.ddckSrcColorkey,
+                                                            &overlay->desc.ddckCKSrcOverlay, sizeof(DDCOLORKEY));
+                                                    }
+
+                                                    if (overlay->overlay.flags & DDOVER_KEYDEST) {
+                                                        flags |= DDBLT_DDFX | DDBLT_KEYDESTOVERRIDE;
+                                                        CopyMemory(&effects.ddckDestColorkey,
+                                                            &overlay->desc.ddckCKDestOverlay, sizeof(DDCOLORKEY));
+                                                    }
+
+                                                    if (overlay->overlay.flags & DDOVER_KEYSRCOVERRIDE) {
+                                                        flags |= DDBLT_DDFX | DDBLT_KEYSRCOVERRIDE;
+                                                        CopyMemory(&effects.ddckSrcColorkey,
+                                                            &overlay->overlay.effects.dckSrcColorkey, sizeof(DDCOLORKEY));
+                                                    }
+
+                                                    if (overlay->overlay.flags & DDOVER_KEYDESTOVERRIDE) {
+                                                        flags |= DDBLT_DDFX | DDBLT_KEYDESTOVERRIDE;
+                                                        CopyMemory(&effects.ddckDestColorkey,
+                                                            &overlay->overlay.effects.dckDestColorkey, sizeof(DDCOLORKEY));
+                                                    }
+
+                                                    // Applications might call update overlay and update
+                                                    // destination and source rectangles a great number of times.
+                                                    // Make sure to preserve the rectangles to avoid them being changed via updates,
+                                                    // which could lead to permanent locking of surfaces on window resize, etc.
+                                                    MAKETYPE(RECT, target);
+                                                    MAKETYPE(RECT, source);
+                                                    CopyMemory(&target, &overlay->overlay.dst, sizeof(RECT));
+                                                    CopyMemory(&source, &overlay->overlay.src, sizeof(RECT));
+                                                    ddsd_blt(self->surface, &target, overlay->surface, &source, region, flags, &effects);
+                                                }
+                                            }
+                                        }
+
+                                        // TODO move to the driver
+                                        {
+                                            HDC sdc = NULL;
+                                            if (SUCCEEDED(hr = ddsd_get_dc(self->surface, &sdc))) {
+                                                HDC hdc = GetDC(hwnd);
+                                                BitBlt(hdc, 0, 0, client.right, client.bottom, sdc, rectangle.left, rectangle.top, SRCCOPY);
+                                                ReleaseDC(hwnd, hdc);
+                                                if (SUCCEEDED(hr = ddsd_release_dc(self->surface, sdc))) {
+                                                    // TODO move to settings (as optional thing)
+                                                    InvalidateRect(hwnd, NULL, FALSE); // Send WM_PAINT message.
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
                         }
                     }
+
+                    self->status &= ~DDGSTATUS_UPDATING;
+                    LeaveCriticalSection(&self->lock);
+                    ResetEvent(self->updating);
                 }
-
-                self->status &= ~DDGSTATUS_UPDATING;
-                LeaveCriticalSection(&self->lock);
-                ResetEvent(self->updating);
             }
-        }
 
-        SetEvent(self->ready);
+            SetEvent(self->ready);
+        }
 
         if (sleep) { Sleep(1); }
     }

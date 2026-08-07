@@ -67,6 +67,34 @@ HRESULT palette_entry_to_rgb_quad(const PALETTEENTRY* entries, u32 count, RGBQUA
     return DD_OK;
 }
 
+HRESULT ddpixelformat_equal(const DDPIXELFORMAT* format, const DDPIXELFORMAT* value) {
+    if (format == NULL || value == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if (format->dwSize != sizeof(DDPIXELFORMAT)
+        || value->dwSize != sizeof(DDPIXELFORMAT)) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if ((format->dwFlags & DDPF_RGB) && (value->dwFlags & DDPF_RGB)) {
+        if (format->dwFlags == value->dwFlags
+            && format->dwRGBBitCount == value->dwRGBBitCount
+            && format->dwRBitMask == value->dwRBitMask
+            && format->dwGBitMask == value->dwGBitMask
+            && format->dwBBitMask == value->dwBBitMask) {
+            if ((format->dwFlags & DDPF_ALPHAPIXELS)
+                != (value->dwFlags & DDPF_ALPHAPIXELS)) {
+                return DDERR_INVALIDPIXELFORMAT;
+            }
+
+            return DD_OK;
+        }
+    }
+
+    return DDERR_UNSUPPORTED;
+}
+
 HRESULT ddpixelformat_validate(const DDPIXELFORMAT* format) {
     if (format == NULL) {
         return DDERR_INVALIDOBJECT;
@@ -78,10 +106,8 @@ HRESULT ddpixelformat_validate(const DDPIXELFORMAT* format) {
 
     // TODO validate flags
 
-    if (!(format->dwFlags & DDPF_FOURCC)) {
-        if (format->dwFourCC != FOURCC_NONE) {
-            return DDERR_INVALIDPIXELFORMAT;
-        }
+    if (!(format->dwFlags & DDPF_RGB)) {
+        return DDERR_INVALIDPIXELFORMAT; // TODO
     }
 
     if (format->dwFlags & DDPF_RGB) {

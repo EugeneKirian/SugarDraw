@@ -660,9 +660,7 @@ HRESULT SUGARCALL idds_add_attached_surface1(idds* self, LPDIRECTDRAWSURFACE lpD
         LEAVE(DDERR_INVALIDPARAMS);
     }
 
-    iddsconn connector;
-    ZeroMemory(&connector, sizeof(iddsconn));
-
+    MAKETYPE(iddsconn, connector);
     if (lpDDSAttachedSurface != NULL) {
         idds* surface = (idds*)lpDDSAttachedSurface;
         connector.instance = surface->instance;
@@ -734,9 +732,7 @@ HRESULT SUGARCALL idds_delete_attached_surface1(idds* self, DWORD dwFlags, LPDIR
 
     // TODO validate dwFlags
 
-    iddsconn connector;
-    ZeroMemory(&connector, sizeof(iddsconn));
-
+    MAKETYPE(iddsconn, connector);
     if (lpDDSAttachedSurface != NULL) {
         idds* surface = (idds*)lpDDSAttachedSurface;
         connector.instance = surface->instance;
@@ -830,10 +826,7 @@ HRESULT SUGARCALL idds_get_caps1(idds* self, LPDDSCAPS lpDDSCaps) {
     }
 
     HRESULT hr = DD_OK;
-
-    DDSCAPS2 caps;
-    ZeroMemory(&caps, sizeof(DDSCAPS2));
-
+    MAKETYPE(DDSCAPS2, caps);
     if (SUCCEEDED(hr = dds_get_caps(self->instance, &caps))) {
         CopyMemory(lpDDSCaps, &caps, sizeof(DDSCAPS));
     }
@@ -853,10 +846,7 @@ HRESULT SUGARCALL idds_get_clipper(idds* self, LPDIRECTDRAWCLIPPER* lplpDDClippe
     }
 
     HRESULT hr = DD_OK;
-
-    iddcconn connector;
-    ZeroMemory(&connector, sizeof(iddcconn));
-
+    MAKETYPE(iddcconn, connector);
     if (SUCCEEDED(hr = dds_get_clipper(self->instance, &connector))) {
         hr = ddc_query_interface(connector.instance, &connector.id, lplpDDClipper);
     }
@@ -930,10 +920,7 @@ HRESULT SUGARCALL idds_get_palette(idds* self, LPDIRECTDRAWPALETTE* lplpDDPalett
     }
 
     HRESULT hr = DD_OK;
-
-    iddpconn connector;
-    ZeroMemory(&connector, sizeof(iddpconn));
-
+    MAKETYPE(iddpconn, connector);
     if (SUCCEEDED(hr = dds_get_palette(self->instance, &connector))) {
         hr = ddp_query_interface(connector.instance, &connector.id, lplpDDPalette);
     }
@@ -980,12 +967,8 @@ HRESULT SUGARCALL idds_get_surface_desc1(idds* self, LPDDSURFACEDESC lpDDSurface
         LEAVE(DDERR_INVALIDPARAMS);
     }
 
-    DDSURFACEDESC2 desc;
-    ZeroMemory(&desc, sizeof(DDSURFACEDESC2));
-    desc.dwSize = sizeof(DDSURFACEDESC2);
-    desc.dwFlags = lpDDSurfaceDesc->dwFlags;
-
     HRESULT hr = DD_OK;
+    MAKEDDSURFACEDESC2(desc);
     if (SUCCEEDED(hr = dds_get_surface_desc(self->instance, &desc))) {
         CopyMemory(lpDDSurfaceDesc, &desc, sizeof(DDSURFACEDESC));
         lpDDSurfaceDesc->dwSize = sizeof(DDSURFACEDESC);
@@ -1009,8 +992,7 @@ HRESULT SUGARCALL idds_initialize1(idds* self, LPDIRECTDRAW lpDD, LPDDSURFACEDES
         LEAVE(DDERR_INVALIDPARAMS);
     }
 
-    DDSURFACEDESC2 desc;
-    ZeroMemory(&desc, sizeof(DDSURFACEDESC2));
+    MAKEDDSURFACEDESC2(desc);
     CopyMemory(&desc, lpDDSurfaceDesc, sizeof(DDSURFACEDESC));
     desc.dwSize = sizeof(DDSURFACEDESC2);
 
@@ -1052,8 +1034,7 @@ HRESULT SUGARCALL idds_lock1(idds* self, LPRECT lpDestRect, LPDDSURFACEDESC lpDD
 
     HRESULT hr = DD_OK;
 
-    DDSURFACEDESC2 desc;
-    ZeroMemory(&desc, sizeof(DDSURFACEDESC2));
+    MAKEDDSURFACEDESC2(desc);
     CopyMemory(&desc, lpDDSurfaceDesc, sizeof(DDSURFACEDESC));
     desc.dwSize = sizeof(DDSURFACEDESC2);
 
@@ -1094,9 +1075,7 @@ HRESULT SUGARCALL idds_set_clipper(idds* self, LPDIRECTDRAWCLIPPER lpDDClipper) 
 
     ENTER("0x%p", lpDDClipper);
 
-    iddcconn connector;
-    ZeroMemory(&connector, sizeof(iddcconn));
-
+    MAKETYPE(iddcconn, connector);
     if (lpDDClipper != NULL) {
         iddc* clipper = (iddc*)lpDDClipper;
         connector.instance = clipper->instance;
@@ -1137,9 +1116,7 @@ HRESULT SUGARCALL idds_set_palette(idds* self, LPDIRECTDRAWPALETTE lpDDPalette) 
 
     ENTER("0x%p", lpDDPalette);
 
-    iddpconn connector;
-    ZeroMemory(&connector, sizeof(iddpconn));
-
+    MAKETYPE(iddpconn, connector);
     if (lpDDPalette != NULL) {
         iddp* palette = (iddp*)lpDDPalette;
         connector.instance = palette->instance;
@@ -1164,7 +1141,8 @@ HRESULT SUGARCALL idds_update_overlay1(idds* self, LPRECT lpSrcRect, LPDIRECTDRA
         return DDERR_INVALIDOBJECT;
     }
 
-    // TODO Enter
+    ENTER("%s, 0x%p, %s, %s, %s", rect_to_string(lpSrcRect), lpDDDestSurface,
+        rect_to_string(lpDestRect), ddover_to_string(dwFlags), ddoverlayfx_to_string(lpDDOverlayFx));
 
     if (lpDDDestSurface == NULL || lpDestRect == NULL) {
         LEAVE(DDERR_INVALIDPARAMS);
@@ -1188,17 +1166,18 @@ HRESULT SUGARCALL idds_update_overlay1(idds* self, LPRECT lpSrcRect, LPDIRECTDRA
         }
     }
 
-    iddsconn connector;
-    ZeroMemory(&connector, sizeof(iddsconn));
+    MAKETYPE(iddsconn, connector);
+    connector.instance = self->instance;
+    CopyMemory(&connector.id, &self->id, sizeof(GUID));
 
+    MAKETYPE(iddsconn, target);
     if (lpDDDestSurface != NULL) {
         idds* surface = (idds*)lpDDDestSurface;
-        connector.instance = surface->instance;
-        CopyMemory(&connector.id, &surface->id, sizeof(GUID));
+        target.instance = surface->instance;
+        CopyMemory(&target.id, &surface->id, sizeof(GUID));
     }
 
-    LEAVE(dds_update_overlay(self->instance, &self->id,
-        lpSrcRect, &connector, lpDestRect, dwFlags, lpDDOverlayFx));
+    LEAVE(dds_update_overlay(self->instance, &connector, lpSrcRect, &target, lpDestRect, dwFlags, lpDDOverlayFx));
 }
 
 HRESULT SUGARCALL idds_update_overlay_display(idds* self, DWORD dwFlags) {
@@ -1222,9 +1201,7 @@ HRESULT SUGARCALL idds_update_overlay_z_order1(idds* self, DWORD dwFlags, LPDIRE
 
     // TODO Enter
 
-    iddsconn connector;
-    ZeroMemory(&connector, sizeof(iddsconn));
-
+    MAKETYPE(iddsconn, connector);
     if (lpDDSReference != NULL) {
         idds* surface = (idds*)lpDDSReference;
         connector.instance = surface->instance;
@@ -1245,9 +1222,7 @@ HRESULT SUGARCALL idds_add_attached_surface2(idds* self, LPDIRECTDRAWSURFACE2 lp
         LEAVE(DDERR_INVALIDPARAMS);
     }
 
-    iddsconn connector;
-    ZeroMemory(&connector, sizeof(iddsconn));
-
+    MAKETYPE(iddsconn, connector);
     if (lpDDSAttachedSurface != NULL) {
         idds* surface = (idds*)lpDDSAttachedSurface;
         connector.instance = surface->instance;
@@ -1292,9 +1267,7 @@ HRESULT SUGARCALL idds_delete_attached_surface2(idds* self, DWORD dwFlags, LPDIR
 
     // TODO validate dwFlags
 
-    iddsconn connector;
-    ZeroMemory(&connector, sizeof(iddsconn));
-
+    MAKETYPE(iddsconn, connector);
     if (lpDDSAttachedSurface != NULL) {
         idds* surface = (idds*)lpDDSAttachedSurface;
         connector.instance = surface->instance;
@@ -1343,7 +1316,8 @@ HRESULT SUGARCALL idds_update_overlay2(idds* self, LPRECT lpSrcRect, LPDIRECTDRA
         return DDERR_INVALIDOBJECT;
     }
 
-    // TODO Enter
+    ENTER("%s, 0x%p, %s, %s, %s", rect_to_string(lpSrcRect), lpDDDestSurface,
+        rect_to_string(lpDestRect), ddover_to_string(dwFlags), ddoverlayfx_to_string(lpDDOverlayFx));
 
     if (lpDDDestSurface == NULL || lpDestRect == NULL) {
         LEAVE(DDERR_INVALIDPARAMS);
@@ -1367,17 +1341,18 @@ HRESULT SUGARCALL idds_update_overlay2(idds* self, LPRECT lpSrcRect, LPDIRECTDRA
         }
     }
 
-    iddsconn connector;
-    ZeroMemory(&connector, sizeof(iddsconn));
+    MAKETYPE(iddsconn, connector);
+    connector.instance = self->instance;
+    CopyMemory(&connector.id, &self->id, sizeof(GUID));
 
+    MAKETYPE(iddsconn, target);
     if (lpDDDestSurface != NULL) {
         idds* surface = (idds*)lpDDDestSurface;
-        connector.instance = surface->instance;
-        CopyMemory(&connector.id, &surface->id, sizeof(GUID));
+        target.instance = surface->instance;
+        CopyMemory(&target.id, &surface->id, sizeof(GUID));
     }
 
-    LEAVE(dds_update_overlay(self->instance, &self->id,
-        lpSrcRect, &connector, lpDestRect, dwFlags, lpDDOverlayFx));
+    LEAVE(dds_update_overlay(self->instance, &connector, lpSrcRect, &target, lpDestRect, dwFlags, lpDDOverlayFx));
 }
 
 HRESULT SUGARCALL idds_update_overlay_z_order2(idds* self, DWORD dwFlags, LPDIRECTDRAWSURFACE2 lpDDSReference) {
@@ -1389,9 +1364,7 @@ HRESULT SUGARCALL idds_update_overlay_z_order2(idds* self, DWORD dwFlags, LPDIRE
 
     // TODO Enter
 
-    iddsconn connector;
-    ZeroMemory(&connector, sizeof(iddsconn));
-
+    MAKETYPE(iddsconn, connector);
     if (lpDDSReference != NULL) {
         idds* surface = (idds*)lpDDSReference;
         connector.instance = surface->instance;
@@ -1450,9 +1423,7 @@ HRESULT SUGARCALL idds_add_attached_surface3(idds* self, LPDIRECTDRAWSURFACE3 lp
         LEAVE(DDERR_INVALIDPARAMS);
     }
 
-    iddsconn connector;
-    ZeroMemory(&connector, sizeof(iddsconn));
-
+    MAKETYPE(iddsconn, connector);
     if (lpDDSAttachedSurface != NULL) {
         idds* surface = (idds*)lpDDSAttachedSurface;
         connector.instance = surface->instance;
@@ -1497,9 +1468,7 @@ HRESULT SUGARCALL idds_delete_attached_surface3(idds* self, DWORD dwFlags, LPDIR
 
     // TODO validate dwFlags
 
-    iddsconn connector;
-    ZeroMemory(&connector, sizeof(iddsconn));
-
+    MAKETYPE(iddsconn, connector);
     if (lpDDSAttachedSurface != NULL) {
         idds* surface = (idds*)lpDDSAttachedSurface;
         connector.instance = surface->instance;
@@ -1548,7 +1517,8 @@ HRESULT SUGARCALL idds_update_overlay3(idds* self, LPRECT lpSrcRect, LPDIRECTDRA
         return DDERR_INVALIDOBJECT;
     }
 
-    // TODO Enter
+    ENTER("%s, 0x%p, %s, %s, %s", rect_to_string(lpSrcRect), lpDDDestSurface,
+        rect_to_string(lpDestRect), ddover_to_string(dwFlags), ddoverlayfx_to_string(lpDDOverlayFx));
 
     if (lpDDDestSurface == NULL || lpDestRect == NULL) {
         LEAVE(DDERR_INVALIDPARAMS);
@@ -1572,17 +1542,18 @@ HRESULT SUGARCALL idds_update_overlay3(idds* self, LPRECT lpSrcRect, LPDIRECTDRA
         }
     }
 
-    iddsconn connector;
-    ZeroMemory(&connector, sizeof(iddsconn));
+    MAKETYPE(iddsconn, connector);
+    connector.instance = self->instance;
+    CopyMemory(&connector.id, &self->id, sizeof(GUID));
 
+    MAKETYPE(iddsconn, target);
     if (lpDDDestSurface != NULL) {
         idds* surface = (idds*)lpDDDestSurface;
-        connector.instance = surface->instance;
-        CopyMemory(&connector.id, &surface->id, sizeof(GUID));
+        target.instance = surface->instance;
+        CopyMemory(&target.id, &surface->id, sizeof(GUID));
     }
 
-    LEAVE(dds_update_overlay(self->instance, &self->id,
-        lpSrcRect, &connector, lpDestRect, dwFlags, lpDDOverlayFx));
+    LEAVE(dds_update_overlay(self->instance, &connector, lpSrcRect, &target, lpDestRect, dwFlags, lpDDOverlayFx));
 }
 
 HRESULT SUGARCALL idds_update_overlay_z_order3(idds* self, DWORD dwFlags, LPDIRECTDRAWSURFACE3 lpDDSReference) {
@@ -1594,9 +1565,7 @@ HRESULT SUGARCALL idds_update_overlay_z_order3(idds* self, DWORD dwFlags, LPDIRE
 
     // TODO Enter
 
-    iddsconn connector;
-    ZeroMemory(&connector, sizeof(iddsconn));
-
+    MAKETYPE(iddsconn, connector);
     if (lpDDSReference != NULL) {
         idds* surface = (idds*)lpDDSReference;
         connector.instance = surface->instance;
@@ -1623,8 +1592,7 @@ HRESULT SUGARCALL idds_set_surface_desc3(idds* self, LPDDSURFACEDESC lpDDSD, DWO
 
     // TODO verify dwFlags
 
-    DDSURFACEDESC2 desc;
-    ZeroMemory(&desc, sizeof(DDSURFACEDESC2));
+    MAKEDDSURFACEDESC2(desc);
     CopyMemory(&desc, lpDDSD, sizeof(DDSURFACEDESC));
     desc.dwSize = sizeof(DDSURFACEDESC2);
 
@@ -1642,9 +1610,7 @@ HRESULT SUGARCALL idds_add_attached_surface4(idds* self, LPDIRECTDRAWSURFACE4 lp
         LEAVE(DDERR_INVALIDPARAMS);
     }
 
-    iddsconn connector;
-    ZeroMemory(&connector, sizeof(iddsconn));
-
+    MAKETYPE(iddsconn, connector);
     if (lpDDSAttachedSurface != NULL) {
         idds* surface = (idds*)lpDDSAttachedSurface;
         connector.instance = surface->instance;
@@ -1689,9 +1655,7 @@ HRESULT SUGARCALL idds_delete_attached_surface4(idds* self, DWORD dwFlags, LPDIR
 
     // TODO validate dwFlags
 
-    iddsconn connector;
-    ZeroMemory(&connector, sizeof(iddsconn));
-
+    MAKETYPE(iddsconn, connector);
     if (lpDDSAttachedSurface != NULL) {
         idds* surface = (idds*)lpDDSAttachedSurface;
         connector.instance = surface->instance;
@@ -1747,10 +1711,7 @@ HRESULT SUGARCALL idds_get_caps4(idds* self, LPDDSCAPS2 lpDDSCaps) {
     }
 
     HRESULT hr = DD_OK;
-
-    DDSCAPS2 caps;
-    ZeroMemory(&caps, sizeof(DDSCAPS2));
-
+    MAKETYPE(DDSCAPS2, caps);
     if (SUCCEEDED(hr = dds_get_caps(self->instance, &caps))) {
         CopyMemory(lpDDSCaps, &caps, sizeof(DDSCAPS2));
     }
@@ -1832,7 +1793,8 @@ HRESULT SUGARCALL idds_update_overlay4(idds* self, LPRECT lpSrcRect, LPDIRECTDRA
         return DDERR_INVALIDOBJECT;
     }
 
-    // TODO Enter
+    ENTER("%s, 0x%p, %s, %s, %s", rect_to_string(lpSrcRect), lpDDDestSurface,
+        rect_to_string(lpDestRect), ddover_to_string(dwFlags), ddoverlayfx_to_string(lpDDOverlayFx));
 
     if (lpDDDestSurface == NULL || lpDestRect == NULL) {
         LEAVE(DDERR_INVALIDPARAMS);
@@ -1856,17 +1818,18 @@ HRESULT SUGARCALL idds_update_overlay4(idds* self, LPRECT lpSrcRect, LPDIRECTDRA
         }
     }
 
-    iddsconn connector;
-    ZeroMemory(&connector, sizeof(iddsconn));
+    MAKETYPE(iddsconn, connector);
+    connector.instance = self->instance;
+    CopyMemory(&connector.id, &self->id, sizeof(GUID));
 
+    MAKETYPE(iddsconn, target);
     if (lpDDDestSurface != NULL) {
         idds* surface = (idds*)lpDDDestSurface;
-        connector.instance = surface->instance;
-        CopyMemory(&connector.id, &surface->id, sizeof(GUID));
+        target.instance = surface->instance;
+        CopyMemory(&target.id, &surface->id, sizeof(GUID));
     }
 
-    LEAVE(dds_update_overlay(self->instance, &self->id,
-        lpSrcRect, &connector, lpDestRect, dwFlags, lpDDOverlayFx));
+    LEAVE(dds_update_overlay(self->instance, &connector, lpSrcRect, &target, lpDestRect, dwFlags, lpDDOverlayFx));
 }
 
 HRESULT SUGARCALL idds_update_overlay_z_order4(idds* self, DWORD dwFlags, LPDIRECTDRAWSURFACE4 lpDDSReference) {
@@ -1878,9 +1841,7 @@ HRESULT SUGARCALL idds_update_overlay_z_order4(idds* self, DWORD dwFlags, LPDIRE
 
     // TODO Enter
 
-    iddsconn connector;
-    ZeroMemory(&connector, sizeof(iddsconn));
-
+    MAKETYPE(iddsconn, connector);
     if (lpDDSReference != NULL) {
         idds* surface = (idds*)lpDDSReference;
         connector.instance = surface->instance;
@@ -1991,9 +1952,7 @@ HRESULT SUGARCALL idds_add_attached_surface7(idds* self, LPDIRECTDRAWSURFACE7 lp
         LEAVE(DDERR_INVALIDPARAMS);
     }
 
-    iddsconn connector;
-    ZeroMemory(&connector, sizeof(iddsconn));
-
+    MAKETYPE(iddsconn, connector);
     if (lpDDSAttachedSurface != NULL) {
         idds* surface = (idds*)lpDDSAttachedSurface;
         connector.instance = surface->instance;
@@ -2038,9 +1997,7 @@ HRESULT SUGARCALL idds_delete_attached_surface7(idds* self, DWORD dwFlags, LPDIR
 
     // TODO validate dwFlags
 
-    iddsconn connector;
-    ZeroMemory(&connector, sizeof(iddsconn));
-
+    MAKETYPE(iddsconn, connector);
     if (lpDDSAttachedSurface != NULL) {
         idds* surface = (idds*)lpDDSAttachedSurface;
         connector.instance = surface->instance;
@@ -2134,7 +2091,8 @@ HRESULT SUGARCALL idds_update_overlay7(idds* self, LPRECT lpSrcRect, LPDIRECTDRA
         return DDERR_INVALIDOBJECT;
     }
 
-    // TODO Enter
+    ENTER("%s, 0x%p, %s, %s, %s", rect_to_string(lpSrcRect), lpDDDestSurface,
+        rect_to_string(lpDestRect), ddover_to_string(dwFlags), ddoverlayfx_to_string(lpDDOverlayFx));
 
     if (lpDDDestSurface == NULL || lpDestRect == NULL) {
         LEAVE(DDERR_INVALIDPARAMS);
@@ -2158,17 +2116,18 @@ HRESULT SUGARCALL idds_update_overlay7(idds* self, LPRECT lpSrcRect, LPDIRECTDRA
         }
     }
 
-    iddsconn connector;
-    ZeroMemory(&connector, sizeof(iddsconn));
+    MAKETYPE(iddsconn, connector);
+    connector.instance = self->instance;
+    CopyMemory(&connector.id, &self->id, sizeof(GUID));
 
+    MAKETYPE(iddsconn, target);
     if (lpDDDestSurface != NULL) {
         idds* surface = (idds*)lpDDDestSurface;
-        connector.instance = surface->instance;
-        CopyMemory(&connector.id, &surface->id, sizeof(GUID));
+        target.instance = surface->instance;
+        CopyMemory(&target.id, &surface->id, sizeof(GUID));
     }
 
-    LEAVE(dds_update_overlay(self->instance, &self->id,
-        lpSrcRect, &connector, lpDestRect, dwFlags, lpDDOverlayFx));
+    LEAVE(dds_update_overlay(self->instance, &connector, lpSrcRect, &target, lpDestRect, dwFlags, lpDDOverlayFx));
 }
 
 HRESULT SUGARCALL idds_update_overlay_z_order7(idds* self, DWORD dwFlags, LPDIRECTDRAWSURFACE7 lpDDSReference) {
@@ -2179,9 +2138,7 @@ HRESULT SUGARCALL idds_update_overlay_z_order7(idds* self, DWORD dwFlags, LPDIRE
     // TODO validate dwFlags
     // TODO Enter
 
-    iddsconn connector;
-    ZeroMemory(&connector, sizeof(iddsconn));
-
+    MAKETYPE(iddsconn, connector);
     if (lpDDSReference != NULL) {
         idds* surface = (idds*)lpDDSReference;
         connector.instance = surface->instance;

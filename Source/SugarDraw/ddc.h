@@ -31,3 +31,5 @@ HRESULT ddc_initialize(ddc* self, dd* object);
 HRESULT ddc_is_clip_list_changed(ddc* self, bool* changed);
 HRESULT ddc_set_clip_list(ddc* self, RGNDATA* region);
 HRESULT ddc_set_hwnd(ddc* self, HWND hwnd);
+
+HRESULT ddc_get_region(ddc* self, RGNDATA** region);

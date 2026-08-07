@@ -1,10 +1,11 @@
 #pragma once
 
+#include "blitter.h"
+#include "driver.h"
 #include "sugar.h"
 
 typedef struct dd dd;
 typedef struct ddsd ddsd;
-typedef struct driver driver;
 
 #define DDGSTATUS_NONE          0x00000000
 #define DDGSTATUS_SIGNALED      0x00000001
@@ -13,6 +14,7 @@ typedef struct driver driver;
 typedef struct ddg {
     sugar*              manager;
     dd*                 instance;
+    blitter*            blitter;
     driver*             driver;
     DDSURFACEDESC2      desc;
     CRITICAL_SECTION    lock;
@@ -22,7 +24,7 @@ typedef struct ddg {
     HANDLE              start, stop, exit, ready, updating;
 } ddg;
 
-HRESULT ddg_create(sugar* manager, driver* driver, ddg** object);
+HRESULT ddg_create(sugar* manager, blitter* blitter, driver* driver, ddg** object);
 void ddg_release(ddg* self);
 
 HRESULT ddg_get_status(ddg* self, u32* status);

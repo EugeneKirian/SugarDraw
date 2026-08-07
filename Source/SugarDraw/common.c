@@ -21,6 +21,19 @@ BOOL IsInsideRect(const RECT* bounds, const RECT* rect) {
     return TRUE;
 }
 
+BOOL IsSameSizeRect(const RECT* rect, const RECT* value) {
+    if (rect == NULL || value == NULL) {
+        return FALSE;
+    }
+
+    if ((rect->bottom - rect->top) == (value->bottom - value->top)
+        && (rect->right - rect->left) == (value->right - value->left)) {
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
 BOOL IsValidRect(const RECT* rect) {
     if (rect == NULL) {
         return FALSE;

@@ -1,5 +1,9 @@
 #include "plt.h"
 
+// TODO This should be precomputed and held as part of palette and/or surface
+// so that it does not being computed on each frame, even multiple times per frame.
+// TODO optimization
+
 HRESULT plt_create(arena* arena, u32 count, const RGBQUAD* quads, plt** object) {
     if (arena == NULL || object == NULL || quads == NULL) {
         return DDERR_INVALIDPARAMS;
@@ -12,7 +16,7 @@ HRESULT plt_create(arena* arena, u32 count, const RGBQUAD* quads, plt** object) 
     HRESULT hr = DD_OK;
     plt* instance = NULL;
     if (SUCCEEDED(hr = arena_allocate(arena, sizeof(plt), &instance))) {
-        // Traversal of the 32x32x32 quantized color cube
+        // Traversal of the 32 x 32 x 32 quantized color cube.
         for (u32 r = 0; r < 32; r++) {
             // Map 5-bit cell coordinate [0..31] to
             // the center of its 8-bit intensity range [0..255]
@@ -25,7 +29,7 @@ HRESULT plt_create(arena* arena, u32 count, const RGBQUAD* quads, plt** object) 
                     const u32 b8 = (b << 3) | (b >> 2);
 
                     u32 index = 0;
-                    u32 min_dist_sq = UINT_MAX;
+                    u32 min_distance = UINT_MAX;
 
                     // Find closest palette color using integer Redmean color distance.
                     for (u32 i = 0; i < count; i++) {
@@ -40,21 +44,21 @@ HRESULT plt_create(arena* arena, u32 count, const RGBQUAD* quads, plt** object) 
                         // Redmean formula: ΔE^2 = (2 + rbar/256) * ΔR^2 + 4 * ΔG^2 + (2 + (255-rbar)/256) * ΔB^2
                         // Uses bitwise shifts (>> 8) instead of float divisions for fast execution.
 
-                        const u32 dist_sq = (u32)((((512 + rmean) * dr * dr) >> 8)
+                        const u32 distance = (u32)((((512 + rmean) * dr * dr) >> 8)
                             + (4 * dg * dg) + (((767 - rmean) * db * db) >> 8));
 
-                        if (dist_sq < min_dist_sq) {
-                            min_dist_sq = dist_sq;
+                        if (distance < min_distance) {
+                            min_distance = distance;
                             index = i;
 
-                            // Early exit: 0 distance indicates an exact color match
-                            if (dist_sq == 0) {
+                            // Early exit: 0 distance indicates an exact color match.
+                            if (distance == 0) {
                                 break;
                             }
                         }
                     }
 
-                    // Store closest palette index into table cell
+                    // Store closest palette index into table cell.
                     instance->colors[r][g][b] = (u8)index;
                 }
             }

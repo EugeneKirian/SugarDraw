@@ -21,4 +21,4 @@ typedef struct plt {
 // in the provided palette. Uses the Redmean weighted Euclidean distance metric
 // to approximate human visual sensitivity (perceptually favoring green over blue).
 
-static HRESULT plt_create(arena* arena, u32 count, const RGBQUAD* quads, plt** object);
+HRESULT plt_create(arena* arena, u32 count, const RGBQUAD* quads, plt** object);

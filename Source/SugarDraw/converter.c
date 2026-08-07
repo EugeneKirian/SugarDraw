@@ -51,6 +51,12 @@ static const flag ddgdis[DDGDI_FLAG_COUNT];
 #define DDLOCK_FLAG_COUNT           12
 static const flag ddlocks[DDLOCK_FLAG_COUNT];
 
+#define DDOVER_FLAG_COUNT           26
+static const flag ddovers[DDOVER_FLAG_COUNT];
+
+#define DDOVERFX_FLAG_COUNT         4
+static const flag ddoverfxs[DDOVERFX_FLAG_COUNT];
+
 #define DDPCAPS_FLAG_COUNT          11
 static const flag ddpcapss[DDPCAPS_FLAG_COUNT];
 
@@ -160,6 +166,23 @@ const char* ddcolorkey_to_string(const DDCOLORKEY* key) {
         key->dwColorSpaceLowValue, key->dwColorSpaceHighValue);
 
     return messages[index];
+}
+
+const char* ddoverlayfx_to_string(const DDOVERLAYFX* effects) {
+    if (effects == NULL) {
+        return "NULL";
+    }
+
+    const u32 result =
+        index = (index + 1) % CONVERTER_MAX_MESSAGE_COUNT;
+
+    // TODO incomplete
+
+    sprintf(messages[result],
+        "{ dwSize = %u, dwFlags = %s }",
+        effects->dwSize, ddoverfx_to_string(effects->dwFlags));
+
+    return messages[result];
 }
 
 const char* ddpixelformat_to_string(const DDPIXELFORMAT* format) {
@@ -297,6 +320,14 @@ const char* ddgdi_to_string(const u32 flags) {
 
 const char* ddlock_to_string(const u32 flags) {
     return flag_to_string(flags, DDLOCK_FLAG_COUNT, ddlocks);
+}
+
+const char* ddover_to_string(const u32 flags) {
+    return flag_to_string(flags, DDOVER_FLAG_COUNT, ddovers);
+}
+
+const char* ddoverfx_to_string(const u32 flags) {
+    return flag_to_string(flags, DDOVERFX_FLAG_COUNT, ddoverfxs);
 }
 
 const char* ddpcaps_to_string(const u32 flags) {
@@ -539,7 +570,7 @@ const char* rect_to_string(const RECT* rect) {
     index = (index + 1) % CONVERTER_MAX_MESSAGE_COUNT;
 
     sprintf(messages[index],
-        "{ left = %d, top = %d, right= %d, bottom = %d }",
+        "{ left = %d, top = %d, right = %d, bottom = %d }",
         rect->left, rect->top, rect->right, rect->bottom);
 
     return messages[index];
@@ -781,6 +812,42 @@ const flag ddlocks[DDLOCK_FLAG_COUNT] = {
     { DDLOCK_EVENT,                     "DDLOCK_EVENT" },
     { DDLOCK_WAIT,                      "DDLOCK_WAIT" },
     { DDLOCK_SURFACEMEMORYPTR,          "DDLOCK_SURFACEMEMORYPTR" }
+};
+
+const flag ddovers[DDOVER_FLAG_COUNT] = {
+    { DDOVER_DEGRADEARGBSCALING,        "DDOVER_DEGRADEARGBSCALING" },
+    { DDOVER_ARGBSCALEFACTORS,          "DDOVER_ARGBSCALEFACTORS" },
+    { DDOVER_BOBHARDWARE,               "DDOVER_BOBHARDWARE" },
+    { DDOVER_INTERLEAVED,               "DDOVER_INTERLEAVED" },
+    { DDOVER_OVERRIDEBOBWEAVE,          "DDOVER_OVERRIDEBOBWEAVE" },
+    { DDOVER_BOB,                       "DDOVER_BOB" },
+    { DDOVER_AUTOFLIP,                  "DDOVER_AUTOFLIP" },
+    { DDOVER_DDFX,                      "DDOVER_DDFX" },
+    { DDOVER_REFRESHALL,                "DDOVER_REFRESHALL" },
+    { DDOVER_REFRESHDIRTYRECTS,         "DDOVER_REFRESHDIRTYRECTS" },
+    { DDOVER_ADDDIRTYRECT,              "DDOVER_ADDDIRTYRECT" },
+    { DDOVER_SHOW,                      "DDOVER_SHOW" },
+    { DDOVER_KEYSRCOVERRIDE,            "DDOVER_KEYSRCOVERRIDE" },
+    { DDOVER_KEYSRC,                    "DDOVER_KEYSRC" },
+    { DDOVER_KEYDESTOVERRIDE,           "DDOVER_KEYDESTOVERRIDE" },
+    { DDOVER_KEYDEST,                   "DDOVER_KEYDEST" },
+    { DDOVER_HIDE,                      "DDOVER_HIDE" },
+    { DDOVER_ALPHASRCSURFACEOVERRIDE,   "DDOVER_ALPHASRCSURFACEOVERRIDE" },
+    { DDOVER_ALPHASRCNEG,               "DDOVER_ALPHASRCNEG" },
+    { DDOVER_ALPHASRCCONSTOVERRIDE,     "DDOVER_ALPHASRCCONSTOVERRIDE" },
+    { DDOVER_ALPHASRC,                  "DDOVER_ALPHASRC" },
+    { DDOVER_ALPHAEDGEBLEND,            "DDOVER_ALPHAEDGEBLEND" },
+    { DDOVER_ALPHADESTSURFACEOVERRIDE,  "DDOVER_ALPHADESTSURFACEOVERRIDE" },
+    { DDOVER_ALPHADESTNEG,              "DDOVER_ALPHADESTNEG" },
+    { DDOVER_ALPHADESTCONSTOVERRIDE,    "DDOVER_ALPHADESTCONSTOVERRIDE" },
+    { DDOVER_ALPHADEST,                 "DDOVER_ALPHADEST" }
+};
+
+const flag ddoverfxs[DDOVERFX_FLAG_COUNT] = {
+    { DDOVERFX_DEINTERLACE,             "DDOVERFX_DEINTERLACE" },
+    { DDOVERFX_MIRRORUPDOWN,            "DDOVERFX_MIRRORUPDOWN" },
+    { DDOVERFX_MIRRORLEFTRIGHT,         "DDOVERFX_MIRRORLEFTRIGHT" },
+    { DDOVERFX_ARITHSTRETCHY,           "DDOVERFX_ARITHSTRETCHY" }
 };
 
 const flag ddpcapss[DDPCAPS_FLAG_COUNT] = {

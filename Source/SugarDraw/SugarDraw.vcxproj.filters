@@ -57,9 +57,6 @@
     <ClInclude Include="lock.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="blt.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="connector.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -171,9 +168,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="lock.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="blt.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="connector.c">

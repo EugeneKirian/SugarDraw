@@ -1,5 +1,6 @@
 #pragma once
 
+#include "blitter.h"
 #include "intfc.h"
 #include "sugar.h"
 
@@ -13,6 +14,7 @@ typedef struct dd {
     GUID                id;
     intfc*              interfaces;
     CRITICAL_SECTION    lock;
+    blitter*            blitter;
     driver*             driver;
     ddg*                graphics;
     

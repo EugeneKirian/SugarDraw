@@ -1,4 +1,3 @@
-#include "blt.h"
 #include "ddsd.h"
 #include "lock.h"
 #include "utilities.h"
@@ -18,19 +17,20 @@ typedef struct bitmap {
 
 typedef struct ddsd {
     allocator*          allocator;
+    blitter*            blitter;
     s32                 refs;
     bool                exposed;
     DDSURFACEDESC2*     desc;
     CRITICAL_SECTION    lock;
     lock*               locks;
     bitmap              bitmap;
-    u8*                 data;
+    u8*                 pixels;
     s32                 pages;
     u32                 uniqueness;
 } ddsd;
 
-HRESULT ddsd_create(allocator* allocator, ddsd** object) {
-    if (allocator == NULL || object == NULL) {
+HRESULT ddsd_create(allocator* allocator, blitter* blitter, ddsd** object) {
+    if (allocator == NULL || blitter == NULL || object == NULL) {
         return DDERR_INVALIDPARAMS;
     }
 
@@ -38,6 +38,7 @@ HRESULT ddsd_create(allocator* allocator, ddsd** object) {
     ddsd* instance = NULL;
     if (SUCCEEDED(hr = allocator_allocate(allocator, MEM_TAG_DIRECTDRAWSURFACEDATA, sizeof(ddsd), &instance))) {
         instance->allocator = allocator;
+        instance->blitter = blitter;
         if (SUCCEEDED(hr = lock_create(allocator, MEM_TAG_DIRECTDRAWSURFACEDATA, &instance->locks))) {
             InitializeCriticalSection(&instance->lock);
             instance->refs = 1;
@@ -58,8 +59,8 @@ void ddsd_release(ddsd* self) {
         if (!(self->desc->dwFlags & DDSD_LPSURFACE)) {
             // TODO hdc, hbitmap, maping
 
-            if (self->data != NULL) {
-                allocator_free(self->allocator, self->data);
+            if (self->pixels != NULL) {
+                allocator_free(self->allocator, self->pixels);
             }
         }
 
@@ -106,7 +107,7 @@ HRESULT ddsd_initialize(ddsd* self, DDSURFACEDESC2* desc) {
         return DDERR_INVALIDPARAMS;
     }
 
-    if (self->data != NULL) {
+    if (self->pixels != NULL) {
         return DDERR_ALREADYINITIALIZED;
     }
 
@@ -119,7 +120,7 @@ HRESULT ddsd_initialize(ddsd* self, DDSURFACEDESC2* desc) {
     self->uniqueness++;
 
     if (self->desc->dwFlags & DDSD_LPSURFACE) {
-        self->data = desc->lpSurface;
+        self->pixels = desc->lpSurface;
     }
     else {
         // TODO go here only for DC-supporting formats
@@ -186,16 +187,6 @@ HRESULT ddsd_initialize(ddsd* self, DDSURFACEDESC2* desc) {
             ((DWORD*)self->bitmap.header.palette)[2]
                 = self->desc->ddpfPixelFormat.dwBBitMask;
         }break;
-               // TODO
-               //case 24:
-               //case 32: {
-               //    ((DWORD*)self->bitmap.header.palette)[0]
-               //        = self->desc->ddpfPixelFormat.dwRBitMask;
-               //    ((DWORD*)self->bitmap.header.palette)[1]
-               //        = self->desc->ddpfPixelFormat.dwGBitMask;
-               //    ((DWORD*)self->bitmap.header.palette)[2]
-               //        = self->desc->ddpfPixelFormat.dwBBitMask;
-               //}break;
         }
 
         header->biSizeImage = ((aligned_width * bpp + 63) & ~63) / 8 * self->desc->dwHeight; // TODO
@@ -210,13 +201,167 @@ HRESULT ddsd_initialize(ddsd* self, DDSURFACEDESC2* desc) {
         self->desc->lPitch = stride;
         self->bitmap.bitmap = CreateDIBSection(self->bitmap.dc,
             (BITMAPINFO*)&self->bitmap.header.info, DIB_RGB_COLORS,
-            &self->data, self->bitmap.mapping, 0);
+            &self->pixels, self->bitmap.mapping, 0);
         if (self->bitmap.bitmap == NULL) {
             // TODO clean-up...
             EXITCODE(DDERR_OUTOFMEMORY);
         }
 
         SelectObject(self->bitmap.dc, self->bitmap.bitmap);
+    }
+
+exit:
+    LeaveCriticalSection(&self->lock);
+
+    return hr;
+}
+
+HRESULT ddsd_blt(ddsd* self, RECT* dst, ddsd* surface, RECT* src, RGNDATA* region, u32 flags, DDBLTFX* effects) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (dst == NULL) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if (flags != DDBLT_NONE && (flags & ~DDBLT_VALID)) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if (!(flags & (DDBLT_COLORFILL | DDBLT_DEPTHFILL))) {
+        if (surface == NULL || src == NULL) {
+            return DDERR_INVALIDPARAMS;
+        }
+    }
+
+    if (flags & DDBLT_REQUIRES_FX_STRUCT) {
+        if (effects == NULL) {
+            return DDERR_INVALIDPARAMS;
+        }
+
+        if (effects->dwSize != sizeof(DDBLTFX)) {
+            return DDERR_INVALIDPARAMS;
+        }
+    }
+
+    if (self->desc->ddpfPixelFormat.dwFlags & DDPF_PALETTEINDEXEDTO8) {
+        return DDERR_UNSUPPORTEDFORMAT;
+    }
+
+    if (surface != NULL) {
+        if (surface->desc->ddpfPixelFormat.dwFlags & DDPF_PALETTEINDEXEDTO8) {
+            return DDERR_UNSUPPORTEDFORMAT;
+        }
+    }
+
+    HRESULT hr = DD_OK;
+    EnterCriticalSection(&self->lock);
+
+    MAKETYPE(RECT, rect);
+    if (SUCCEEDED(hr = ddsd_get_rect(self, &rect))) {
+        // Clip the destination rectangle lock to the overlap area,
+        // So that the area outside of the surface isn't affected,
+        // and preserve the original rectangle for proper blitting later.
+        if (IntersectRect(&rect, dst, &rect)) {
+            if (SUCCEEDED(hr = ddsd_lock_rect(self, &rect))) {
+                if (surface != NULL) {
+                    if (FAILED(hr = ddsd_lock_rect(surface, src))) {
+                        ddsd_unlock_rect(self, &rect);
+                        EXITCODE(DDERR_LOCKEDSURFACES);
+                    }
+                }
+
+                MAKETYPE(blt, submission);
+                if (flags & (DDBLT_COLORFILL | DDBLT_DEPTHFILL)) {
+                    submission.flags |= BLITTER_FILL;
+                }
+
+                if (flags & DDBLT_DDFX) {
+                    submission.flags |= BLITTER_EFFECTS;
+                }
+
+                if (flags & DDBLT_ROTATIONANGLE) {
+                    submission.flags |= BLITTER_ROTATION_ANGLE;
+                }
+
+                if (surface != NULL) {
+                    if (flags & DDBLT_KEYSRC) {
+                        submission.flags |= BLITTER_SRC_COLOR_KEY;
+                        CopyMemory(&submission.colors.source, &surface->desc->ddckCKSrcBlt, sizeof(DDCOLORKEY));
+                    }
+
+                    if (flags & DDBLT_KEYSRCOVERRIDE) {
+                        submission.flags |= BLITTER_SRC_COLOR_KEY;
+                        CopyMemory(&submission.colors.source, &effects->ddckSrcColorkey, sizeof(DDCOLORKEY));
+                    }
+                }
+
+                if (flags & DDBLT_KEYDEST) {
+                    submission.flags |= BLITTER_DEST_COLOR_KEY;
+                    CopyMemory(&submission.colors.destination, &self->desc->ddckCKDestBlt, sizeof(DDCOLORKEY));
+                }
+
+                if (flags & DDBLT_KEYDESTOVERRIDE) {
+                    submission.flags |= BLITTER_DEST_COLOR_KEY;
+                    CopyMemory(&submission.colors.destination, &effects->ddckDestColorkey, sizeof(DDCOLORKEY));
+                }
+
+                submission.images.destination.pixels = self->pixels;
+                submission.images.destination.width = self->desc->dwWidth;
+                submission.images.destination.height = self->desc->dwHeight;
+                submission.images.destination.stride = self->desc->lPitch;
+                CopyMemory(&submission.images.destination.format,
+                    &self->desc->ddpfPixelFormat, sizeof(DDPIXELFORMAT));
+
+                if ((submission.images.destination.format.dwFlags & DDPF_PALETTEINDEXED1)
+                    || (submission.images.destination.format.dwFlags & DDPF_PALETTEINDEXED2)
+                    || (submission.images.destination.format.dwFlags & DDPF_PALETTEINDEXED4)
+                    || (submission.images.destination.format.dwFlags & DDPF_PALETTEINDEXED8)) {
+                    // TODO count based on palette caps
+                    submission.images.destination.palette.count =
+                        1 << submission.images.destination.format.dwRGBBitCount;
+                    submission.images.destination.palette.palette = self->bitmap.header.palette;
+                }
+
+                if (surface != NULL) {
+                    submission.images.source.pixels = surface->pixels;
+                    submission.images.source.width = surface->desc->dwWidth;
+                    submission.images.source.height = surface->desc->dwHeight;
+                    submission.images.source.stride = surface->desc->lPitch;
+                    CopyMemory(&submission.images.source.format,
+                        &surface->desc->ddpfPixelFormat, sizeof(DDPIXELFORMAT));
+
+                    if ((submission.images.source.format.dwFlags & DDPF_PALETTEINDEXED1)
+                        || (submission.images.source.format.dwFlags & DDPF_PALETTEINDEXED2)
+                        || (submission.images.source.format.dwFlags & DDPF_PALETTEINDEXED4)
+                        || (submission.images.source.format.dwFlags & DDPF_PALETTEINDEXED8)) {
+                        // TODO count based on palette caps
+                        submission.images.source.palette.count =
+                            1 << submission.images.source.format.dwRGBBitCount;
+                        submission.images.source.palette.palette = surface->bitmap.header.palette;
+                    }
+                }
+
+                CopyMemory(&submission.rects.destination, dst, sizeof(RECT));
+
+                if (src != NULL) {
+                    CopyMemory(&submission.rects.source, src, sizeof(RECT));
+                }
+
+                submission.region = region;
+
+                if (SUCCEEDED(hr = blitter_submit(self->blitter, &submission))) {
+                    self->uniqueness++;
+                }
+
+                if (surface != NULL) {
+                    ddsd_unlock_rect(surface, src);
+                }
+
+                ddsd_unlock_rect(self, &rect);
+            }
+        }
     }
 
 exit:
@@ -238,9 +383,6 @@ HRESULT ddsd_blt_fast(ddsd* self, RECT* dst, ddsd* surface, RECT* src, u32 trans
         return DDERR_INVALIDPARAMS;
     }
 
-    // TODO DDERR_OVERLAPPINGRECTS overlapping rects?
-    // TODO DDERR_COLORKEYNOTSET
-
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
@@ -251,32 +393,65 @@ HRESULT ddsd_blt_fast(ddsd* self, RECT* dst, ddsd* surface, RECT* src, u32 trans
             EXITCODE(DDERR_LOCKEDSURFACES);
         }
 
+        MAKETYPE(blt, submission);
         if (transfer & DDBLTFAST_SRCCOLORKEY) {
-            blt_src_color_key(self->data, (u32)dst->left, (u32)dst->top, (u32)dst->right, (u32)dst->bottom,
-                &self->desc->ddpfPixelFormat, self->desc->lPitch,
-                surface->data, (u32)src->left, (u32)src->top, (u32)src->right, (u32)src->bottom,
-                &surface->desc->ddpfPixelFormat, surface->desc->lPitch,
-                surface->desc->ddckCKSrcBlt.dwColorSpaceLowValue,
-                surface->desc->ddckCKSrcBlt.dwColorSpaceHighValue);
-        }
-        else if (transfer & DDBLTFAST_DESTCOLORKEY) {
-            blt_dst_color_key(self->data, (u32)dst->left, (u32)dst->top, (u32)dst->right, (u32)dst->bottom,
-                &self->desc->ddpfPixelFormat, self->desc->lPitch,
-                surface->data, (u32)src->left, (u32)src->top, (u32)src->right, (u32)src->bottom,
-                &surface->desc->ddpfPixelFormat, surface->desc->lPitch,
-                surface->desc->ddckCKDestBlt.dwColorSpaceLowValue,
-                surface->desc->ddckCKDestBlt.dwColorSpaceHighValue);
-        }
-        else {
-            blt_blit(self->data, (u32)dst->left, (u32)dst->top, (u32)dst->right, (u32)dst->bottom,
-                &self->desc->ddpfPixelFormat, self->desc->lPitch,
-                self->bitmap.header.palette,
-                surface->data, (u32)src->left, (u32)src->top, (u32)src->right, (u32)src->bottom,
-                &surface->desc->ddpfPixelFormat, surface->desc->lPitch,
-                surface->bitmap.header.palette);
+            submission.flags |= BLITTER_SRC_COLOR_KEY;
+            CopyMemory(&submission.colors.source, &surface->desc->ddckCKSrcBlt, sizeof(DDCOLORKEY));
         }
 
-        self->uniqueness++;
+        if (transfer & DDBLTFAST_DESTCOLORKEY) {
+            submission.flags |= BLITTER_DEST_COLOR_KEY;
+            CopyMemory(&submission.colors.destination, &self->desc->ddckCKDestBlt, sizeof(DDCOLORKEY));
+        }
+
+        submission.images.destination.pixels = self->pixels;
+        submission.images.destination.width = self->desc->dwWidth;
+        submission.images.destination.height = self->desc->dwHeight;
+        submission.images.destination.stride = self->desc->lPitch;
+        CopyMemory(&submission.images.destination.format,
+            &self->desc->ddpfPixelFormat, sizeof(DDPIXELFORMAT));
+
+        if (submission.images.destination.format.dwFlags & DDPF_PALETTEINDEXEDTO8) {
+            return DDERR_UNSUPPORTEDFORMAT;
+        }
+
+        if ((submission.images.destination.format.dwFlags & DDPF_PALETTEINDEXED1)
+            || (submission.images.destination.format.dwFlags & DDPF_PALETTEINDEXED2)
+            || (submission.images.destination.format.dwFlags & DDPF_PALETTEINDEXED4)
+            || (submission.images.destination.format.dwFlags & DDPF_PALETTEINDEXED8)) {
+            // TODO get palette count from the palette caps
+            submission.images.destination.palette.count =
+                1 << submission.images.destination.format.dwRGBBitCount;
+            submission.images.destination.palette.palette = self->bitmap.header.palette;
+        }
+
+        submission.images.source.pixels = surface->pixels;
+        submission.images.source.width = surface->desc->dwWidth;
+        submission.images.source.height = surface->desc->dwHeight;
+        submission.images.source.stride = surface->desc->lPitch;
+        CopyMemory(&submission.images.source.format,
+            &surface->desc->ddpfPixelFormat, sizeof(DDPIXELFORMAT));
+
+        if (submission.images.source.format.dwFlags & DDPF_PALETTEINDEXEDTO8) {
+            return DDERR_UNSUPPORTEDFORMAT;
+        }
+
+        if ((submission.images.source.format.dwFlags & DDPF_PALETTEINDEXED1)
+            || (submission.images.source.format.dwFlags & DDPF_PALETTEINDEXED2)
+            || (submission.images.source.format.dwFlags & DDPF_PALETTEINDEXED4)
+            || (submission.images.source.format.dwFlags & DDPF_PALETTEINDEXED8)) {
+            // TODO get palette count from the palette caps
+            submission.images.source.palette.count =
+                1 << submission.images.source.format.dwRGBBitCount;
+            submission.images.source.palette.palette = surface->bitmap.header.palette;
+        }
+
+        CopyMemory(&submission.rects.destination, dst, sizeof(RECT));
+        CopyMemory(&submission.rects.source, src, sizeof(RECT));
+
+        if (SUCCEEDED(hr = blitter_submit(self->blitter, &submission))) {
+            self->uniqueness++;
+        }
 
         ddsd_unlock_rect(surface, src);
         ddsd_unlock_rect(self, dst);
@@ -293,7 +468,7 @@ HRESULT ddsd_get_palette(ddsd* self, u32 base, u32 count, RGBQUAD* quads) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (self->data == NULL) {
+    if (self->pixels == NULL) {
         return DDERR_NOTINITIALIZED;
     }
 
@@ -321,7 +496,7 @@ HRESULT ddsd_set_palette(ddsd* self, u32 start, u32 count, RGBQUAD* quads) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (self->data == NULL) {
+    if (self->pixels == NULL) {
         return DDERR_NOTINITIALIZED;
     }
 
@@ -347,8 +522,6 @@ HRESULT ddsd_set_palette(ddsd* self, u32 start, u32 count, RGBQUAD* quads) {
 
     CopyMemory(&self->bitmap.header.palette[start], quads, count * sizeof(RGBQUAD));
 
-    // TODO what to do for custom memory that does not have HDC?
-
     LeaveCriticalSection(&self->lock);
 
     return DD_OK;
@@ -359,7 +532,7 @@ HRESULT ddsd_get_dc(ddsd* self, HDC* hdc) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (self->data == NULL) {
+    if (self->pixels == NULL) {
         return DDERR_NOTINITIALIZED;
     }
 
@@ -401,7 +574,7 @@ HRESULT ddsd_release_dc(ddsd* self, HDC hdc) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (self->data == NULL) {
+    if (self->pixels == NULL) {
         return DDERR_NOTINITIALIZED;
     }
 
@@ -447,7 +620,7 @@ HRESULT ddsd_lock(ddsd* self, RECT* rect, DDSURFACEDESC2* desc) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (self->data == NULL) {
+    if (self->pixels == NULL) {
         return DDERR_NOTINITIALIZED;
     }
 
@@ -470,7 +643,7 @@ HRESULT ddsd_lock(ddsd* self, RECT* rect, DDSURFACEDESC2* desc) {
         const u32 bytes = (bits == 15 ? 16 : bits) / 8;
         // TODO proper offset calculation
         CopyMemory(desc, self->desc, sizeof(DDSURFACEDESC2));
-        desc->lpSurface = self->data + rect->left * bytes + rect->top * self->desc->lPitch;
+        desc->lpSurface = self->pixels + rect->left * bytes + rect->top * self->desc->lPitch;
         desc->lPitch = self->desc->lPitch;
     }
 
@@ -484,7 +657,7 @@ HRESULT ddsd_unlock(ddsd* self, RECT* rect) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (self->data == NULL) {
+    if (self->pixels == NULL) {
         return DDERR_NOTINITIALIZED;
     }
 
@@ -515,7 +688,7 @@ HRESULT ddsd_page_lock(ddsd* self) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (self->data == NULL) {
+    if (self->pixels == NULL) {
         return DDERR_NOTINITIALIZED;
     }
 
@@ -529,7 +702,7 @@ HRESULT ddsd_page_unlock(ddsd* self) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (self->data == NULL) {
+    if (self->pixels == NULL) {
         return DDERR_NOTINITIALIZED;
     }
 
@@ -551,7 +724,7 @@ HRESULT ddsd_set_surface_desc(ddsd* self, DDSURFACEDESC2* desc) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (self->data == NULL) {
+    if (self->pixels == NULL) {
         return DDERR_NOTINITIALIZED;
     }
 
@@ -569,7 +742,7 @@ HRESULT ddsd_get_uniqueness_value(ddsd* self, u32* value) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (self->data == NULL) {
+    if (self->pixels == NULL) {
         return DDERR_NOTINITIALIZED;
     }
 
@@ -583,7 +756,7 @@ HRESULT ddsd_change_uniqueness_value(ddsd* self) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (self->data == NULL) {
+    if (self->pixels == NULL) {
         return DDERR_NOTINITIALIZED;
     }
 
@@ -611,7 +784,7 @@ HRESULT ddsd_get_rect(ddsd* self, RECT* rect) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (self->data == NULL) {
+    if (self->pixels == NULL) {
         return DDERR_NOTINITIALIZED;
     }
 
@@ -632,7 +805,7 @@ HRESULT ddsd_inside_rect(ddsd* self, RECT* rect) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (self->data == NULL) {
+    if (self->pixels == NULL) {
         return DDERR_NOTINITIALIZED;
     }
 

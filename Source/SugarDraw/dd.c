@@ -28,22 +28,26 @@ HRESULT dd_create(sugar* manager, const GUID* rclsid, driver* driver, dd** objec
         instance->driver = driver;
         CopyMemory(&instance->id, rclsid, sizeof(GUID));
         instance->cooperation.mode.dmSize = sizeof(DEVMODEA);
-        if (SUCCEEDED(hr = intfc_create(manager->allocator, MEM_TAG_DIRECTDRAW, &instance->interfaces))) {
-            if (SUCCEEDED(hr = arr_create(manager->allocator, MEM_TAG_DIRECTDRAW, &instance->clippers))) {
-                if (SUCCEEDED(hr = arr_create(manager->allocator, MEM_TAG_DIRECTDRAW, &instance->palettes))) {
-                    if (SUCCEEDED(hr = arr_create(manager->allocator, MEM_TAG_DIRECTDRAW, &instance->surfaces))) {
-                        InitializeCriticalSection(&instance->lock);
-                        *object = instance;
-                        return hr;
+        if (SUCCEEDED(hr = blitter_create(manager->allocator, &instance->blitter))) {
+            if (SUCCEEDED(hr = intfc_create(manager->allocator, MEM_TAG_DIRECTDRAW, &instance->interfaces))) {
+                if (SUCCEEDED(hr = arr_create(manager->allocator, MEM_TAG_DIRECTDRAW, &instance->clippers))) {
+                    if (SUCCEEDED(hr = arr_create(manager->allocator, MEM_TAG_DIRECTDRAW, &instance->palettes))) {
+                        if (SUCCEEDED(hr = arr_create(manager->allocator, MEM_TAG_DIRECTDRAW, &instance->surfaces))) {
+                            InitializeCriticalSection(&instance->lock);
+                            *object = instance;
+                            return hr;
+                        }
+
+                        arr_release(instance->palettes);
                     }
 
-                    arr_release(instance->palettes);
+                    arr_release(instance->clippers);
                 }
 
-                arr_release(instance->clippers);
+                intfc_release(instance->interfaces);
             }
 
-            intfc_release(instance->interfaces);
+            blitter_release(instance->blitter);
         }
 
         allocator_free(manager->allocator, instance);
@@ -55,6 +59,10 @@ HRESULT dd_create(sugar* manager, const GUID* rclsid, driver* driver, dd** objec
 void dd_release(dd* self, u32 flags) {
     if (self != NULL) {
         EnterCriticalSection(&self->lock);
+
+        if (self->graphics != NULL) {
+            ddg_release(self->graphics);
+        }
 
         if (self->interfaces != NULL) {
             const s32 count = intfc_get_count(self->interfaces);
@@ -104,8 +112,8 @@ void dd_release(dd* self, u32 flags) {
             arr_release(self->clippers);
         }
 
-        if (self->graphics != NULL) {
-            ddg_release(self->graphics);
+        if (self->blitter != NULL) {
+            blitter_release(self->blitter);
         }
 
         LeaveCriticalSection(&self->lock);
@@ -823,7 +831,7 @@ HRESULT dd_initialize(dd* self, const GUID* device) {
 
     if (SUCCEEDED(hr = sugar_get_display_mode(self->manager, &self->cooperation.mode))) {
         ddg* instance = NULL;
-        if (SUCCEEDED(hr = ddg_create(self->manager, self->driver, &instance))) {
+        if (SUCCEEDED(hr = ddg_create(self->manager, self->blitter, self->driver, &instance))) {
             if (SUCCEEDED(hr = ddg_initialize(instance, self))) {
                 self->graphics = instance;
                 goto exit;

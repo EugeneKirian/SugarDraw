@@ -1,10 +1,10 @@
 #pragma once
 
-#include "allocator.h"
+#include "blitter.h"
 
 typedef struct ddsd ddsd;
 
-HRESULT ddsd_create(allocator* allocator, ddsd** object);
+HRESULT ddsd_create(allocator* allocator, blitter* blitter, ddsd** object);
 void ddsd_release(ddsd* self);
 
 ULONG ddsd_add_ref(ddsd* self);
@@ -12,8 +12,8 @@ ULONG ddsd_remove_ref(ddsd* self);
 
 HRESULT ddsd_initialize(ddsd* self, DDSURFACEDESC2* desc);
 
-// TODO blit stuff here?
-// TODO Blt BltBatch?
+HRESULT ddsd_blt(ddsd* self, RECT* dst, ddsd* surface, RECT* src, RGNDATA* region, u32 flags, DDBLTFX* effects);
+
 HRESULT ddsd_blt_fast(ddsd* self, RECT* dst, ddsd* surface, RECT* src, u32 transfer);
 
 HRESULT ddsd_get_palette(ddsd* self, u32 start, u32 count, RGBQUAD* quads);

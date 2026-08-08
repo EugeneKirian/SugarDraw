@@ -181,12 +181,12 @@ HRESULT ddp_get_entries(ddp* self, u32 flags, u32 base, u32 count, PALETTEENTRY*
     if (self->instance == NULL) {
         return DDERR_NOTINITIALIZED;
     }
-    
-    // TODO better checks on count for 1, 2, 4, and 8-bit palettes
-    if (flags != DDPFLAGS_NONE
-        || base >= PALETTE_MAX_ENTRY_COUNT
-        || count > PALETTE_MAX_ENTRY_COUNT
-        || (base + count > PALETTE_MAX_ENTRY_COUNT)) {
+
+    if (flags != DDPFLAGS_NONE) {
+        return DDERR_INVALIDPARAMS;
+    }
+
+    if (self->count < base + count) {
         return DDERR_INVALIDPARAMS;
     }
 
@@ -241,7 +241,7 @@ HRESULT ddp_initialize(ddp* self, dd* object, u32 flags) {
         return DDERR_UNSUPPORTED; // TODO
     }
 
-    self->caps = flags;
+    self->caps = flags | DDPCAPS_VSYNC;
     self->instance = object;
     self->uniqueness++;
 
@@ -257,10 +257,7 @@ HRESULT ddp_set_entries(ddp* self, u32 flags, u32 start, u32 count, PALETTEENTRY
         return DDERR_NOTINITIALIZED;
     }
 
-    if (flags != DDPFLAGS_NONE
-        || start >= PALETTE_MAX_ENTRY_COUNT
-        || count > PALETTE_MAX_ENTRY_COUNT
-        || (start + count > PALETTE_MAX_ENTRY_COUNT)) {
+    if (flags != DDPFLAGS_NONE) {
         return DDERR_INVALIDPARAMS;
     }
 
@@ -290,21 +287,23 @@ HRESULT ddp_set_entries(ddp* self, u32 flags, u32 start, u32 count, PALETTEENTRY
         self->entries[255].peFlags = 0;
     }
 
-    if (SUCCEEDED(hr = palette_entry_to_rgb_quad(&self->entries[start], count, &self->quads[start]))) {
-        if (SUCCEEDED(hr = plt_set_entries(self->lookup, self->count, self->quads))) {
-            const u32 item_count = arr_get_count(self->surfaces);
-            for (u32 i = 0; i < item_count; i++) {
-                dds* instance = NULL;
-                if (SUCCEEDED(arr_get_item(self->surfaces, i, &instance))) {
-                    hr = dds_set_palette_entries(instance, self->count, self->quads, self->lookup);
+    if (SUCCEEDED(hr = ddg_is_ready(self->instance->graphics, TRUE))) {
+        if (SUCCEEDED(hr = palette_entry_to_rgb_quad(&self->entries[start], count, &self->quads[start]))) {
+            if (SUCCEEDED(hr = plt_set_entries(self->lookup, self->count, self->quads))) {
+                const u32 item_count = arr_get_count(self->surfaces);
+                for (u32 i = 0; i < item_count; i++) {
+                    dds* instance = NULL;
+                    if (SUCCEEDED(arr_get_item(self->surfaces, i, &instance))) {
+                        hr = dds_set_palette_entries(instance, self->count, self->quads, self->lookup);
+                    }
                 }
-            }
 
-            if (self->caps & (DDPCAPS_PRIMARYSURFACE | DDPCAPS_PRIMARYSURFACELEFT)) {
-                hr = ddg_signal_update(self->instance->graphics);
-            }
+                if (self->caps & (DDPCAPS_PRIMARYSURFACE | DDPCAPS_PRIMARYSURFACELEFT)) {
+                    hr = ddg_signal_update(self->instance->graphics);
+                }
 
-            self->uniqueness++;
+                self->uniqueness++;
+            }
         }
     }
 

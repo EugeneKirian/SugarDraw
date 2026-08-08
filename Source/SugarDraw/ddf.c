@@ -30,8 +30,8 @@ void ddf_release(ddf* self, u32 flags) {
         EnterCriticalSection(&self->lock);
 
         if (self->interfaces != NULL) {
-            const s32 count = intfc_get_count(self->interfaces);
-            for (s32 i = 0; i < count; i++) {
+            const u32 count = intfc_get_count(self->interfaces);
+            for (u32 i = 0; i < count; i++) {
                 iddf* instance = NULL;
                 if (SUCCEEDED(intfc_get_item(self->interfaces, i, &instance))) {
                     iddf_release(instance);

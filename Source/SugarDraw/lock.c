@@ -179,7 +179,8 @@ HRESULT lock_remove_item(lock* self, const RECT* rect) {
 
     for (u32 i = 0; i < self->count; i++) {
         if (CompareMemory(&self->items[i], rect, sizeof(RECT))) {
-            MoveMemory(&self->items[i], &self->items[i + 1], (self->count - i - 1) * sizeof(RECT));
+            MoveMemory(&self->items[i],
+                &self->items[i + 1], (self->count - i - 1) * sizeof(RECT));
             self->count--;
             break;
         }
@@ -190,7 +191,7 @@ HRESULT lock_remove_item(lock* self, const RECT* rect) {
     return DD_OK;
 }
 
-s32 lock_get_count(lock* self) {
+u32 lock_get_count(lock* self) {
     return self == NULL ? 0 : self->count;
 }
 

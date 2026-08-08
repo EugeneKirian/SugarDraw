@@ -13,4 +13,4 @@ HRESULT lock_get_item(lock* self, u32 index, RECT* rect);
 HRESULT lock_acquire(lock* self, const RECT* rect);
 HRESULT lock_unacquire(lock* self, const RECT* rect);
 
-s32 lock_get_count(lock* self);
+u32 lock_get_count(lock* self);

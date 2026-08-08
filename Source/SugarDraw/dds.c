@@ -2252,18 +2252,7 @@ HRESULT dds_unregister_overlay(dds* self, iddsconn* overlay) {
         return DDERR_INVALIDPARAMS;
     }
 
-    const u32 item_count = connector_get_count(self->overlays);
-    for (u32 i = 0; i < item_count; i++) {
-        MAKETYPE(iddsconn, connector);
-        if (SUCCEEDED(connector_get_item(self->overlays, i, &connector))) {
-            if (connector.instance == overlay->instance
-                && IsEqualGUID(&connector.id, &overlay->id)) {
-                return connector_remove_item(self->overlays, i);
-            }
-        }
-    }
-
-    return DDERR_NOTFOUND;
+    return connector_remove_item(self->overlays, overlay);
 }
 
 HRESULT dds_signal_update(dds* self) {

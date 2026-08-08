@@ -65,8 +65,8 @@ void dd_release(dd* self, u32 flags) {
         }
 
         if (self->interfaces != NULL) {
-            const s32 count = intfc_get_count(self->interfaces);
-            for (s32 i = 0; i < count; i++) {
+            const u32 item_count = intfc_get_count(self->interfaces);
+            for (u32 i = 0; i < item_count; i++) {
                 idd* instance = NULL;
                 if (SUCCEEDED(intfc_get_item(self->interfaces, i, &instance))) {
                     idd_release(instance);

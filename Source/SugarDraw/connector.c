@@ -92,23 +92,31 @@ HRESULT connector_get_item(connector* self, u32 index, void* object) {
     return DD_OK;
 }
 
-HRESULT connector_remove_item(connector* self, u32 index) {
+HRESULT connector_remove_item(connector* self, const void* object) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (self->count < index + 1) {
+    if (object == NULL) {
         return DDERR_INVALIDPARAMS;
     }
 
+    HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
-    if (self->count != index + 1) {
-        MoveMemory(&self->items[index],
-            &self->items[index + 1], (self->count - index - 1) * sizeof(conn));
+    const conn* connector = (conn*)object;
+    for (u32 i = 0; i < self->count; i++) {
+        if (self->items[i].instance == connector->instance) {
+            MoveMemory(&self->items[i],
+                &self->items[i + 1], (self->count - i - 1) * sizeof(conn));
+            self->count--;
+            goto exit;
+        }
     }
 
-    self->count--;
+    hr = DDERR_NOTFOUND;
+
+exit:
     LeaveCriticalSection(&self->lock);
 
     return DD_OK;

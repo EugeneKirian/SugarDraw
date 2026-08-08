@@ -103,11 +103,8 @@ HRESULT arr_remove_item(arr* self, const void* object) {
 
     for (u32 i = 0; i < self->count; i++) {
         if (self->items[i] == object) {
-            if (self->count != i + 1) {
-                MoveMemory(&self->items[i],
-                    &self->items[i + 1], (self->count - i - 1) * sizeof(void*));
-            }
-
+            MoveMemory(&self->items[i],
+                &self->items[i + 1], (self->count - i - 1) * sizeof(void*));
             self->count--;
             goto exit;
         }

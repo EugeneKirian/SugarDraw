@@ -39,8 +39,8 @@ void ddc_release(ddc* self, u32 flags) {
         EnterCriticalSection(&self->lock);
 
         if (self->interfaces != NULL) {
-            const s32 count = intfc_get_count(self->interfaces);
-            for (s32 i = 0; i < count; i++) {
+            const u32 item_count = intfc_get_count(self->interfaces);
+            for (u32 i = 0; i < item_count; i++) {
                 iddc* instance = NULL;
                 if (SUCCEEDED(intfc_get_item(self->interfaces, i, &instance))) {
                     iddc_release(instance);

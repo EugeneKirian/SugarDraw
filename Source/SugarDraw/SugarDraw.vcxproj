@@ -52,6 +52,7 @@
     <ClInclude Include="lock.h" />
     <ClInclude Include="logger.h" />
     <ClInclude Include="plt.h" />
+    <ClInclude Include="region.h" />
     <ClInclude Include="sampler.h" />
     <ClInclude Include="spanner.h" />
     <ClInclude Include="sugar.h" />
@@ -90,6 +91,7 @@
     <ClCompile Include="lock.c" />
     <ClCompile Include="logger.c" />
     <ClCompile Include="plt.c" />
+    <ClCompile Include="region.c" />
     <ClCompile Include="sampler.c" />
     <ClCompile Include="spanner.c" />
     <ClCompile Include="sugar.c" />

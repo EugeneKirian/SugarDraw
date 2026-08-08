@@ -400,40 +400,86 @@ HRESULT ddc_get_region(ddc* self, RGNDATA** region) {
     return hr;
 }
 
+// Performs a 2D geometric intersection between the existing
+// rectangles of the region and a single clipping rectangle.
+//
+// 1. OVERLAP MATRIX (Clamping Coordinates):
+//
+//                      rect.top
+//            rect.left +-------------------+ 
+//                      |                   |
+//  rects[i] -> +-------+-------------------+---+
+//              |       |                   |   |
+//              |       |                   |   |
+//              |   +---+---------------+   |   |
+//              |   |   | Intersection  |   |   |
+//              |   |   |               |   |   |
+//              |   +---+---------------+   |   |
+//              |       |                   |   |
+//              +-------+-------------------+---+
+//                      |                   |
+//                      +-------------------+ rect.right
+//                                rect.bottom
+//    
+// 2. CLAMPING MATH:
+//      New Left = max(rect.left, rects[i].left)
+//      New Top = max(rect.top, rects[i].top)
+//      New Right = min(rect.right, rects[i].right)
+//      New Bottom = min(rect.bottom, rects[i].bottom)
 HRESULT ddc_clip_region(ddc* self, RECT* rect, RGNDATA* region) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
-    }
-
-    if (region == NULL) {
-        return DDERR_INVALIDPARAMS;
     }
 
     if (rect == NULL) {
         return DD_OK;
     }
 
-    // The rect is exactly matching or covering the entire region boundaries.
-    if (rect->left <= region->rdh.rcBound.left
-        && rect->top <= region->rdh.rcBound.top
-        && rect->right >= region->rdh.rcBound.right
-        && rect->bottom >= region->rdh.rcBound.bottom) {
+    // The rect is exactly matching or covering the entire region.
+    const RECT* bounds = &self->region->rdh.rcBound;
+    if (rect->left <= bounds->left && rect->top <= bounds->top
+        && rect->right >= bounds->right && rect->bottom >= bounds->bottom) {
         return DD_OK;
     }
 
-    for (u32 i = 0; i < region->rdh.nCount; i++) {
-        RECT* current =
-            (RECT*)(region->Buffer + i * sizeof(RECT));
-
-        current->left = max(rect->left, current->left);
-        current->right = min(rect->right, current->right);
-        current->top = max(rect->top, current->top);
-        current->bottom = min(rect->bottom, current->bottom);
+    const u32 count = self->region->rdh.nCount;
+    RECT* rects = (RECT*)self->region->Buffer;
+    for (u32 i = 0; i < count; i++) {
+        rects[i].left = max(rect->left, rects[i].left);
+        rects[i].top = max(rect->top, rects[i].top);
+        rects[i].right = min(rect->right, rects[i].right);
+        rects[i].bottom = min(rect->bottom, rects[i].bottom);
     }
 
     return ddc_compact_region(self, region);
 }
 
+// Cleans up the region's rectangle array and updates bounding box.
+//
+// 1. RECTANGLE PRUNING (Filtering Zero / Negative Area Rects):
+//
+//  Before Compaction : [Valid R1] [Degenerate R2] [Valid R3]
+//                                      |
+//                       (bottom <= top OR right <= left)
+//                                      |
+//                                      v (Discard & Shift)
+//  After Compaction : [Valid R1] [Valid R3]
+//
+// 2. BOUNDING BOX RECALCULATION:
+//
+//   bounds.left = min(...)
+//   +----------------------------------------------+
+//   | bounds.top = min(R1.top, R3.top)             |
+//   |                                              |
+//   | +------------+                               |
+//   | |  Rect 1    |                               |
+//   | +------------+               +-------------+ |
+//   |                              |   Rect 3    | |
+//   |                              +-------------+ |
+//   |                                              |
+//   | bounds.bottom = max(R1.bottom, R3.bottom)    |
+//   +----------------------------------------------+
+//                          bounds.right = max(...)
 HRESULT ddc_compact_region(ddc* self, RGNDATA* region) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
@@ -457,6 +503,28 @@ HRESULT ddc_compact_region(ddc* self, RGNDATA* region) {
     }
 
     region->rdh.nCount = target;
+
+    // Update region boundaries.
+    ZeroMemory(&self->region->rdh.rcBound, sizeof(RECT));
+
+    if (target != 0) {
+        RECT bounds;
+        bounds.left = INT_MAX;
+        bounds.top = INT_MAX;
+        bounds.right = INT_MIN;
+        bounds.bottom = INT_MIN;
+
+        for (u32 i = 0; i < target; i++) {
+            bounds.left = min(bounds.left, rects[i].left);
+            bounds.top = min(bounds.top, rects[i].top);
+            bounds.right = max(bounds.right, rects[i].right);
+            bounds.bottom = max(bounds.bottom, rects[i].bottom);
+        }
+
+        if (IsValidRect(&bounds)) {
+            CopyMemory(&self->region->rdh.rcBound, &bounds, sizeof(RECT));
+        }
+    }
 
     return DD_OK;
 }

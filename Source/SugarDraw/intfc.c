@@ -22,13 +22,8 @@ HRESULT intfc_create(allocator* allocator, memory_tag tag, intfc** object) {
         return DDERR_INVALIDPARAMS;
     }
 
-    if (tag < MEM_TAG_NONE || tag >= MEM_TAG_COUNT) {
-        return DDERR_INVALIDPARAMS;
-    }
-
     HRESULT hr = DD_OK;
     intfc* instance = NULL;
-
     if (SUCCEEDED(hr = allocator_allocate(allocator, tag, sizeof(intfc), &instance))) {
         instance->allocator = allocator;
         instance->count = 0;
@@ -171,10 +166,8 @@ HRESULT intfc_resize(intfc* self) {
     }
 
     HRESULT hr = DD_OK;
-    const size_t capacity = max(self->capacity, 1) * DEFAULT_CAPACITY_MULTIPLIER;
-    const size_t size = capacity * sizeof(intf);
-
-    if (SUCCEEDED(hr = allocator_reallocate(self->allocator, self->items, size, &self->items))) {
+    const u32 capacity = max(self->capacity, 1) * DEFAULT_CAPACITY_MULTIPLIER;
+    if (SUCCEEDED(hr = allocator_reallocate(self->allocator, self->items, capacity * sizeof(intf), &self->items))) {
         self->capacity = capacity;
     }
 

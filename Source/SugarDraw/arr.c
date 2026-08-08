@@ -17,13 +17,8 @@ HRESULT arr_create(allocator* allocator, memory_tag tag, arr** object) {
         return DDERR_INVALIDPARAMS;
     }
 
-    if (tag < MEM_TAG_NONE || tag >= MEM_TAG_COUNT) {
-        return DDERR_INVALIDPARAMS;
-    }
-
     HRESULT hr = DD_OK;
     arr* instance = NULL;
-
     if (SUCCEEDED(hr = allocator_allocate(allocator, tag, sizeof(arr), &instance))) {
         instance->allocator = allocator;
         instance->count = 0;
@@ -163,10 +158,8 @@ HRESULT arr_resize(arr* self) {
     }
 
     HRESULT hr = DD_OK;
-    const size_t capacity = max(self->capacity, 1) * DEFAULT_CAPACITY_MULTIPLIER;
-    const size_t size = capacity * sizeof(void*);
-
-    if (SUCCEEDED(hr = allocator_reallocate(self->allocator, self->items, size, (void**)&self->items))) {
+    const u32 capacity = max(self->capacity, 1) * DEFAULT_CAPACITY_MULTIPLIER;
+    if (SUCCEEDED(hr = allocator_reallocate(self->allocator, self->items, capacity * sizeof(void*), (void**)&self->items))) {
         self->capacity = capacity;
     }
 

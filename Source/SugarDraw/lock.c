@@ -5,7 +5,7 @@
 
 struct lock {
     allocator*          allocator;
-    s32                 count, capacity;
+    u32                 count, capacity;
     RECT*               items;
     CRITICAL_SECTION    lock;
 };
@@ -19,13 +19,8 @@ HRESULT lock_create(allocator* allocator, memory_tag tag, lock** object) {
         return DDERR_INVALIDPARAMS;
     }
 
-    if (tag < MEM_TAG_NONE || tag >= MEM_TAG_COUNT) {
-        return DDERR_INVALIDPARAMS;
-    }
-
     HRESULT hr = DD_OK;
     lock* instance = NULL;
-
     if (SUCCEEDED(hr = allocator_allocate(allocator, tag, sizeof(lock), &instance))) {
         instance->allocator = allocator;
         instance->count = 0;
@@ -64,7 +59,7 @@ HRESULT lock_clear(lock* self) {
     return DD_OK;
 }
 
-HRESULT lock_get_item(lock* self, s32 index, RECT* rect) {
+HRESULT lock_get_item(lock* self, u32 index, RECT* rect) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
@@ -97,7 +92,7 @@ HRESULT lock_acquire(lock* self, const RECT* rect) {
     EnterCriticalSection(&self->lock);
 
     MAKETYPE(RECT, overlap);
-    for (s32 i = 0; i < self->count; i++) {
+    for (u32 i = 0; i < self->count; i++) {
         if (IntersectRect(&overlap, rect, &self->items[i])) {
             EXITCODE(DDERR_SURFACEBUSY);
         }
@@ -127,7 +122,7 @@ HRESULT lock_unacquire(lock* self, const RECT* rect) {
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
-    for (s32 i = 0; i < self->count; i++) {
+    for (u32 i = 0; i < self->count; i++) {
         if (CompareMemory(rect, &self->items[i], sizeof(RECT))) {
             EXITCODE(lock_remove_item(self, rect));
         }
@@ -182,14 +177,10 @@ HRESULT lock_remove_item(lock* self, const RECT* rect) {
 
     EnterCriticalSection(&self->lock);
 
-    for (s32 i = 0; i < self->count; i++) {
+    for (u32 i = 0; i < self->count; i++) {
         if (CompareMemory(&self->items[i], rect, sizeof(RECT))) {
-            for (s32 k = i; k < self->count - 1; k++) {
-                CopyMemory(&self->items[k], &self->items[k + 1], sizeof(RECT));
-            }
-
+            MoveMemory(&self->items[i], &self->items[i + 1], (self->count - i - 1) * sizeof(RECT));
             self->count--;
-
             break;
         }
     }
@@ -209,10 +200,8 @@ HRESULT lock_resize(lock* self) {
     }
 
     HRESULT hr = DD_OK;
-    const size_t capacity = max(self->capacity, 1) * DEFAULT_CAPACITY_MULTIPLIER;
-    const size_t size = capacity * sizeof(RECT);
-
-    if (SUCCEEDED(hr = allocator_reallocate(self->allocator, self->items, size, &self->items))) {
+    const u32 capacity = max(self->capacity, 1) * DEFAULT_CAPACITY_MULTIPLIER;
+    if (SUCCEEDED(hr = allocator_reallocate(self->allocator, self->items, capacity * sizeof(RECT), &self->items))) {
         self->capacity = capacity;
     }
 

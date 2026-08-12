@@ -57,7 +57,7 @@ void ddp_release(ddp* self, u32 flags) {
             for (u32 i = 0; i < item_count; i++) {
                 dds* instance = NULL;
                 if (SUCCEEDED(arr_get_item(self->surfaces, i, &instance))) {
-                    if (SUCCEEDED(dds_wait_for_vertical_blank(instance, TRUE))) {
+                    if (SUCCEEDED(dds_wait_for_vertical_blank(instance, NULL, TRUE))) {
                         dds_remove_palette(instance);
                     }
                 }
@@ -296,10 +296,6 @@ HRESULT ddp_set_entries(ddp* self, u32 flags, u32 start, u32 count, PALETTEENTRY
                     if (SUCCEEDED(arr_get_item(self->surfaces, i, &instance))) {
                         hr = dds_set_palette_entries(instance, self->count, self->quads, self->lookup);
                     }
-                }
-
-                if (self->caps & (DDPCAPS_PRIMARYSURFACE | DDPCAPS_PRIMARYSURFACELEFT)) {
-                    hr = ddg_signal_update(self->instance->graphics);
                 }
 
                 self->uniqueness++;

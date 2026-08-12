@@ -6,6 +6,7 @@
 
 typedef struct dd dd;
 typedef struct ddsd ddsd;
+typedef struct region region;
 
 #define DDGSTATUS_NONE          0x00000000
 #define DDGSTATUS_SIGNALED      0x00000001
@@ -22,6 +23,7 @@ typedef struct ddg {
     volatile u32        status;
     ddsd*               surface;
     HANDLE              start, stop, exit, ready, updating;
+    region*             region;
 } ddg;
 
 HRESULT ddg_create(sugar* manager, blitter* blitter, driver* driver, ddg** object);

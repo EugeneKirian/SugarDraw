@@ -263,10 +263,8 @@ HRESULT dd_create_clipper(dd* self, void** object) {
         if (SUCCEEDED(hr = ddc_initialize(instance, self))) {
             idd* intfc = NULL;
             if (SUCCEEDED(hr = ddc_query_interface(instance, &IID_IDirectDrawClipper, &intfc))) {
-                if (SUCCEEDED(hr = arr_add_item(self->clippers, instance))) {
-                    *object = intfc;
-                    goto exit;
-                }
+                *object = intfc;
+                goto exit;
             }
         }
 
@@ -474,13 +472,13 @@ HRESULT dd_create_surface(dd* self, const GUID* riid, DDSURFACEDESC2* desc, void
             return DDERR_NOEXCLUSIVEMODE;
         }
 
-        desc->ddsCaps.dwCaps |= DDSCAPS_VISIBLE;
+        desc->ddsCaps.dwCaps |= DDSCAPS_VISIBLE | DDSCAPS_VIDEOMEMORY | DDSCAPS_LOCALVIDMEM;
         if (desc->ddsCaps.dwCaps & DDSCAPS_FLIP) {
             desc->ddsCaps.dwCaps |= DDSCAPS_FRONTBUFFER;
         }
     }
 
-    if (!(desc->dwFlags & DDSD_LPSURFACE)) {
+    if (desc->dwFlags & DDSD_LPSURFACE) {
         desc->ddsCaps.dwCaps |= DDSCAPS_SYSTEMMEMORY;// | DDSCAPS_VIDEOMEMORY; // TODO verify...
     }
 
@@ -492,7 +490,7 @@ HRESULT dd_create_surface(dd* self, const GUID* riid, DDSURFACEDESC2* desc, void
     if (SUCCEEDED(hr = ddpixelformat_validate(&desc->ddpfPixelFormat))) {
         dds* instance = NULL;
         if (SUCCEEDED(hr = dds_create(self->manager, DDS_NONE, &instance))) {
-            if (SUCCEEDED(hr = dds_initialize(instance, self, desc))) {
+            if (SUCCEEDED(hr = dds_initialize(instance, riid, self, desc))) {
                 idds* intfc = NULL;
                 if (SUCCEEDED(hr = dds_query_interface(instance, riid, &intfc))) {
                     if (SUCCEEDED(hr = arr_add_item(self->surfaces, instance))) {
@@ -947,6 +945,10 @@ HRESULT dd_set_cooperative_level(dd* self, HWND hwnd, u32 flags) {
     }
 
     // TODO window hooking, is it needed for full screen?
+    
+    // TODO window hooking - ERASE primary surface on resize/move:
+    // using FillRect(sdc, &rect, (HBRUSH)GetClassLongPtrA(hwnd, GCLP_HBRBACKGROUND)); or window dc?
+    // ddoverlap.exe font.exe
 
     // Restore display mode when user changes the mode from exclusive to normal.
     const bool reset_display_mode = (flags & DDSCL_NORMAL)

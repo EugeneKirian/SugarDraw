@@ -50,7 +50,7 @@ HRESULT region_clear(region* self) {
     }
 
     self->region->rdh.nCount = 0;
-    self->region->rdh.dwSize = 0;
+    self->region->rdh.nRgnSize = 0;
     ZeroMemory(&self->region->rdh.rcBound, sizeof(RECT));
 
     return DD_OK;
@@ -331,19 +331,48 @@ HRESULT region_compact(region* self) {
         return DDERR_INVALIDOBJECT;
     }
 
-    // Consolidate overlapping rectangles.
+    if (self->region->rdh.nCount == 0) {
+        return DD_OK;
+    }
 
-    u32 target = 0;
-    u32 count = self->region->rdh.nCount;
+    const u32 count = self->region->rdh.nCount;
     RECT* rects = (RECT*)self->region->Buffer;
+
+    // Filter out zero and inverted area rectangles in-place.
+    u32 compact = 0;
     for (u32 i = 0; i < count; i++) {
         if (rects[i].bottom > rects[i].top && rects[i].right > rects[i].left) {
-            if (target != i) {
-                CopyMemory(&rects[target], &rects[i], sizeof(RECT));
+            if (compact != i) {
+                CopyMemory(&rects[compact], &rects[i], sizeof(RECT));
             }
 
-            target++;
+            compact++;
         }
+    }
+
+    // Consolidate overlapping / mergeable rectangles.
+    u32 target = 0;
+    for (u32 i = 0; i < compact; i++) {
+        bool merged = TRUE;
+        RECT current;
+        CopyMemory(&current, &rects[i], sizeof(RECT));
+
+        // Continuously absorb any existing target rects that merge with 'current'
+        while (merged) {
+            merged = FALSE;
+            for (u32 j = 0; j < target; j++) {
+                MAKETYPE(RECT, combined);
+                if (MergeRect(&combined, &rects[j], &current)) {
+                    CopyMemory(&current, &combined, sizeof(RECT));
+                    CopyMemory(&rects[j], &rects[target - 1], sizeof(RECT));
+                    target--;
+                    merged = TRUE;
+                    break;
+                }
+            }
+        }
+
+        CopyMemory(&rects[target++], &current, sizeof(RECT));
     }
 
     self->region->rdh.nCount = target;
@@ -379,14 +408,12 @@ HRESULT region_capacity(region* self, u32 count) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (count < self->capacity) {
-        return DDERR_INVALIDPARAMS;
-    }
-
     HRESULT hr = DD_OK;
-    const u32 size = sizeof(RGNDATAHEADER) + count * sizeof(RECT);
-    if (SUCCEEDED(hr = allocator_reallocate(self->allocator, self->region, size, (void**)&self->region))) {
-        self->capacity = count;
+    if (self->capacity < count) {
+        const u32 size = sizeof(RGNDATAHEADER) + count * sizeof(RECT);
+        if (SUCCEEDED(hr = allocator_reallocate(self->allocator, self->region, size, (void**)&self->region))) {
+            self->capacity = count;
+        }
     }
 
     return hr;

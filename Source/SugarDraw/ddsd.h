@@ -2,6 +2,9 @@
 
 #include "blitter.h"
 
+#define DDSD_TRACKCHANGES   0x00000001
+#define DDSD_DCEXPOSED      0x00000002
+
 typedef struct ddsd ddsd;
 typedef struct plt plt;
 
@@ -24,7 +27,7 @@ HRESULT ddsd_remove_palette(ddsd* self);
 HRESULT ddsd_get_dc(ddsd* self, HDC* hdc);
 HRESULT ddsd_release_dc(ddsd* self, HDC hdc);
 
-HRESULT ddsd_lock(ddsd* self, RECT* rect, DDSURFACEDESC2* desc);
+HRESULT ddsd_lock(ddsd* self, RECT* rect, DDSURFACEDESC2* desc, u32 flags);
 HRESULT ddsd_unlock(ddsd* self, RECT* rect);
 
 HRESULT ddsd_page_lock(ddsd* self);
@@ -40,7 +43,11 @@ HRESULT ddsd_change_uniqueness_value(ddsd* self);
 HRESULT ddsd_get_lock_count(ddsd* self, u32* count);
 HRESULT ddsd_get_rect(ddsd* self, RECT* rect);
 HRESULT ddsd_inside_rect(ddsd* self, RECT* rect);
-HRESULT ddsd_lock_rect(ddsd* self, RECT* rect);
+HRESULT ddsd_lock_rect(ddsd* self, RECT* rect, u32 flags);
 HRESULT ddsd_unlock_rect(ddsd* self, RECT* rect);
 
 HRESULT ddsd_restore_surface(ddsd* self);
+
+HRESULT ddsd_clear_region(ddsd* self);
+HRESULT ddsd_get_region(ddsd* self, RGNDATA** region);
+HRESULT ddsd_set_region_tracking(ddsd* self, bool track);

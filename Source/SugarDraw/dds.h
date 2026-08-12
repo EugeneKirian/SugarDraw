@@ -73,7 +73,7 @@ HRESULT dds_get_overlay_position(dds* self, s32* x, s32* y);
 HRESULT dds_get_palette(dds* self, iddpconn* palette);
 HRESULT dds_get_pixel_format(dds* self, DDPIXELFORMAT* format);
 HRESULT dds_get_surface_desc(dds* self, DDSURFACEDESC2* desc);
-HRESULT dds_initialize(dds* self, dd* object, DDSURFACEDESC2* desc);
+HRESULT dds_initialize(dds* self, const GUID* riid, dd* object, DDSURFACEDESC2* desc);
 HRESULT dds_is_lost(dds* self);
 HRESULT dds_lock(dds* self, RECT* rect, DDSURFACEDESC2* desc, u32 flags);
 HRESULT dds_release_dc(dds* self, HDC hdc);
@@ -117,4 +117,4 @@ HRESULT dds_register_overlay(dds* self, iddsconn* overlay);
 HRESULT dds_unregister_overlay(dds* self, iddsconn* overlay);
 
 HRESULT dds_signal_update(dds* self);
-HRESULT dds_wait_for_vertical_blank(dds* self, bool wait);
+HRESULT dds_wait_for_vertical_blank(dds* self, dds* seurface, bool wait);

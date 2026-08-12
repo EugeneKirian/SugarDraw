@@ -45,6 +45,7 @@ static HRESULT SUGARCALL idds_blt_fast2(idds*, DWORD, DWORD, LPDIRECTDRAWSURFACE
 static HRESULT SUGARCALL idds_delete_attached_surface2(idds*, DWORD, LPDIRECTDRAWSURFACE2);
 static HRESULT SUGARCALL idds_flip2(idds*, LPDIRECTDRAWSURFACE2, DWORD);
 static HRESULT SUGARCALL idds_get_attached_surface2(idds*, LPDDSCAPS, LPDIRECTDRAWSURFACE2*);
+static HRESULT SUGARCALL idds_initialize2(idds*, LPDIRECTDRAW, LPDDSURFACEDESC);
 static HRESULT SUGARCALL idds_update_overlay2(idds*, LPRECT, LPDIRECTDRAWSURFACE2, LPRECT, DWORD, LPDDOVERLAYFX);
 static HRESULT SUGARCALL idds_update_overlay_z_order2(idds*, DWORD, LPDIRECTDRAWSURFACE2);
 static HRESULT SUGARCALL idds_get_dd_interface2(idds*, LPVOID*);
@@ -57,6 +58,7 @@ static HRESULT SUGARCALL idds_blt_fast3(idds*, DWORD, DWORD, LPDIRECTDRAWSURFACE
 static HRESULT SUGARCALL idds_delete_attached_surface3(idds*, DWORD, LPDIRECTDRAWSURFACE3);
 static HRESULT SUGARCALL idds_flip3(idds*, LPDIRECTDRAWSURFACE3, DWORD);
 static HRESULT SUGARCALL idds_get_attached_surface3(idds*, LPDDSCAPS, LPDIRECTDRAWSURFACE3*);
+static HRESULT SUGARCALL idds_initialize3(idds*, LPDIRECTDRAW, LPDDSURFACEDESC);
 static HRESULT SUGARCALL idds_update_overlay3(idds*, LPRECT, LPDIRECTDRAWSURFACE3, LPRECT, DWORD, LPDDOVERLAYFX);
 static HRESULT SUGARCALL idds_update_overlay_z_order3(idds*, DWORD, LPDIRECTDRAWSURFACE3);
 static HRESULT SUGARCALL idds_set_surface_desc3(idds*, LPDDSURFACEDESC, DWORD);
@@ -86,6 +88,7 @@ static HRESULT SUGARCALL idds_blt_fast7(idds*, DWORD, DWORD, LPDIRECTDRAWSURFACE
 static HRESULT SUGARCALL idds_delete_attached_surface7(idds*, DWORD, LPDIRECTDRAWSURFACE7);
 static HRESULT SUGARCALL idds_flip7(idds*, LPDIRECTDRAWSURFACE7, DWORD);
 static HRESULT SUGARCALL idds_get_attached_surface7(idds*, LPDDSCAPS2, LPDIRECTDRAWSURFACE7*);
+static HRESULT SUGARCALL idds_initialize7(idds*, LPDIRECTDRAW, LPDDSURFACEDESC2);
 static HRESULT SUGARCALL idds_lock7(idds*, LPRECT, LPDDSURFACEDESC2, DWORD, HANDLE);
 static HRESULT SUGARCALL idds_update_overlay7(idds*, LPRECT, LPDIRECTDRAWSURFACE7, LPRECT, DWORD, LPDDOVERLAYFX);
 static HRESULT SUGARCALL idds_update_overlay_z_order7(idds*, DWORD, LPDIRECTDRAWSURFACE7);
@@ -272,16 +275,16 @@ typedef struct idds3_vft {
     IDDSQUERYINTERFACE          QueryInterface;
     IDDSADDREF                  AddRef;
     IDDSRELEASE                 Release;
-    IDDSADDATTACHEDSURFACE7     AddAttachedSurface;
+    IDDSADDATTACHEDSURFACE3     AddAttachedSurface;
     IDDSADDOVERLAYDIRTYRECT     AddOverlayDirtyRect;
-    IDDSBLT7                    Blt;
+    IDDSBLT3                    Blt;
     IDDSBLTBATCH                BltBatch;
-    IDDSBLTFAST7                BltFast;
-    IDDSDELETEATTACHEDSURFACE7  DeleteAttachedSurface;
+    IDDSBLTFAST3                BltFast;
+    IDDSDELETEATTACHEDSURFACE3  DeleteAttachedSurface;
     IDDSENUMATTACHEDSURFACES    EnumAttachedSurfaces;
     IDDSENUMOVERLAYZORDERS      EnumOverlayZOrders;
-    IDDSFLIP7                   Flip;
-    IDDSGETATTACHEDSURFACE7     GetAttachedSurface;
+    IDDSFLIP3                   Flip;
+    IDDSGETATTACHEDSURFACE3     GetAttachedSurface;
     IDDSGETBLTSTATUS            GetBltStatus;
     IDDSGETCAPS1                GetCaps;
     IDDSGETCLIPPER              GetClipper;
@@ -302,9 +305,9 @@ typedef struct idds3_vft {
     IDDSSETOVERLAYPOSITION      SetOverlayPosition;
     IDDSSETPALETTE              SetPalette;
     IDDSUNLOCK                  Unlock;
-    IDDSUPDATEOVERLAY7          UpdateOverlay;
+    IDDSUPDATEOVERLAY3          UpdateOverlay;
     IDDSUPDATEOVERLAYDISPLAY    UpdateOverlayDisplay;
-    IDDSUPDATEOVERLAYZORDER7    UpdateOverlayZOrder;
+    IDDSUPDATEOVERLAYZORDER3    UpdateOverlayZOrder;
     IDDSGETDDINTERFACE2         GetDDInterface;
     IDDSPAGELOCK2               PageLock;
     IDDSPAGEUNLOCK2             PageUnlock;
@@ -315,16 +318,16 @@ const static idds3_vft idds3_self = {
     idds_query_interface,
     idds_add_ref,
     idds_remove_ref,
-    idds_add_attached_surface7,
+    idds_add_attached_surface3,
     idds_add_overlay_dirty_rect,
-    idds_blt7,
+    idds_blt3,
     idds_blt_batch,
-    idds_blt_fast7,
-    idds_delete_attached_surface7,
+    idds_blt_fast3,
+    idds_delete_attached_surface3,
     idds_enum_attached_surfaces,
     idds_enum_overlay_z_orders,
-    idds_flip7,
-    idds_get_attached_surface7,
+    idds_flip3,
+    idds_get_attached_surface3,
     idds_get_blt_status,
     idds_get_caps1,
     idds_get_clipper,
@@ -345,9 +348,9 @@ const static idds3_vft idds3_self = {
     idds_set_overlay_position,
     idds_set_palette,
     idds_unlock,
-    idds_update_overlay7,
+    idds_update_overlay3,
     idds_update_overlay_display,
-    idds_update_overlay_z_order7,
+    idds_update_overlay_z_order3,
     idds_get_dd_interface2,
     idds_page_lock2,
     idds_page_unlock2,
@@ -996,7 +999,7 @@ HRESULT SUGARCALL idds_initialize1(idds* self, LPDIRECTDRAW lpDD, LPDDSURFACEDES
     CopyMemory(&desc, lpDDSurfaceDesc, sizeof(DDSURFACEDESC));
     desc.dwSize = sizeof(DDSURFACEDESC2);
 
-    LEAVE(dds_initialize(self->instance, ((idd*)lpDD)->instance, &desc));
+    LEAVE(dds_initialize(self->instance, &IID_IDirectDrawSurface, ((idd*)lpDD)->instance, &desc));
 }
 
 HRESULT SUGARCALL idds_is_lost(idds* self) {
@@ -1311,6 +1314,28 @@ HRESULT SUGARCALL idds_get_attached_surface2(idds* self, LPDDSCAPS lpDDSCaps, LP
     LEAVE(hr);
 }
 
+HRESULT SUGARCALL idds_initialize2(idds* self, LPDIRECTDRAW lpDD, LPDDSURFACEDESC lpDDSurfaceDesc) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    ENTER("0x%p, %s", lpDD, ddsurfacedesc_to_string(lpDDSurfaceDesc));
+
+    if (lpDD == NULL || lpDDSurfaceDesc == NULL) {
+        LEAVE(DDERR_INVALIDPARAMS);
+    }
+
+    if (lpDDSurfaceDesc->dwSize != sizeof(DDSURFACEDESC)) {
+        LEAVE(DDERR_INVALIDPARAMS);
+    }
+
+    MAKEDDSURFACEDESC2(desc);
+    CopyMemory(&desc, lpDDSurfaceDesc, sizeof(DDSURFACEDESC));
+    desc.dwSize = sizeof(DDSURFACEDESC2);
+
+    LEAVE(dds_initialize(self->instance, &IID_IDirectDrawSurface2, ((idd*)lpDD)->instance, &desc));
+}
+
 HRESULT SUGARCALL idds_update_overlay2(idds* self, LPRECT lpSrcRect, LPDIRECTDRAWSURFACE2 lpDDDestSurface, LPRECT lpDestRect, DWORD dwFlags, LPDDOVERLAYFX lpDDOverlayFx) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
@@ -1510,6 +1535,28 @@ HRESULT SUGARCALL idds_get_attached_surface3(idds* self, LPDDSCAPS lpDDSCaps, LP
     }
 
     LEAVE(hr);
+}
+
+HRESULT SUGARCALL idds_initialize3(idds* self, LPDIRECTDRAW lpDD, LPDDSURFACEDESC lpDDSurfaceDesc) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    ENTER("0x%p, %s", lpDD, ddsurfacedesc_to_string(lpDDSurfaceDesc));
+
+    if (lpDD == NULL || lpDDSurfaceDesc == NULL) {
+        LEAVE(DDERR_INVALIDPARAMS);
+    }
+
+    if (lpDDSurfaceDesc->dwSize != sizeof(DDSURFACEDESC)) {
+        LEAVE(DDERR_INVALIDPARAMS);
+    }
+
+    MAKEDDSURFACEDESC2(desc);
+    CopyMemory(&desc, lpDDSurfaceDesc, sizeof(DDSURFACEDESC));
+    desc.dwSize = sizeof(DDSURFACEDESC2);
+
+    LEAVE(dds_initialize(self->instance, &IID_IDirectDrawSurface3, ((idd*)lpDD)->instance, &desc));
 }
 
 HRESULT SUGARCALL idds_update_overlay3(idds* self, LPRECT lpSrcRect, LPDIRECTDRAWSURFACE3 lpDDDestSurface, LPRECT lpDestRect, DWORD dwFlags, LPDDOVERLAYFX lpDDOverlayFx) {
@@ -1751,7 +1798,7 @@ HRESULT SUGARCALL idds_initialize4(idds* self, LPDIRECTDRAW lpDD, LPDDSURFACEDES
     DDSURFACEDESC2 desc;
     CopyMemory(&desc, lpDDSurfaceDesc, sizeof(DDSURFACEDESC2));
 
-    LEAVE(dds_initialize(self->instance, ((idd*)lpDD)->instance, &desc));
+    LEAVE(dds_initialize(self->instance, &IID_IDirectDrawSurface4, ((idd*)lpDD)->instance, &desc));
 }
 
 HRESULT SUGARCALL idds_lock4(idds* self, LPRECT lpDestRect, LPDDSURFACEDESC2 lpDDSurfaceDesc, DWORD dwFlags, HANDLE hEvent) {
@@ -2043,6 +2090,23 @@ HRESULT SUGARCALL idds_get_attached_surface7(idds* self, LPDDSCAPS2 lpDDSCaps, L
     }
 
     LEAVE(hr);
+}
+
+HRESULT SUGARCALL idds_initialize7(idds* self, LPDIRECTDRAW lpDD, LPDDSURFACEDESC2 lpDDSurfaceDesc) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    ENTER("0x%p, %s", lpDD, ddsurfacedesc2_to_string(lpDDSurfaceDesc));
+
+    if (lpDD == NULL || lpDDSurfaceDesc == NULL) {
+        LEAVE(DDERR_INVALIDPARAMS);
+    }
+
+    DDSURFACEDESC2 desc;
+    CopyMemory(&desc, lpDDSurfaceDesc, sizeof(DDSURFACEDESC2));
+
+    LEAVE(dds_initialize(self->instance, &IID_IDirectDrawSurface7, ((idd*)lpDD)->instance, &desc));
 }
 
 HRESULT SUGARCALL idds_lock7(idds* self, LPRECT lpDestRect, LPDDSURFACEDESC2 lpDDSurfaceDesc, DWORD dwFlags, HANDLE hEvent) {

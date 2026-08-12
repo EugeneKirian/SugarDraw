@@ -236,8 +236,8 @@ HRESULT ddc_initialize(ddc* self, dd* object) {
     if (object != NULL) {
         // Change the ownership of the clipper.
         if (SUCCEEDED(hr = dd_attach_clipper(object, self))) {
-            sugar_remove_ddc(self->manager, self);
             self->instance = object;
+            sugar_remove_ddc(self->manager, self);
         }
     }
 

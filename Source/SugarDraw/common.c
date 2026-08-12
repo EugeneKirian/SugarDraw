@@ -46,6 +46,37 @@ BOOL IsValidRect(const RECT* rect) {
     return TRUE;
 }
 
+BOOL MergeRect(RECT* result, const RECT* rect1, const RECT* rect2) {
+    if (result == NULL || rect1 == NULL || rect2 == NULL) {
+        return FALSE;
+    }
+
+    if (IsInsideRect(rect1, rect2)) {
+        CopyMemory(result, rect1, sizeof(RECT));
+        return TRUE;
+    }
+
+    if (IsInsideRect(rect2, rect1)) {
+        CopyMemory(result, rect2, sizeof(RECT));
+        return TRUE;
+    }
+
+    // Check if rectangles overlap either horizontally or vertically.
+    const bool horizontal = rect1->left <= rect2->right && rect2->left <= rect1->right;
+    const bool vertical = rect1->top <= rect2->bottom && rect2->top <= rect1->bottom;
+
+    if (horizontal && vertical) {
+        result->left = min(rect1->left, rect2->left);
+        result->top = min(rect1->top, rect2->top);
+        result->right = max(rect1->right, rect2->right);
+        result->bottom = max(rect1->bottom, rect2->bottom);
+
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
 BOOL devmodea_equal(const DEVMODEA* mode, const DEVMODEA* value) {
     if (mode == NULL || value == NULL) {
         return FALSE;

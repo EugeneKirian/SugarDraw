@@ -578,9 +578,9 @@ static RGBQUAD pixel_read_2byte_555(const u8* surface, u32 stride, u32 x, u32 y,
     const u32 v = (u32)(sampler->v0 + (f32)x * sampler->dvdx + (f32)y * sampler->dvdy);
     const u16 src_color = *(u16*)(surface + v * stride + u * 2);
 
-    const u8 r = (u8)(src_color >> 10) & 0x1F;
-    const u8 g = (u8)(src_color >> 5) & 0x1F;
-    const u8 b = (u8)(src_color & 0x1F);
+    const u8 r = (u8)((src_color >> 10) & 0x1F);
+    const u8 g = (u8)((src_color >> 5) & 0x1F);
+    const u8 b = (u8)((src_color & 0x1F));
     
     RGBQUAD dst_color;
     dst_color.rgbReserved = 0xFF;
@@ -595,9 +595,9 @@ static RGBQUAD pixel_read_2byte_565(const u8* surface, u32 stride, u32 x, u32 y,
     const u32 v = (u32)(sampler->v0 + (f32)x * sampler->dvdx + (f32)y * sampler->dvdy);
     const u16 src_color = *(u16*)(surface + v * stride + u * 2);
 
-    const u8 r = (u8)(src_color >> 11) & 0x1F;
-    const u8 g = (u8)(src_color >> 5) & 0x3F;
-    const u8 b = (u8)(src_color & 0x1F);
+    const u8 r = (u8)((src_color >> 11) & 0x1F);
+    const u8 g = (u8)((src_color >> 5) & 0x3F);
+    const u8 b = (u8)((src_color & 0x1F));
 
     RGBQUAD dst_color;
     dst_color.rgbReserved = 0xFF;

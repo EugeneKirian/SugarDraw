@@ -126,7 +126,7 @@ HRESULT ddsfc_lock(ddsfc* self, u32 start) {
     // Attempt to lock the surface itself.
     MAKETYPE(RECT, rect);
     if (SUCCEEDED(hr = ddsd_get_rect(self->instance->surface, &rect))) {
-        hr = ddsd_lock_rect(self->instance->surface, &rect);
+        hr = ddsd_lock_rect(self->instance->surface, &rect, DDLOCK_READONLY);
     }
 
     if (FAILED(hr)) {
@@ -141,7 +141,7 @@ HRESULT ddsfc_lock(ddsfc* self, u32 start) {
         dds* instance = NULL;
         if (SUCCEEDED(hr = arr_get_item(self->surfaces, i, &instance))) {
             if (SUCCEEDED(hr = ddsd_get_rect(instance->surface, &rect))) {
-                if (SUCCEEDED(hr = ddsd_lock_rect(instance->surface, &rect))) {
+                if (SUCCEEDED(hr = ddsd_lock_rect(instance->surface, &rect, DDLOCK_READONLY))) {
                     locks++;
                     continue;
                 }
@@ -209,28 +209,29 @@ HRESULT ddsfc_rotate(ddsfc* self, u32 start) {
         return DDERR_INVALIDOBJECT;
     }
 
+    HRESULT hr = DD_OK;
     ddsd* current = self->instance->surface;
 
     dds* back = NULL;
-    if (SUCCEEDED(arr_get_item(self->surfaces, start, &back))) {
+    if (SUCCEEDED(hr = arr_get_item(self->surfaces, start, &back))) {
         self->instance->surface = back->surface;
     }
 
     const u32 item_count = arr_get_count(self->surfaces);
     for (u32 i = start; i < item_count - 1; i++) {
         dds* destination = NULL;
-        if (SUCCEEDED(arr_get_item(self->surfaces, i, &destination))) {
+        if (SUCCEEDED(hr = arr_get_item(self->surfaces, i, &destination))) {
             dds* source = NULL;
-            if (SUCCEEDED(arr_get_item(self->surfaces, i + 1, &source))) {
+            if (SUCCEEDED(hr = arr_get_item(self->surfaces, i + 1, &source))) {
                 destination->surface = source->surface;
             }
         }
     }
 
     dds* last = NULL;
-    if (SUCCEEDED(arr_get_item(self->surfaces, item_count - 1, &last))) {
+    if (SUCCEEDED(hr = arr_get_item(self->surfaces, item_count - 1, &last))) {
         last->surface = current;
     }
 
-    return DD_OK;
+    return hr;
 }

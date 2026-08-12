@@ -283,6 +283,10 @@ HRESULT ddsurfacedesc2_from_devmodea(DDSURFACEDESC2* desc, const DEVMODEA* mode)
         desc->ddpfPixelFormat.dwBBitMask = 0x0000001F;
     }break;
     case 16: {
+        // TODO WHY???
+        //desc->ddpfPixelFormat.dwRBitMask = 0x00007C00;
+        //desc->ddpfPixelFormat.dwGBitMask = 0x000003E0;
+        //desc->ddpfPixelFormat.dwBBitMask = 0x0000001F;
         desc->ddpfPixelFormat.dwRBitMask = 0x0000F800;
         desc->ddpfPixelFormat.dwGBitMask = 0x000007E0;
         desc->ddpfPixelFormat.dwBBitMask = 0x0000001F;

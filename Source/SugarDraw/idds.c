@@ -948,7 +948,7 @@ HRESULT SUGARCALL idds_get_pixel_format(idds* self, LPDDPIXELFORMAT lpDDPixelFor
 
     HRESULT hr = DD_OK;
     MAKEDDPIXELFORMAT(format);
-    if (SUCCEEDED(hr = dds_get_pixel_format(self->instance, lpDDPixelFormat))) {
+    if (SUCCEEDED(hr = dds_get_pixel_format(self->instance, &format))) {
         CopyMemory(lpDDPixelFormat, &format, sizeof(DDPIXELFORMAT));
     }
 

@@ -43,7 +43,6 @@
 #define DDSDM_VALID								(DDSDM_STANDARDVGAMODE)
 
 #define DDSD_NONE								0x00000000L
-#define DDSD_SIZEFORMAT                         (DDSD_WIDTH | DDSD_HEIGHT | DDSD_PIXELFORMAT)
 #define DDSD_VALID								(DDSD_CAPS | DDSD_HEIGHT | DDSD_WIDTH | DDSD_PITCH | DDSD_BACKBUFFERCOUNT \
                                                     | DDSD_ALPHABITDEPTH | DDSD_LPSURFACE | DDSD_PIXELFORMAT | DDSD_CKDESTOVERLAY \
                                                     | DDSD_CKDESTBLT | DDSD_CKSRCOVERLAY | DDSD_CKSRCBLT | DDSD_MIPMAPCOUNT | DDSD_REFRESHRATE \
@@ -223,9 +222,10 @@
 #define DDWAITVB_ALL                            (DDWAITVB_BLOCKBEGIN | DDWAITVB_BLOCKBEGINEVENT | DDWAITVB_BLOCKEND)
 
 
-#define FOURCC_NONE                             0x00000000
+#define FOURCC_NONE                             0x00000000L
 
-#define DDPF_D3DFORMAT                          0x00200000
+#define DDPF_NONE                               0x00000000L
+#define DDPF_D3DFORMAT                          0x00200000L
 
 typedef int bool;
 

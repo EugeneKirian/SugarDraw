@@ -3,16 +3,10 @@
 #include "region.h"
 #include "utilities.h"
 
-static BOOL SaveHBITMAPToFile(HBITMAP hBitmap, const char* label); // TODO
-typedef struct header header;
-//static BOOL SaveBITMAPToFile(header* h, void* data, const char* label);
-
-#pragma pack(push, 1)
 typedef struct header {
     BITMAPINFOHEADER    info;
     RGBQUAD             palette[PALETTE_MAX_ENTRY_COUNT];
 } header;
-#pragma pack(pop)
 
 typedef struct bitmap {
     HDC                 dc;
@@ -234,11 +228,6 @@ HRESULT ddsd_initialize(ddsd* self, DDSURFACEDESC2* desc) {
         }
 
         SelectObject(self->bitmap.dc, self->bitmap.bitmap);
-
-        // TODO
-        //memset(self->pixels, 0xFF, header->biSizeImage);
-        //SaveHBITMAPToFile(self->bitmap.bitmap, "init");
-        // END TODO
     }
 
 exit:
@@ -288,13 +277,6 @@ HRESULT ddsd_blt(ddsd* self, RECT* dst, ddsd* surface, RECT* src, RGNDATA* regio
 
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
-
-    //SaveBITMAPToFile(&self->bitmap.header, self->pixels, "blt target");
-    //SaveHBITMAPToFile(self->bitmap.bitmap, "blt target");
-    if (surface != NULL) {
-        //SaveBITMAPToFile(&surface->bitmap.header, surface->pixels, "blt source");
-        //SaveHBITMAPToFile(surface->bitmap.bitmap, "blt source");
-    }
 
     MAKETYPE(RECT, rect);
     if (SUCCEEDED(hr = ddsd_get_rect(self, &rect))) {
@@ -722,8 +704,7 @@ HRESULT ddsd_unlock(ddsd* self, RECT* rect) {
 
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
-    SaveHBITMAPToFile(self->bitmap.bitmap, "unlock");
-    //SaveBITMAPToFile(&self->bitmap.header, self->pixels, "unlock");
+
     if (SUCCEEDED(hr = ddsd_unlock_rect(self, rect))) {
         self->uniqueness++;
     }
@@ -1003,258 +984,4 @@ HRESULT ddsd_add_region_rect(ddsd* self, RECT* rect) {
     }
 
     return hr;
-}
-
-#include <stdio.h>
-static int id = 0;
-static char szFilePath[MAX_PATH];
-
-static BOOL SaveBITMAPToFile(header* h, void* data, const char* label) {
-    sprintf(szFilePath, "C:\\GIT\\Images\\%d-%p-%p-%s.bmp", id++, h, data, label);
-
-    DWORD dwBitsSize = 0;
-    if (h->info.biBitCount <= 8) {
-        // For palettized bitmaps, bits are stored as indices
-        dwBitsSize = ((h->info.biWidth * (DWORD)(-1 * h->info.biHeight) + 31) / 32) * (DWORD)(-1 * h->info.biHeight);
-    }
-    else if (h->info.biBitCount == 16 || h->info.biBitCount == 15) {
-        // 16-bit: 2 bytes per pixel, aligned to 4 bytes per row
-        DWORD bytesPerRow = ((h->info.biWidth * 16 + 31) / 32) * 4;
-        dwBitsSize = bytesPerRow * (DWORD)(-1 * h->info.biHeight);
-    }
-    else {
-        // 24/32-bit: get actual DIB bits size
-        DWORD bytesPerRow = ((h->info.biWidth * h->info.biBitCount + 31) / 32) * 4;
-        dwBitsSize = bytesPerRow * (DWORD)(-1 * h->info.biHeight);
-    }
-
-    int nColors = 0;
-    DWORD compression = BI_RGB;
-    DWORD redMask = 0, greenMask = 0, blueMask = 0;
-
-    if (h->info.biBitCount <= 8) {
-        nColors = (h->info.biBitCount == 1) ? 2 :
-            (h->info.biBitCount == 4) ? 16 : 256;
-        compression = BI_RGB;
-    }
-    else if (h->info.biBitCount == 16 || h->info.biBitCount == 15) {
-        // For 15/16-bit, use BI_BITFIELDS
-        compression = BI_BITFIELDS;
-        nColors = 3; // Need 3 RGBQUAD entries for the masks
-    }
-    else {
-        compression = BI_RGB;
-        nColors = 0;
-    }
-
-    DWORD dwDIBSize = sizeof(BITMAPINFOHEADER);
-    if (nColors > 0) {
-        dwDIBSize += nColors * sizeof(RGBQUAD);
-    }
-
-
-    DWORD bytes = 0;
-    BITMAPFILEHEADER bf = { 0 };
-    bf.bfType = 0x4D42; // "BM"
-    bf.bfSize = sizeof(BITMAPFILEHEADER) + dwDIBSize + dwBitsSize;
-    bf.bfOffBits = sizeof(BITMAPFILEHEADER) + dwDIBSize;
-
-    HANDLE hFile = CreateFileA(szFilePath, GENERIC_WRITE, 0, NULL,
-        CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-    WriteFile(hFile, &bf, sizeof(BITMAPFILEHEADER), &bytes, NULL);
-    WriteFile(hFile, h, dwDIBSize, &bytes, NULL);
-    WriteFile(hFile, data, dwBitsSize, &bytes, NULL);
-    CloseHandle(hFile);
-    return TRUE;
-}
-
-static BOOL SaveHBITMAPToFile(HBITMAP hBitmap, const char* label) {
-   // return TRUE;
-    if (!hBitmap) {
-        return FALSE;
-    }
-
-    sprintf(szFilePath, "C:\\GIT\\Images\\%d-%s.bmp", id++, label);
-
-    HDC hDC = GetDC(NULL);
-    if (!hDC) {
-        return FALSE;
-    }
-
-    // Get bitmap information
-    BITMAP bm;
-    if (!GetObject(hBitmap, sizeof(BITMAP), &bm)) {
-        ReleaseDC(NULL, hDC);
-        return FALSE;
-    }
-
-    // Calculate number of color table entries
-    int nColors = 0;
-    DWORD compression = BI_RGB;
-    DWORD redMask = 0, greenMask = 0, blueMask = 0;
-
-    if (bm.bmBitsPixel <= 8) {
-        nColors = (bm.bmBitsPixel == 1) ? 2 :
-            (bm.bmBitsPixel == 4) ? 16 : 256;
-        compression = BI_RGB;
-    }
-    else if (bm.bmBitsPixel == 16 || bm.bmBitsPixel == 15) {
-        // For 15/16-bit, use BI_BITFIELDS
-        compression = BI_BITFIELDS;
-        nColors = 3; // Need 3 RGBQUAD entries for the masks
-    }
-    else {
-        compression = BI_RGB;
-        nColors = 0;
-    }
-
-    // Get bitmap info header
-    BITMAPINFOHEADER bi = { 0 };
-    bi.biSize = sizeof(BITMAPINFOHEADER);
-    bi.biWidth = bm.bmWidth;
-    bi.biHeight = bm.bmHeight;
-    bi.biPlanes = 1;
-    bi.biBitCount = (bm.bmBitsPixel == 15) ? 16 : bm.bmBitsPixel; // 15-bit stored as 16-bit
-    bi.biCompression = compression;
-    bi.biSizeImage = 0;
-    bi.biXPelsPerMeter = 0;
-    bi.biYPelsPerMeter = 0;
-    bi.biClrUsed = nColors;
-    bi.biClrImportant = nColors;
-
-    // Calculate DIB size (including color table or bitfields)
-    DWORD dwDIBSize = sizeof(BITMAPINFOHEADER);
-    if (nColors > 0) {
-        dwDIBSize += nColors * sizeof(RGBQUAD);
-    }
-
-    // Calculate bits size (including padding)
-    DWORD dwBitsSize = 0;
-    if (bm.bmBitsPixel <= 8) {
-        // For palettized bitmaps, bits are stored as indices
-        dwBitsSize = ((bm.bmWidth * bm.bmBitsPixel + 31) / 32) * 4 * bm.bmHeight;
-    }
-    else if (bm.bmBitsPixel == 16 || bm.bmBitsPixel == 15) {
-        // 16-bit: 2 bytes per pixel, aligned to 4 bytes per row
-        DWORD bytesPerRow = ((bm.bmWidth * 16 + 31) / 32) * 4;
-        dwBitsSize = bytesPerRow * bm.bmHeight;
-    }
-    else {
-        // 24/32-bit: get actual DIB bits size
-        DWORD bytesPerRow = ((bm.bmWidth * bm.bmBitsPixel + 31) / 32) * 4;
-        dwBitsSize = bytesPerRow * bm.bmHeight;
-    }
-
-    // Allocate memory for DIB info
-    LPBITMAPINFO lpBitmapInfo = (LPBITMAPINFO)malloc(dwDIBSize);
-    if (!lpBitmapInfo) {
-        ReleaseDC(NULL, hDC);
-        return FALSE;
-    }
-
-    // Copy header
-    memcpy(lpBitmapInfo, &bi, sizeof(BITMAPINFOHEADER));
-
-    // Allocate memory for bitmap bits
-    LPBYTE lpBits = (LPBYTE)malloc(dwBitsSize);
-    if (!lpBits) {
-        free(lpBitmapInfo);
-        ReleaseDC(NULL, hDC);
-        return FALSE;
-    }
-
-    // Get DIB bits using GetDIBits
-    HDC hMemDC = CreateCompatibleDC(hDC);
-    if (!hMemDC) {
-        free(lpBits);
-        free(lpBitmapInfo);
-        ReleaseDC(NULL, hDC);
-        return FALSE;
-    }
-
-    // For 16-bit with bitfields, we need to use a special structure
-    if (compression == BI_BITFIELDS) {
-        // GetDIBits with BI_BITFIELDS requires the masks to be set
-        int result = GetDIBits(hMemDC, hBitmap, 0, bm.bmHeight,
-            lpBits, lpBitmapInfo, DIB_RGB_COLORS);
-        if (!result) {
-            free(lpBits);
-            free(lpBitmapInfo);
-            DeleteDC(hMemDC);
-            ReleaseDC(NULL, hDC);
-            return FALSE;
-        }
-    }
-    else {
-        // For RGB bitmaps, just get the bits
-        int result = GetDIBits(hMemDC, hBitmap, 0, bm.bmHeight,
-            lpBits, lpBitmapInfo, DIB_RGB_COLORS);
-        if (!result) {
-            free(lpBits);
-            free(lpBitmapInfo);
-            DeleteDC(hMemDC);
-            ReleaseDC(NULL, hDC);
-            return FALSE;
-        }
-    }
-
-    // Create file
-    HANDLE hFile = CreateFileA(szFilePath, GENERIC_WRITE, 0, NULL,
-        CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-    if (hFile == INVALID_HANDLE_VALUE) {
-        free(lpBits);
-        free(lpBitmapInfo);
-        DeleteDC(hMemDC);
-        ReleaseDC(NULL, hDC);
-        return FALSE;
-    }
-
-    // Prepare file header
-    BITMAPFILEHEADER bf = { 0 };
-    bf.bfType = 0x4D42; // "BM"
-    bf.bfSize = sizeof(BITMAPFILEHEADER) + dwDIBSize + dwBitsSize;
-    bf.bfOffBits = sizeof(BITMAPFILEHEADER) + dwDIBSize;
-
-    // Write file header
-    DWORD dwWritten = 0;
-    if (!WriteFile(hFile, &bf, sizeof(BITMAPFILEHEADER), &dwWritten, NULL) ||
-        dwWritten != sizeof(BITMAPFILEHEADER)) {
-        CloseHandle(hFile);
-        free(lpBits);
-        free(lpBitmapInfo);
-        DeleteDC(hMemDC);
-        ReleaseDC(NULL, hDC);
-        return FALSE;
-    }
-
-    // Write info header + color table/bitfields
-    if (!WriteFile(hFile, lpBitmapInfo, dwDIBSize, &dwWritten, NULL) ||
-        dwWritten != dwDIBSize) {
-        CloseHandle(hFile);
-        free(lpBits);
-        free(lpBitmapInfo);
-        DeleteDC(hMemDC);
-        ReleaseDC(NULL, hDC);
-        return FALSE;
-    }
-
-    // Write bitmap bits
-    if (!WriteFile(hFile, lpBits, dwBitsSize, &dwWritten, NULL) ||
-        dwWritten != dwBitsSize) {
-        CloseHandle(hFile);
-        free(lpBits);
-        free(lpBitmapInfo);
-        DeleteDC(hMemDC);
-        ReleaseDC(NULL, hDC);
-        return FALSE;
-    }
-
-    // Cleanup
-    CloseHandle(hFile);
-    free(lpBits);
-    free(lpBitmapInfo);
-    DeleteDC(hMemDC);
-    ReleaseDC(NULL, hDC);
-
-    return TRUE;
 }

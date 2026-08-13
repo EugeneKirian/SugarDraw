@@ -206,8 +206,8 @@ HRESULT dd_remove_ref(dd* self, idd* object) {
     // Because the DirectDraw object releases the child objects, if you release the parent before the children,
     // you are very likely to incur a memory fault for attempting to dereference a pointer that was invalidated when the parent object released its children. 
 
-    // Some older applications relied on the automatic release of child objects and neglected to properly release some objects when no longer needed.At the time,
-    // this practice didn't cause any negative side effects, however doing so when using the IDirectDraw7 interface might result in memory leaks. 
+    // Some older applications relied on the automatic release of child objects and neglected to properly release some objects when no longer needed. 
+    // At the time, this practice didn't cause any negative side effects, however doing so when using the IDirectDraw7 interface might result in memory leaks. 
 
     // TODO Need tests for this, and likely need to track internal object use tracking...
 
@@ -411,7 +411,24 @@ HRESULT dd_create_surface(dd* self, const GUID* riid, DDSURFACEDESC2* desc, void
     }
 
     HRESULT hr = DD_OK;
-    if ((desc->dwFlags & DDSD_SIZEFORMAT) != DDSD_SIZEFORMAT) {
+    if (!(desc->dwFlags & DDSD_WIDTH) || desc->dwWidth == 0) {
+        desc->dwFlags &= ~DDSD_WIDTH;
+    }
+
+    if (!(desc->dwFlags & DDSD_HEIGHT) || desc->dwHeight == 0) {
+        desc->dwFlags &= ~DDSD_HEIGHT;
+    }
+
+    if (!(desc->dwFlags & DDSD_PIXELFORMAT)
+        || desc->ddpfPixelFormat.dwFlags == DDPF_NONE
+        || desc->ddpfPixelFormat.dwRGBBitCount == 0) {
+        desc->dwFlags &= ~DDSD_PIXELFORMAT;
+    }
+
+    const u32 size_format_flags = desc->dwFlags & (DDSD_WIDTH | DDSD_HEIGHT | DDSD_PIXELFORMAT);
+    const bool set_size_format = size_format_flags != (DDSD_WIDTH | DDSD_HEIGHT | DDSD_PIXELFORMAT);
+
+    if (set_size_format) {
         MAKEDDSURFACEDESC2(disp);
         if (SUCCEEDED(hr = ddsurfacedesc2_from_devmodea(&disp, &self->cooperation.mode))) {
             if (!(desc->dwFlags & DDSD_WIDTH)) {
@@ -614,9 +631,15 @@ HRESULT dd_flip_to_gdi_surface(dd* self) {
         return DDERR_NOTINITIALIZED;
     }
 
-    // TODO
+    if (self->primary == NULL) {
+        return DDERR_NOTFOUND;
+    }
 
-    return DDERR_UNSUPPORTED; // TODO
+    if (!(self->primary->desc.ddsCaps.dwCaps & DDSCAPS_FLIP)) {
+        return DDERR_NOTFLIPPABLE;
+    }
+
+    return DD_OK;
 }
 
 HRESULT dd_get_caps(dd* self, DDCAPS_DX7* caps) {

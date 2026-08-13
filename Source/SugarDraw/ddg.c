@@ -15,7 +15,7 @@ static DWORD WINAPI ddg_worker(ddg* self);
 
 static HRESULT ddg_get_surface_desc(ddg* self, DDSURFACEDESC2* desc);
 static HRESULT ddg_stop_worker(ddg* self);
-static HRESULT ddg_update_region(ddg* self, dds* primary);
+static HRESULT ddg_update_region(ddg* self, dds* surface);
 
 HRESULT ddg_create(sugar* manager, blitter* blitter, driver* driver, ddg** object) {
     if (manager == NULL || blitter == NULL || driver == NULL || object == NULL) {
@@ -233,6 +233,8 @@ DWORD WINAPI ddg_worker(ddg* self) {
         return DDERR_INVALIDOBJECT;
     }
 
+    SetThreadPriority(self->worker, THREAD_PRIORITY_ABOVE_NORMAL);
+
     MAKETYPE(RECT, window);
     LARGE_INTEGER counter, interval, time, now;
 
@@ -445,7 +447,7 @@ HRESULT ddg_stop_worker(ddg* self) {
     return DD_OK;
 }
 
-static HRESULT ddg_update_region(ddg* self, dds* primary) {
+static HRESULT ddg_update_region(ddg* self, dds* surface) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
@@ -453,11 +455,11 @@ static HRESULT ddg_update_region(ddg* self, dds* primary) {
     HRESULT hr = DD_OK;
     RGNDATA* region = NULL;
     if (SUCCEEDED(hr = region_clear(self->region))) {
-        if (SUCCEEDED(hr = ddsd_get_region(primary->surface, &region))) {
+        if (SUCCEEDED(hr = ddsd_get_region(surface->surface, &region))) {
             if (SUCCEEDED(hr = region_add_region(self->region, region))) {
-                if (SUCCEEDED(hr = ddsd_clear_region(primary->surface))) {
-                    if (primary->clipper.instance != NULL) {
-                        if (SUCCEEDED(hr = ddc_get_region(primary->clipper.instance, &region))) {
+                if (SUCCEEDED(hr = ddsd_clear_region(surface->surface))) {
+                    if (surface->clipper.instance != NULL) {
+                        if (SUCCEEDED(hr = ddc_get_region(surface->clipper.instance, &region))) {
                             hr = region_clip_region(self->region, region);
                         }
                     }

@@ -56,7 +56,9 @@
     <ClInclude Include="sampler.h" />
     <ClInclude Include="spanner.h" />
     <ClInclude Include="sugar.h" />
+    <ClInclude Include="timer.h" />
     <ClInclude Include="utilities.h" />
+    <ClInclude Include="waiter.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="allocator.c" />
@@ -95,7 +97,9 @@
     <ClCompile Include="sampler.c" />
     <ClCompile Include="spanner.c" />
     <ClCompile Include="sugar.c" />
+    <ClCompile Include="timer.c" />
     <ClCompile Include="utilities.c" />
+    <ClCompile Include="waiter.c" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>18.0</VCProjectVersion>

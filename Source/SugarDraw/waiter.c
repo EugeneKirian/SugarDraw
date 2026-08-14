@@ -1,35 +1,30 @@
-#include "connector.h"
+#include "waiter.h"
 
 #define DEFAULT_CAPACITY            8
 #define DEFAULT_CAPACITY_MULTIPLIER 2
 
-typedef struct conn {
-    GUID                id;
-    void*               instance;
-} conn;
-
-typedef struct connector {
+typedef struct waiter {
     allocator*          allocator;
     u32                 count, capacity;
-    conn*               items;
+    HANDLE*             events;
     CRITICAL_SECTION    lock;
-} connector;
+} waiter;
 
-static HRESULT connector_resize(connector* self);
+static HRESULT waiter_resize(waiter* self);
 
-HRESULT connector_create(allocator* allocator, memory_tag tag, connector** object) {
+HRESULT waiter_create(allocator* allocator, memory_tag tag, waiter** object) {
     if (allocator == NULL || object == NULL) {
         return DDERR_INVALIDPARAMS;
     }
 
     HRESULT hr = DD_OK;
-    connector* instance = NULL;
-    if (SUCCEEDED(hr = allocator_allocate(allocator, tag, sizeof(connector), &instance))) {
+    waiter* instance = NULL;
+    if (SUCCEEDED(hr = allocator_allocate(allocator, tag, sizeof(waiter), &instance))) {
         instance->allocator = allocator;
         instance->count = 0;
         instance->capacity = DEFAULT_CAPACITY;
         if (SUCCEEDED(hr = allocator_allocate(allocator, tag,
-            instance->capacity * sizeof(conn), (void**)&instance->items))) {
+            instance->capacity * sizeof(HANDLE), (void**)&instance->events))) {
             InitializeCriticalSection(&instance->lock);
             *object = instance;
             return hr;
@@ -41,21 +36,21 @@ HRESULT connector_create(allocator* allocator, memory_tag tag, connector** objec
     return hr;
 }
 
-void connector_release(connector* self) {
+void waiter_release(waiter* self) {
     if (self != NULL) {
         DeleteCriticalSection(&self->lock);
 
-        allocator_free(self->allocator, self->items);
+        allocator_free(self->allocator, self->events);
         allocator_free(self->allocator, self);
     }
 }
 
-HRESULT connector_add_item(connector* self, void* object) {
+HRESULT waiter_add(waiter* self, HANDLE event) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (object == NULL) {
+    if (event == NULL) {
         return DDERR_INVALIDPARAMS;
     }
 
@@ -63,12 +58,12 @@ HRESULT connector_add_item(connector* self, void* object) {
     EnterCriticalSection(&self->lock);
 
     if (self->capacity < self->count + 1) {
-        if (FAILED(hr = connector_resize(self))) {
+        if (FAILED(hr = waiter_resize(self))) {
             goto exit;
         }
     }
 
-    CopyMemory(&self->items[self->count++], object, sizeof(conn));
+    self->events[self->count++] = event;
 
 exit:
     LeaveCriticalSection(&self->lock);
@@ -76,39 +71,22 @@ exit:
     return hr;
 }
 
-HRESULT connector_get_item(connector* self, u32 index, void* object) {
+HRESULT waiter_remove(waiter* self, HANDLE event) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (self->count < index + 1 || object == NULL) {
-        return DDERR_INVALIDPARAMS;
-    }
-
-    EnterCriticalSection(&self->lock);
-    CopyMemory(object, &self->items[index], sizeof(conn));
-    LeaveCriticalSection(&self->lock);
-
-    return DD_OK;
-}
-
-HRESULT connector_remove_item(connector* self, const void* object) {
-    if (self == NULL) {
-        return DDERR_INVALIDOBJECT;
-    }
-
-    if (object == NULL) {
+    if (event == NULL) {
         return DDERR_INVALIDPARAMS;
     }
 
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
-    const conn* connector = (conn*)object;
     for (u32 i = 0; i < self->count; i++) {
-        if (self->items[i].instance == connector->instance) {
-            MoveMemory(&self->items[i],
-                &self->items[i + 1], (self->count - i - 1) * sizeof(conn));
+        if (self->events[i] == event) {
+            MoveMemory(&self->events[i],
+                &self->events[i + 1], (self->count - i - 1) * sizeof(HANDLE));
             self->count--;
             goto exit;
         }
@@ -119,21 +97,38 @@ HRESULT connector_remove_item(connector* self, const void* object) {
 exit:
     LeaveCriticalSection(&self->lock);
 
-    return DD_OK;
+    return hr;
 }
 
-u32 connector_get_count(connector* self) {
+HRESULT waiter_set(waiter* self) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    HRESULT hr = DD_OK;
+    EnterCriticalSection(&self->lock);
+
+    for (u32 i = 0; i < self->count; i++) {
+        SetEvent(self->events[i]);
+    }
+
+    LeaveCriticalSection(&self->lock);
+
+    return hr;
+}
+
+u32 waiter_get_count(waiter* self) {
     return self == NULL ? 0 : self->count;
 }
 
-HRESULT connector_resize(connector* self) {
+HRESULT waiter_resize(waiter* self) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
 
     HRESULT hr = DD_OK;
     const u32 capacity = max(self->capacity, 1) * DEFAULT_CAPACITY_MULTIPLIER;
-    if (SUCCEEDED(hr = allocator_reallocate(self->allocator, self->items, capacity * sizeof(conn), &self->items))) {
+    if (SUCCEEDED(hr = allocator_reallocate(self->allocator, self->events, capacity * sizeof(HANDLE), (void**)&self->events))) {
         self->capacity = capacity;
     }
 

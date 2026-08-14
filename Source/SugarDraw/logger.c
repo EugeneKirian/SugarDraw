@@ -4,15 +4,15 @@
 #include <stdio.h>
 #include <stdarg.h>
 
-struct logger {
+#define LOGGER_MAX_LOG_MESSAGE_LENGTH   1024
+
+typedef struct logger {
     allocator*          allocator;
     log_level           level;
     HANDLE              handle;
     char*               path;
     CRITICAL_SECTION    lock;
-};
-
-#define LOGGER_MAX_LOG_MESSAGE_LENGTH   1024
+} logger;
 
 static HRESULT logger_allocate(allocator* allocator, const char* path, logger** object) {
     if (allocator == NULL || path == NULL || object == NULL) {

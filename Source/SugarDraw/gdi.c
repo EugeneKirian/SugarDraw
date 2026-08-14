@@ -2,10 +2,10 @@
 
 #include <stdlib.h>
 
-struct gdi {
+typedef struct gdi {
     driver driver;
     // TODO
-};
+} gdi;
 
 HRESULT DRIVERCALL gdi_create(gdi** object) {
     if (object == NULL) {

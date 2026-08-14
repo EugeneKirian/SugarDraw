@@ -3,12 +3,12 @@
 #define DEFAULT_CAPACITY            8
 #define DEFAULT_CAPACITY_MULTIPLIER 2
 
-struct arr {
+typedef struct arr {
     allocator*          allocator;
     u32                 count, capacity;
     void**              items;
     CRITICAL_SECTION    lock;
-};
+} arr;
 
 static HRESULT arr_resize(arr* self);
 

@@ -8,18 +8,18 @@
 
 typedef struct block block;
 
-struct arena {
+typedef struct arena {
     allocator*  allocator;
     memory_tag  tag;
     block*      head;
     block*      tail;
-};
+} arena;
 
-struct block {
+typedef struct block {
     block*      next;
     size_t      size, capacity;
     byte*       data;
-};
+} block;
 
 static HRESULT block_create(arena* arena, const size_t size, block** object);
 static HRESULT block_allocate(block* self, const size_t size, void** object);

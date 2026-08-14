@@ -39,6 +39,7 @@ HRESULT ddg_create(sugar* manager, blitter* blitter, driver* driver, ddg** objec
                 instance->exit = CreateEventA(NULL, FALSE, FALSE, NULL);
                 instance->ready = CreateEventA(NULL, TRUE, TRUE, NULL);
                 instance->updating = CreateEventA(NULL, TRUE, TRUE, NULL);
+
                 instance->worker = CreateThread(NULL, 0, ddg_worker, instance, INSTANT, NULL);
 
                 *object = instance;
@@ -431,15 +432,13 @@ HRESULT ddg_stop_worker(ddg* self) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (self->worker != NULL) {
-        u32 code = 0;
-        SetEvent(self->start);
-        if (GetExitCodeThread(self->worker, &code)) {
-            if (code == STILL_ACTIVE) {
-                SetEvent(self->stop);
-                if (WaitForSingleObject(self->exit, INFINITE) != WAIT_OBJECT_0) {
-                    return DDERR_GENERIC;
-                }
+    u32 code = 0;
+    SetEvent(self->start);
+    if (GetExitCodeThread(self->worker, &code)) {
+        if (code == STILL_ACTIVE) {
+            SetEvent(self->stop);
+            if (WaitForSingleObject(self->exit, INFINITE) != WAIT_OBJECT_0) {
+                return DDERR_GENERIC;
             }
         }
     }

@@ -3,12 +3,12 @@
 #define DEFAULT_CAPACITY            8
 #define DEFAULT_CAPACITY_MULTIPLIER 2
 
-struct lock {
+typedef struct lock {
     allocator*          allocator;
     u32                 count, capacity;
     RECT*               items;
     CRITICAL_SECTION    lock;
-};
+} lock;
 
 static HRESULT lock_add_item(lock* self, const RECT* rect);
 static HRESULT lock_remove_item(lock* self, const RECT* rect);

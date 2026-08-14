@@ -31,6 +31,7 @@ DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {
                 allocator* allocator = NULL;
                 if (SUCCEEDED(allocator_create(&allocator))) {
                     logger* logger = NULL;
+                    // TODO log path and log level from the settings
                     if (SUCCEEDED(logger_create(allocator, path, LOG_LEVEL_TRACE, &logger))) {
                         if (SUCCEEDED(sugar_create(allocator, logger, driver, &manager))) {
                             return TRUE;

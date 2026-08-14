@@ -8,12 +8,12 @@ typedef struct intf {
     void*   item;
 } intf;
 
-struct intfc {
+typedef struct intfc {
     allocator*          allocator;
     u32                 count, capacity;
     intf*               items;
     CRITICAL_SECTION    lock;
-};
+} intfc;
 
 static HRESULT intfc_resize(intfc* self);
 

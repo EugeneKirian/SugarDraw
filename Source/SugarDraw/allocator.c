@@ -19,11 +19,11 @@ typedef struct block {
     node*           nodes[ALLOCATOR_MAX_NODE_COUNT];
 } block;
 
-struct allocator {
+typedef struct allocator {
     HANDLE              heap;
     block*              blocks;
     CRITICAL_SECTION    lock;
-};
+} allocator;
 
 static HRESULT allocator_create_block(allocator* self, block** object);
 static HRESULT allocator_create_node(allocator* self, memory_tag tag, size_t size, node** object);

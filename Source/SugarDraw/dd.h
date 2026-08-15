@@ -15,7 +15,6 @@ typedef struct dd {
     intfc*              interfaces;
     CRITICAL_SECTION    lock;
     blitter*            blitter;
-    driver*             driver;
     ddg*                graphics;
     
     struct {
@@ -37,7 +36,7 @@ typedef struct ddedmc {
 
 typedef HRESULT(SUGARCALL* ENUMDISPLAYMODESCALLBACK)(ddedmc* context, DDSURFACEDESC2* desc);
 
-HRESULT dd_create(sugar* manager, const GUID* rclsid, driver* driver, dd** object);
+HRESULT dd_create(sugar* manager, const GUID* rclsid, dd** object);
 void dd_release(dd* self, u32 flags);
 HRESULT dd_get_interface(dd* self, const GUID* riid, void** object);
 
@@ -72,8 +71,6 @@ HRESULT dd_test_cooperative_level(dd* self);
 HRESULT dd_get_device_identifier(dd* self, DDDEVICEIDENTIFIER2* identifier);
 HRESULT dd_start_mode_test(dd* self, SIZE* modes, u32 count, u32 flags);
 HRESULT dd_evaluate_mode(dd* self, u32 flags, u32* timeout);
-
-HRESULT dd_set_driver(dd* self, driver* driver);
 
 HRESULT dd_attach_clipper(dd* self, ddc* clipper);
 HRESULT dd_remove_clipper(dd* self, ddc* clipper);

@@ -132,7 +132,7 @@ HRESULT cf_create_instance(cf* self, const GUID* riid, void** object) {
     if (IsEqualGUID(&CLSID_DirectDraw, &self->id)
         || IsEqualGUID(&CLSID_DirectDraw7, &self->id)) {
         dd* instance = NULL;
-        if (SUCCEEDED(hr = dd_create(self->manager, &self->id, self->manager->driver, &instance))) {
+        if (SUCCEEDED(hr = dd_create(self->manager, &self->id, &instance))) {
             idd* intfc = NULL;
             if (SUCCEEDED(hr = dd_query_interface(instance, riid, &intfc))) {
                 if (SUCCEEDED(hr = arr_add_item(self->manager->items, instance))) {

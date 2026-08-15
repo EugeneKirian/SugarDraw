@@ -2,13 +2,15 @@
 
 #include "arr.h"
 #include "converter.h"
-#include "driver.h"
 
 typedef struct cf cf;
 typedef struct dd dd;
 typedef struct ddc ddc;
 typedef struct ddf ddf;
 typedef struct dds dds;
+
+typedef struct timer timer;
+typedef struct driver driver;
 
 #define SUGAR_DISPLAY_MODE_NONE     0x00000000
 #define SUGAR_DISPLAY_MODE_UPDATED  0x00000001
@@ -17,6 +19,7 @@ typedef struct sugar {
     allocator*          allocator;
     logger*             logger;
     driver*             driver;
+    timer*              timer;
     arr*                clippers;
     arr*                items;
     arr*                cfs;

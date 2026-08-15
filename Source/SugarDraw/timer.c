@@ -22,9 +22,9 @@ typedef struct timer {
     allocator*                  allocator;
     CRITICAL_SECTION            lock;
     s64                         period;
-    HANDLE                      timer, tick;
-    HANDLE                      worker;
+    HANDLE                      tick, timer;
     HANDLE                      start, stop, exit;
+    HANDLE                      worker;
     struct {
         CREATEWAITABLETIMER*    create_waitable_timer;
         CREATEWAITABLETIMEREX*  create_waitable_timer_ex;
@@ -121,6 +121,10 @@ HRESULT timer_start(timer* self, s64 period) {
         self->tick = CreateEventA(NULL, FALSE, FALSE, NULL);
     }
 
+    ResetEvent(self->start);
+    ResetEvent(self->stop);
+    ResetEvent(self->exit);
+
     self->worker = CreateThread(NULL, 0, timer_worker, self, INSTANT, NULL);
 
     SetEvent(self->start);
@@ -139,13 +143,18 @@ HRESULT timer_stop(timer* self) {
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
-    u32 code = 0;
-    SetEvent(self->start);
-    if (GetExitCodeThread(self->worker, &code)) {
-        if (code == STILL_ACTIVE) {
-            SetEvent(self->stop);
-            if (WaitForSingleObject(self->exit, INFINITE) != WAIT_OBJECT_0) {
-                EXITCODE(DDERR_GENERIC);
+    if (self->worker) {
+        u32 code = 0;
+        SetEvent(self->start);
+        if (GetExitCodeThread(self->worker, &code)) {
+            if (code == STILL_ACTIVE) {
+                SetEvent(self->stop);
+                if (WaitForSingleObject(self->exit, INFINITE) != WAIT_OBJECT_0) {
+                    EXITCODE(DDERR_GENERIC);
+                }
+
+                CloseHandle(self->worker);
+                self->worker = NULL;
             }
         }
     }
@@ -230,7 +239,7 @@ HRESULT timer_initialize(timer* self) {
 
     self->start = CreateEventA(NULL, TRUE, FALSE, NULL);
     self->stop = CreateEventA(NULL, FALSE, FALSE, NULL);
-    self->exit = CreateEventA(NULL, TRUE, FALSE, NULL);
+    self->exit = CreateEventA(NULL, FALSE, FALSE, NULL);
 
     return DD_OK;
 }
@@ -240,7 +249,7 @@ DWORD WINAPI timer_worker(timer* self) {
         return EXIT_FAILURE;
     }
 
-    SetThreadPriority(self->worker, THREAD_PRIORITY_ABOVE_NORMAL);
+    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL);
 
     if (WaitForSingleObject(self->start, INFINITE) != WAIT_OBJECT_0) {
         return EXIT_FAILURE;
@@ -256,6 +265,8 @@ DWORD WINAPI timer_worker_timer(timer* self) {
     }
 
     LARGE_INTEGER counter, time, now, due;
+    HANDLE waitables[2] = { self->stop, self->timer };
+
     QueryPerformanceFrequency(&counter);
     QueryPerformanceCounter(&time);
 
@@ -293,9 +304,11 @@ DWORD WINAPI timer_worker_timer(timer* self) {
         }
 
         if (is_set) {
-            if (WaitForSingleObject(self->timer, INFINITE) == WAIT_OBJECT_0) {
-                waiter_set(self->waiter);
+            if (WaitForMultipleObjects(2, waitables, FALSE, INFINITE) == WAIT_OBJECT_0) {
+                goto exit;
             }
+
+            waiter_set(self->waiter);
         }
 
         target += interval;
@@ -307,6 +320,7 @@ DWORD WINAPI timer_worker_timer(timer* self) {
         }
     }
 
+exit:
     SetEvent(self->exit);
 
     return EXIT_SUCCESS;

@@ -11,7 +11,7 @@ static HRESULT dd_can_change_display_mode(dd* self);
 static HRESULT dd_acquire_exclusive_mode(dd* self);
 static HRESULT dd_unacquire_exclusive_mode(dd* self);
 
-HRESULT dd_create(sugar* manager, const GUID* rclsid, driver* driver, dd** object) {
+HRESULT dd_create(sugar* manager, const GUID* rclsid, dd** object) {
     if (manager == NULL || rclsid == NULL || object == NULL) {
         return DDERR_INVALIDPARAMS;
     }
@@ -25,7 +25,6 @@ HRESULT dd_create(sugar* manager, const GUID* rclsid, driver* driver, dd** objec
     dd* instance = NULL;
     if (SUCCEEDED(hr = allocator_allocate(manager->allocator, MEM_TAG_DIRECTDRAW, sizeof(dd), &instance))) {
         instance->manager = manager;
-        instance->driver = driver;
         CopyMemory(&instance->id, rclsid, sizeof(GUID));
         instance->cooperation.mode.dmSize = sizeof(DEVMODEA);
         if (SUCCEEDED(hr = blitter_create(manager->allocator, &instance->blitter))) {
@@ -852,7 +851,7 @@ HRESULT dd_initialize(dd* self, const GUID* device) {
 
     if (SUCCEEDED(hr = sugar_get_display_mode(self->manager, &self->cooperation.mode))) {
         ddg* instance = NULL;
-        if (SUCCEEDED(hr = ddg_create(self->manager, self->blitter, self->driver, &instance))) {
+        if (SUCCEEDED(hr = ddg_create(self->manager, self->blitter, &instance))) {
             if (SUCCEEDED(hr = ddg_initialize(instance, self))) {
                 self->graphics = instance;
                 goto exit;
@@ -1250,31 +1249,6 @@ HRESULT dd_evaluate_mode(dd* self, u32 flags, u32* timeout) {
     // TODO proper implementation
 
     return DDERR_UNSUPPORTED; // TODO
-}
-
-HRESULT dd_set_driver(dd* self, driver* driver) {
-    if (self == NULL) {
-        return DDERR_INVALIDOBJECT;
-    }
-
-    if (self->graphics == NULL) {
-        return DDERR_NOTINITIALIZED;
-    }
-
-    if (driver == NULL) {
-        return DDERR_INVALIDPARAMS;
-    }
-
-    HRESULT hr = DD_OK;
-    EnterCriticalSection(&self->lock);
-
-    if (SUCCEEDED(hr = ddg_set_driver(self->graphics, driver))) {
-        self->driver = driver;
-    }
-
-    LeaveCriticalSection(&self->lock);
-
-    return hr;
 }
 
 HRESULT dd_attach_clipper(dd* self, ddc* clipper) {

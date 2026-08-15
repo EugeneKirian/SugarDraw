@@ -1,8 +1,8 @@
 #include "cf.h"
-#include "converter.h"
 #include "dd.h"
 #include "ddc.h"
 #include "ddf.h"
+#include "timer.h"
 
 #define CDS_NONE            0x00000000
 
@@ -20,26 +20,36 @@ HRESULT sugar_create(allocator* allocator, logger* logger, driver* driver, sugar
         instance->allocator = allocator;
         instance->logger = logger;
         instance->driver = driver;
-        if (SUCCEEDED(sugar_enumerate_dispaly_modes(instance))) {
+        if (SUCCEEDED(hr = timer_create(allocator, &instance->timer))) {
             if (SUCCEEDED(hr = arr_create(allocator, MEM_TAG_SUGAR, &instance->clippers))) {
                 if (SUCCEEDED(hr = arr_create(allocator, MEM_TAG_SUGAR, &instance->items))) {
                     if (SUCCEEDED(hr = arr_create(allocator, MEM_TAG_SUGAR, &instance->cfs))) {
                         if (SUCCEEDED(hr = arr_create(allocator, MEM_TAG_SUGAR, &instance->ddfs))) {
-                            logger_log(logger, LOG_LEVEL_TRACE, "SugarDraw started successfully.");
-                            InitializeCriticalSection(&instance->lock);
-                            *object = instance;
-                            return hr;
+                            if (SUCCEEDED(hr = sugar_enumerate_dispaly_modes(instance))) {
+                                if (SUCCEEDED(hr = timer_start(instance->timer, 166666LL))) { // TODO Settings 60 frames/second
+                                    logger_log(logger, LOG_LEVEL_TRACE, "SugarDraw started successfully.");
+                                    InitializeCriticalSection(&instance->lock);
+                                    *object = instance;
+                                    return hr;
+                                }
+                            }
+
+                            allocator_free(allocator, instance->modes.modes);
                         }
+
+                        arr_release(instance->ddfs);
                     }
 
-                    allocator_free(allocator, instance->cfs);
+                    arr_release(instance->cfs);
                 }
 
-                allocator_free(allocator, instance->clippers);
+                arr_release(instance->items);
             }
 
-            allocator_free(allocator, instance->modes.modes);
+            arr_release(instance->clippers);
         }
+
+        timer_release(instance->timer);
 
         logger_log(logger, LOG_LEVEL_ERROR,
             "SugarDraw could not start: %s.", hresult_to_string(hr));
@@ -53,6 +63,10 @@ void sugar_release(sugar* self) {
     if (self != NULL) {
         EnterCriticalSection(&self->lock);
         logger_log(self->logger, LOG_LEVEL_TRACE, "SugarDraw is shutting down.");
+
+        if (self->timer != NULL) {
+            timer_release(self->timer);
+        }
 
         if (self->clippers != NULL) {
             // TODO
@@ -201,7 +215,7 @@ HRESULT sugar_create_dd(sugar* self, const GUID* device, const GUID* rclsid, con
     EnterCriticalSection(&self->lock);
 
     dd* instance = NULL;
-    if (SUCCEEDED(hr = dd_create(self, rclsid, self->driver, &instance))) {
+    if (SUCCEEDED(hr = dd_create(self, rclsid, &instance))) {
         if (SUCCEEDED(hr = dd_initialize(instance, device))) {
             idd* intfc = NULL;
             if (SUCCEEDED(hr = dd_query_interface(instance, riid, &intfc))) {

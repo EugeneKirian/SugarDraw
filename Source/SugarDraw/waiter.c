@@ -6,7 +6,7 @@
 typedef struct waiter {
     allocator*          allocator;
     u32                 count, capacity;
-    HANDLE*             events;
+    HANDLE*             items;
     CRITICAL_SECTION    lock;
 } waiter;
 
@@ -24,7 +24,7 @@ HRESULT waiter_create(allocator* allocator, memory_tag tag, waiter** object) {
         instance->count = 0;
         instance->capacity = DEFAULT_CAPACITY;
         if (SUCCEEDED(hr = allocator_allocate(allocator, tag,
-            instance->capacity * sizeof(HANDLE), (void**)&instance->events))) {
+            instance->capacity * sizeof(HANDLE), (void**)&instance->items))) {
             InitializeCriticalSection(&instance->lock);
             *object = instance;
             return hr;
@@ -40,7 +40,7 @@ void waiter_release(waiter* self) {
     if (self != NULL) {
         DeleteCriticalSection(&self->lock);
 
-        allocator_free(self->allocator, self->events);
+        allocator_free(self->allocator, self->items);
         allocator_free(self->allocator, self);
     }
 }
@@ -63,7 +63,7 @@ HRESULT waiter_add(waiter* self, HANDLE event) {
         }
     }
 
-    self->events[self->count++] = event;
+    self->items[self->count++] = event;
 
 exit:
     LeaveCriticalSection(&self->lock);
@@ -84,9 +84,9 @@ HRESULT waiter_remove(waiter* self, HANDLE event) {
     EnterCriticalSection(&self->lock);
 
     for (u32 i = 0; i < self->count; i++) {
-        if (self->events[i] == event) {
-            MoveMemory(&self->events[i],
-                &self->events[i + 1], (self->count - i - 1) * sizeof(HANDLE));
+        if (self->items[i] == event) {
+            MoveMemory(&self->items[i],
+                &self->items[i + 1], (self->count - i - 1) * sizeof(HANDLE));
             self->count--;
             goto exit;
         }
@@ -109,7 +109,7 @@ HRESULT waiter_set(waiter* self) {
     EnterCriticalSection(&self->lock);
 
     for (u32 i = 0; i < self->count; i++) {
-        SetEvent(self->events[i]);
+        SetEvent(self->items[i]);
     }
 
     LeaveCriticalSection(&self->lock);
@@ -128,7 +128,7 @@ HRESULT waiter_resize(waiter* self) {
 
     HRESULT hr = DD_OK;
     const u32 capacity = max(self->capacity, 1) * DEFAULT_CAPACITY_MULTIPLIER;
-    if (SUCCEEDED(hr = allocator_reallocate(self->allocator, self->events, capacity * sizeof(HANDLE), (void**)&self->events))) {
+    if (SUCCEEDED(hr = allocator_reallocate(self->allocator, self->items, capacity * sizeof(HANDLE), (void**)&self->items))) {
         self->capacity = capacity;
     }
 

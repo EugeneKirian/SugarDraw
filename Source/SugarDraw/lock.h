@@ -10,6 +10,8 @@ void lock_release(lock* self);
 HRESULT lock_clear(lock* self);
 HRESULT lock_get_item(lock* self, u32 index, RECT* rect);
 
+HRESULT lock_get_rect(lock* self, u32 x, u32 y, RECT* rect);
+
 HRESULT lock_acquire(lock* self, const RECT* rect);
 HRESULT lock_unacquire(lock* self, const RECT* rect);
 

@@ -260,6 +260,10 @@ DWORD WINAPI ddg_worker(ddg* self) {
             && self->instance->primary != NULL
             && (self->status & DDGSTATUS_SIGNALED)) {
 
+            ///////////////
+            logger_log(self->manager->logger, LOG_LEVEL_TRACE, "Update Start!");
+            ///////////////
+
             // TODO move this to a separate function...
 
             ResetEvent(self->ready);
@@ -289,6 +293,10 @@ DWORD WINAPI ddg_worker(ddg* self) {
 
                             // TODO: use color control if present - primary and overlay surfaces
                             // How to apply the values? Need example!
+
+                            ///////////////
+                            logger_log(self->manager->logger, LOG_LEVEL_TRACE, "Draw Start!");
+                            ///////////////
 
                             if (SUCCEEDED(hr = ddg_update_region(self, primary))) {
                                 // Blit the primary surface into the grahics surface.
@@ -349,6 +357,10 @@ DWORD WINAPI ddg_worker(ddg* self) {
                                         }
                                     }
 
+                                    ///////////////
+                                    logger_log(self->manager->logger, LOG_LEVEL_TRACE, "GDI");
+                                    ///////////////
+
                                     // TODO move to the driver
                                     {
                                         HDC sdc = NULL;
@@ -367,6 +379,10 @@ DWORD WINAPI ddg_worker(ddg* self) {
                                     }
                                 }
                             }
+
+                            ///////////////
+                            logger_log(self->manager->logger, LOG_LEVEL_TRACE, "Draw End!");
+                            ///////////////
                         }
                     }
                 }
@@ -375,6 +391,10 @@ DWORD WINAPI ddg_worker(ddg* self) {
             self->status &= ~DDGSTATUS_UPDATING;
             LeaveCriticalSection(&self->lock);
             ResetEvent(self->updating);
+
+            ///////////////
+            logger_log(self->manager->logger, LOG_LEVEL_TRACE, "Update End!");
+            ///////////////
         }
 
         SetEvent(self->ready);

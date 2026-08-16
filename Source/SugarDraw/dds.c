@@ -1602,7 +1602,7 @@ exit:
     return hr;
 }
 
-HRESULT dds_unlock(dds* self, RECT* rect) {
+HRESULT dds_unlock_pointer(dds* self, void* pointer) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
@@ -1615,8 +1615,41 @@ HRESULT dds_unlock(dds* self, RECT* rect) {
         return DDERR_SURFACELOST;
     }
 
-    RECT lock;
+    if (self->desc.ddsCaps.dwCaps & DDSCAPS_OPTIMIZED) {
+        return DDERR_ISOPTIMIZEDSURFACE;
+    }
+
     HRESULT hr = DD_OK;
+    EnterCriticalSection(&self->lock);
+
+    if (SUCCEEDED(hr = ddsd_unlock_pointer(self->surface, pointer))) {
+        hr = dds_signal_update(self);
+    }
+
+    LeaveCriticalSection(&self->lock);
+
+    return hr;
+}
+
+HRESULT dds_unlock_rectangle(dds* self, RECT* rect) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (self->instance == NULL) {
+        return DDERR_NOTINITIALIZED;
+    }
+
+    if (self->flags & DDS_LOST) {
+        return DDERR_SURFACELOST;
+    }
+
+    if (self->desc.ddsCaps.dwCaps & DDSCAPS_OPTIMIZED) {
+        return DDERR_ISOPTIMIZEDSURFACE;
+    }
+
+    HRESULT hr = DD_OK;
+    MAKETYPE(RECT, lock);
     if (SUCCEEDED(hr = dds_get_rect(self, rect, &lock))) {
         if (!IsValidRect(&lock)) {
             return DDERR_INVALIDRECT;
@@ -1624,7 +1657,7 @@ HRESULT dds_unlock(dds* self, RECT* rect) {
 
         EnterCriticalSection(&self->lock);
 
-        if (SUCCEEDED(hr = ddsd_unlock(self->surface, &lock))) {
+        if (SUCCEEDED(hr = ddsd_unlock_rectangle(self->surface, &lock))) {
             hr = dds_signal_update(self);
         }
 
@@ -2093,12 +2126,6 @@ HRESULT dds_get_rect(dds* self, RECT* rect, RECT* result) {
     result->top = rect == NULL ? 0 : rect->top;
     result->right = rect == NULL ? (s32)self->desc.dwWidth : rect->right;
     result->bottom = rect == NULL ? (s32)self->desc.dwHeight : rect->bottom;
-
-    MAKETYPE(RECT, zero);
-    if (CompareMemory(result, &zero, sizeof(RECT))) {
-        result->right = (s32)self->desc.dwWidth;
-        result->bottom = (s32)self->desc.dwHeight;
-    }
 
     return DD_OK;
 }

@@ -34,7 +34,7 @@ static HRESULT SUGARCALL idds_set_clipper(idds*, LPDIRECTDRAWCLIPPER);
 static HRESULT SUGARCALL idds_set_color_key(idds*, DWORD, LPDDCOLORKEY);
 static HRESULT SUGARCALL idds_set_overlay_position(idds*, LONG, LONG);
 static HRESULT SUGARCALL idds_set_palette(idds*, LPDIRECTDRAWPALETTE);
-static HRESULT SUGARCALL idds_unlock(idds*, LPRECT);
+static HRESULT SUGARCALL idds_unlock1(idds*, LPVOID);
 static HRESULT SUGARCALL idds_update_overlay1(idds*, LPRECT, LPDIRECTDRAWSURFACE, LPRECT, DWORD, LPDDOVERLAYFX);
 static HRESULT SUGARCALL idds_update_overlay_display(idds*, DWORD);
 static HRESULT SUGARCALL idds_update_overlay_z_order1(idds*, DWORD, LPDIRECTDRAWSURFACE);
@@ -73,6 +73,7 @@ static HRESULT SUGARCALL idds_get_caps4(idds*, LPDDSCAPS2);
 static HRESULT SUGARCALL idds_get_surface_desc4(idds*, LPDDSURFACEDESC2);
 static HRESULT SUGARCALL idds_initialize4(idds*, LPDIRECTDRAW, LPDDSURFACEDESC2);
 static HRESULT SUGARCALL idds_lock4(idds*, LPRECT, LPDDSURFACEDESC2, DWORD, HANDLE);
+static HRESULT SUGARCALL idds_unlock4(idds*, LPVOID);
 static HRESULT SUGARCALL idds_update_overlay4(idds*, LPRECT, LPDIRECTDRAWSURFACE4, LPRECT, DWORD, LPDDOVERLAYFX);
 static HRESULT SUGARCALL idds_update_overlay_z_order4(idds*, DWORD, LPDIRECTDRAWSURFACE4);
 static HRESULT SUGARCALL idds_set_surface_desc4(idds*, LPDDSURFACEDESC2, DWORD);
@@ -142,7 +143,7 @@ typedef struct idds1_vft {
     IDDSSETCOLORKEY             SetColorKey;
     IDDSSETOVERLAYPOSITION      SetOverlayPosition;
     IDDSSETPALETTE              SetPalette;
-    IDDSUNLOCK                  Unlock;
+    IDDSUNLOCK1                 Unlock;
     IDDSUPDATEOVERLAY1          UpdateOverlay;
     IDDSUPDATEOVERLAYDISPLAY    UpdateOverlayDisplay;
     IDDSUPDATEOVERLAYZORDER1    UpdateOverlayZOrder;
@@ -181,7 +182,7 @@ const static idds1_vft idds1_self = {
     idds_set_color_key,
     idds_set_overlay_position,
     idds_set_palette,
-    idds_unlock,
+    idds_unlock1,
     idds_update_overlay1,
     idds_update_overlay_display,
     idds_update_overlay_z_order1
@@ -220,7 +221,7 @@ typedef struct idds2_vft {
     IDDSSETCOLORKEY             SetColorKey;
     IDDSSETOVERLAYPOSITION      SetOverlayPosition;
     IDDSSETPALETTE              SetPalette;
-    IDDSUNLOCK                  Unlock;
+    IDDSUNLOCK1                 Unlock;
     IDDSUPDATEOVERLAY2          UpdateOverlay;
     IDDSUPDATEOVERLAYDISPLAY    UpdateOverlayDisplay;
     IDDSUPDATEOVERLAYZORDER2    UpdateOverlayZOrder;
@@ -262,7 +263,7 @@ const static idds2_vft idds2_self = {
     idds_set_color_key,
     idds_set_overlay_position,
     idds_set_palette,
-    idds_unlock,
+    idds_unlock1,
     idds_update_overlay2,
     idds_update_overlay_display,
     idds_update_overlay_z_order2,
@@ -304,7 +305,7 @@ typedef struct idds3_vft {
     IDDSSETCOLORKEY             SetColorKey;
     IDDSSETOVERLAYPOSITION      SetOverlayPosition;
     IDDSSETPALETTE              SetPalette;
-    IDDSUNLOCK                  Unlock;
+    IDDSUNLOCK1                 Unlock;
     IDDSUPDATEOVERLAY3          UpdateOverlay;
     IDDSUPDATEOVERLAYDISPLAY    UpdateOverlayDisplay;
     IDDSUPDATEOVERLAYZORDER3    UpdateOverlayZOrder;
@@ -347,7 +348,7 @@ const static idds3_vft idds3_self = {
     idds_set_color_key,
     idds_set_overlay_position,
     idds_set_palette,
-    idds_unlock,
+    idds_unlock1,
     idds_update_overlay3,
     idds_update_overlay_display,
     idds_update_overlay_z_order3,
@@ -390,7 +391,7 @@ typedef struct idds4_vft {
     IDDSSETCOLORKEY             SetColorKey;
     IDDSSETOVERLAYPOSITION      SetOverlayPosition;
     IDDSSETPALETTE              SetPalette;
-    IDDSUNLOCK                  Unlock;
+    IDDSUNLOCK4                 Unlock;
     IDDSUPDATEOVERLAY4          UpdateOverlay;
     IDDSUPDATEOVERLAYDISPLAY    UpdateOverlayDisplay;
     IDDSUPDATEOVERLAYZORDER4    UpdateOverlayZOrder;
@@ -438,7 +439,7 @@ const static idds4_vft idds4_self = {
     idds_set_color_key,
     idds_set_overlay_position,
     idds_set_palette,
-    idds_unlock,
+    idds_unlock4,
     idds_update_overlay4,
     idds_update_overlay_display,
     idds_update_overlay_z_order4,
@@ -486,7 +487,7 @@ typedef struct idds7_vft {
     IDDSSETCOLORKEY             SetColorKey;
     IDDSSETOVERLAYPOSITION      SetOverlayPosition;
     IDDSSETPALETTE              SetPalette;
-    IDDSUNLOCK                  Unlock;
+    IDDSUNLOCK4                 Unlock;
     IDDSUPDATEOVERLAY7          UpdateOverlay;
     IDDSUPDATEOVERLAYDISPLAY    UpdateOverlayDisplay;
     IDDSUPDATEOVERLAYZORDER7    UpdateOverlayZOrder;
@@ -538,7 +539,7 @@ const static idds7_vft idds7_self = {
     idds_set_color_key,
     idds_set_overlay_position,
     idds_set_palette,
-    idds_unlock,
+    idds_unlock4,
     idds_update_overlay7,
     idds_update_overlay_display,
     idds_update_overlay_z_order7,
@@ -1129,14 +1130,14 @@ HRESULT SUGARCALL idds_set_palette(idds* self, LPDIRECTDRAWPALETTE lpDDPalette) 
     LEAVE(dds_set_palette(self->instance, &connector));
 }
 
-HRESULT SUGARCALL idds_unlock(idds* self, LPRECT lpRect) {
+HRESULT SUGARCALL idds_unlock1(idds* self, LPVOID lpSurfaceData) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
 
-    ENTER("%s", rect_to_string(lpRect));
+    ENTER("0x%p", lpSurfaceData);
 
-    LEAVE(dds_unlock(self->instance, lpRect));
+    LEAVE(dds_unlock_pointer(self->instance, lpSurfaceData));
 }
 
 HRESULT SUGARCALL idds_update_overlay1(idds* self, LPRECT lpSrcRect, LPDIRECTDRAWSURFACE lpDDDestSurface, LPRECT lpDestRect, DWORD dwFlags, LPDDOVERLAYFX lpDDOverlayFx) {
@@ -1834,6 +1835,18 @@ HRESULT SUGARCALL idds_lock4(idds* self, LPRECT lpDestRect, LPDDSURFACEDESC2 lpD
 
     LEAVE(hr);
 }
+
+
+HRESULT SUGARCALL idds_unlock4(idds* self, LPRECT lpRect) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    ENTER("%s", rect_to_string(lpRect));
+
+    LEAVE(dds_unlock_rectangle(self->instance, lpRect));
+}
+
 
 HRESULT SUGARCALL idds_update_overlay4(idds* self, LPRECT lpSrcRect, LPDIRECTDRAWSURFACE4 lpDDDestSurface, LPRECT lpDestRect, DWORD dwFlags, LPDDOVERLAYFX lpDDOverlayFx) {
     if (self == NULL) {

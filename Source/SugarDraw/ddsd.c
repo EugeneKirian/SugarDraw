@@ -683,7 +683,46 @@ HRESULT ddsd_lock(ddsd* self, RECT* rect, DDSURFACEDESC2* desc, u32 flags) {
     return hr;
 }
 
-HRESULT ddsd_unlock(ddsd* self, RECT* rect) {
+HRESULT ddsd_unlock_pointer(ddsd* self, void* pointer) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    if (self->pixels == NULL) {
+        return DDERR_NOTINITIALIZED;
+    }
+
+    if (pointer != NULL) {
+        if ((size_t)pointer < (size_t)self->pixels
+            || ((size_t)self->pixels + self->desc->lPitch * self->desc->dwHeight) < (size_t)pointer) {
+            return DDERR_INVALIDPARAMS;
+        }
+    }
+
+    if (lock_get_count(self->locks) == 0) {
+        return DDERR_NOTLOCKED;
+    }
+
+    HRESULT hr = DD_OK;
+    EnterCriticalSection(&self->lock);
+
+    const u32 offset = pointer == NULL ? 0 : (u32)((size_t)pointer - (size_t)self->pixels);
+    const u32 y = offset == 0 ? 0 : (u32)(offset / self->desc->lPitch);
+    const u32 x = offset == 0 ? 0 : (u32)(offset % self->desc->lPitch);
+
+    MAKETYPE(RECT, rect);
+    if (SUCCEEDED(hr = lock_get_rect(self->locks, x, y, &rect))) {
+        if (SUCCEEDED(hr = ddsd_unlock_rect(self, &rect))) {
+            self->uniqueness++;
+        }
+    }
+
+    LeaveCriticalSection(&self->lock);
+
+    return hr;
+}
+
+HRESULT ddsd_unlock_rectangle(ddsd* self, RECT* rect) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
     }
@@ -695,8 +734,6 @@ HRESULT ddsd_unlock(ddsd* self, RECT* rect) {
     if (rect == NULL) {
         return DDERR_INVALIDPARAMS;
     }
-
-    // TODO validate against intersection DDERR_INVALIDRECT
 
     if (lock_get_count(self->locks) == 0) {
         return DDERR_NOTLOCKED;

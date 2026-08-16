@@ -28,7 +28,8 @@ HRESULT ddsd_get_dc(ddsd* self, HDC* hdc);
 HRESULT ddsd_release_dc(ddsd* self, HDC hdc);
 
 HRESULT ddsd_lock(ddsd* self, RECT* rect, DDSURFACEDESC2* desc, u32 flags);
-HRESULT ddsd_unlock(ddsd* self, RECT* rect);
+HRESULT ddsd_unlock_pointer(ddsd* self, void* pointer);
+HRESULT ddsd_unlock_rectangle(ddsd* self, RECT* rect);
 
 HRESULT ddsd_page_lock(ddsd* self);
 HRESULT ddsd_page_unlock(ddsd* self);

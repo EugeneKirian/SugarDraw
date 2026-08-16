@@ -75,6 +75,28 @@ HRESULT lock_get_item(lock* self, u32 index, RECT* rect) {
     return DD_OK;
 }
 
+HRESULT lock_get_rect(lock* self, u32 x, u32 y, RECT* rect) {
+    if (self == NULL) {
+        return DDERR_INVALIDOBJECT;
+    }
+
+    HRESULT hr = DD_OK;
+    EnterCriticalSection(&self->lock);
+    for (u32 i = 0; i < self->count; i++) {
+        if (self->items[i].left == x && self->items[i].top == y) {
+            CopyMemory(rect, &self->items[i], sizeof(RECT));
+            goto exit;
+        }
+    }
+
+    hr = DDERR_NOTFOUND;
+
+exit:
+    LeaveCriticalSection(&self->lock);
+
+    return hr;
+}
+
 HRESULT lock_acquire(lock* self, const RECT* rect) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;

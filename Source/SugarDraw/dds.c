@@ -2131,6 +2131,12 @@ HRESULT dds_get_rect(dds* self, RECT* rect, RECT* result) {
     result->right = rect == NULL ? (s32)self->desc.dwWidth : rect->right;
     result->bottom = rect == NULL ? (s32)self->desc.dwHeight : rect->bottom;
 
+    MAKETYPE(RECT, zero);
+    if (CompareMemory(result, &zero, sizeof(RECT))) {
+        result->right = (s32)self->desc.dwWidth;
+        result->bottom = (s32)self->desc.dwHeight;
+    }
+
     return DD_OK;
 }
 

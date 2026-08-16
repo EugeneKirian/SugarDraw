@@ -692,11 +692,9 @@ HRESULT ddsd_unlock_pointer(ddsd* self, void* pointer) {
         return DDERR_NOTINITIALIZED;
     }
 
-    if (pointer != NULL) {
-        if ((size_t)pointer < (size_t)self->pixels
-            || ((size_t)self->pixels + self->desc->lPitch * self->desc->dwHeight) < (size_t)pointer) {
-            return DDERR_INVALIDPARAMS;
-        }
+    if ((size_t)pointer < (size_t)self->pixels
+        || ((size_t)self->pixels + self->desc->lPitch * self->desc->dwHeight) < (size_t)pointer) {
+        return DDERR_INVALIDPARAMS;
     }
 
     if (lock_get_count(self->locks) == 0) {
@@ -706,9 +704,9 @@ HRESULT ddsd_unlock_pointer(ddsd* self, void* pointer) {
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
-    const u32 offset = pointer == NULL ? 0 : (u32)((size_t)pointer - (size_t)self->pixels);
-    const u32 y = offset == 0 ? 0 : (u32)(offset / self->desc->lPitch);
-    const u32 x = offset == 0 ? 0 : (u32)(offset % self->desc->lPitch);
+    const u32 offset = (u32)((size_t)pointer - (size_t)self->pixels);
+    const u32 y = (u32)(offset / self->desc->lPitch);
+    const u32 x = (u32)(offset % self->desc->lPitch);
 
     MAKETYPE(RECT, rect);
     if (SUCCEEDED(hr = lock_get_rect(self->locks, x, y, &rect))) {

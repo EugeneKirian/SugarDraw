@@ -1619,6 +1619,10 @@ HRESULT dds_unlock_pointer(dds* self, void* pointer) {
         return DDERR_ISOPTIMIZEDSURFACE;
     }
 
+    if (pointer == NULL) {
+        return dds_unlock_rectangle(self, NULL);
+    }
+
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 

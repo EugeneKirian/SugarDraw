@@ -143,7 +143,7 @@ HRESULT timer_stop(timer* self) {
     HRESULT hr = DD_OK;
     EnterCriticalSection(&self->lock);
 
-    if (self->worker) {
+    if (self->worker != NULL) {
         u32 code = 0;
         SetEvent(self->start);
         if (GetExitCodeThread(self->worker, &code)) {

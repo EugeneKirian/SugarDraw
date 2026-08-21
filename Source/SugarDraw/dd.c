@@ -587,9 +587,7 @@ HRESULT dd_enum_display_modes(dd* self, u32 flags, DDSURFACEDESC2* desc, ENUMDIS
                     current.dwRefreshRate = modes[i].dmDisplayFrequency;
                 }
 
-                if (callback(context, &current) == DDENUMRET_OK) {
-                    continue;
-                }
+                if (callback(context, &current) == DDENUMRET_OK) { continue; }
             }
 
             goto exit;

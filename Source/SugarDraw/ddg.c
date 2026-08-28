@@ -240,30 +240,16 @@ DWORD WINAPI ddg_worker(ddg* self) {
     if (WaitForSingleObject(self->start, INFINITE) != WAIT_OBJECT_0) { goto exit; }
 
     while (TRUE) {
-        if (WaitForMultipleObjects(2, waitables, FALSE, INFINITE) == WAIT_OBJECT_0) {
-            goto exit;
-        }
-
-        ///////////////
-        logger_log(self->manager->logger, LOG_LEVEL_TRACE, "Tick!");
-        ///////////////
+        if (WaitForMultipleObjects(2, waitables, FALSE, INFINITE) == WAIT_OBJECT_0) { goto exit; }
 
         HWND hwnd = self->instance->cooperation.hwnd;
-
-        if (hwnd == NULL || IsIconic(hwnd)) {
-            continue;
-        }
+        if (hwnd == NULL || IsIconic(hwnd)) { continue; }
 
         // TODO handle lost primary surface and overlays
 
         if (self->instance != NULL
             && self->instance->primary != NULL
             && (self->status & DDGSTATUS_SIGNALED)) {
-
-            ///////////////
-            logger_log(self->manager->logger, LOG_LEVEL_TRACE, "Update Start!");
-            ///////////////
-
             // TODO move this to a separate function...
 
             ResetEvent(self->ready);
@@ -278,13 +264,12 @@ DWORD WINAPI ddg_worker(ddg* self) {
             ClientToScreen(hwnd, (POINT*)&rectangle.right);
 
             dds* primary = self->instance->primary;
-            ddsd* surface = primary->surface;
 
             RECT dst, src;
             if (SUCCEEDED(hr = ddsd_get_rect(self->surface, &dst))) {
                 if (IntersectRect(&dst, &dst, &rectangle)) {
                     // TODO what to do if window was moved to another screen?
-                    if (SUCCEEDED(hr = ddsd_get_rect(surface, &src))) {
+                    if (SUCCEEDED(hr = ddsd_get_rect(primary->surface, &src))) {
                         if (IntersectRect(&src, &src, &rectangle)) {
                             // TODO what to do if window was moved to another screen?
 
@@ -294,13 +279,9 @@ DWORD WINAPI ddg_worker(ddg* self) {
                             // TODO: use color control if present - primary and overlay surfaces
                             // How to apply the values? Need example!
 
-                            ///////////////
-                            logger_log(self->manager->logger, LOG_LEVEL_TRACE, "Draw Start!");
-                            ///////////////
-
                             if (SUCCEEDED(hr = ddg_update_region(self, primary))) {
                                 // Blit the primary surface into the grahics surface.
-                                if (SUCCEEDED(hr = ddsd_blt(self->surface, &dst, surface, &src, self->region->region, DDBLT_WAIT, NULL))) {
+                                if (SUCCEEDED(hr = ddsd_blt(self->surface, &dst, primary->surface, &src, self->region->region, DDBLT_WAIT, NULL))) {
                                     // TODO move this into its own function
                                     // Blit all visible overlays on top of the primary surface into the graphics surface.
                                     const u32 item_count = connector_get_count(primary->overlays);
@@ -357,10 +338,6 @@ DWORD WINAPI ddg_worker(ddg* self) {
                                         }
                                     }
 
-                                    ///////////////
-                                    logger_log(self->manager->logger, LOG_LEVEL_TRACE, "GDI");
-                                    ///////////////
-
                                     // TODO move to the driver
                                     {
                                         HDC sdc = NULL;
@@ -379,10 +356,6 @@ DWORD WINAPI ddg_worker(ddg* self) {
                                     }
                                 }
                             }
-
-                            ///////////////
-                            logger_log(self->manager->logger, LOG_LEVEL_TRACE, "Draw End!");
-                            ///////////////
                         }
                     }
                 }
@@ -391,10 +364,6 @@ DWORD WINAPI ddg_worker(ddg* self) {
             self->status &= ~DDGSTATUS_UPDATING;
             LeaveCriticalSection(&self->lock);
             ResetEvent(self->updating);
-
-            ///////////////
-            logger_log(self->manager->logger, LOG_LEVEL_TRACE, "Update End!");
-            ///////////////
         }
 
         SetEvent(self->ready);
@@ -446,7 +415,7 @@ HRESULT ddg_stop_worker(ddg* self) {
         return DDERR_INVALIDOBJECT;
     }
 
-    if (self->worker) {
+    if (self->worker != NULL) {
         u32 code = 0;
         SetEvent(self->start);
         if (GetExitCodeThread(self->worker, &code)) {
@@ -468,6 +437,10 @@ HRESULT ddg_stop_worker(ddg* self) {
 static HRESULT ddg_update_region(ddg* self, dds* surface) {
     if (self == NULL) {
         return DDERR_INVALIDOBJECT;
+    }
+
+    if (surface == NULL) {
+        return DDERR_INVALIDPARAMS;
     }
 
     HRESULT hr = DD_OK;

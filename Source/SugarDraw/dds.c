@@ -1053,7 +1053,8 @@ HRESULT dds_initialize(dds* self, const GUID* riid, dd* object, DDSURFACEDESC2* 
 
     // TODO DDERR_DDSCAPSCOMPLEXREQUIRED
 
-    const u32 track = self->desc.ddsCaps.dwCaps & (DDSCAPS_PRIMARYSURFACE | DDSCAPS_PRIMARYSURFACELEFT);
+    const u32 track = (self->instance->cooperation.flags & DDSCL_NORMAL)
+        && (self->desc.ddsCaps.dwCaps & (DDSCAPS_PRIMARYSURFACE | DDSCAPS_PRIMARYSURFACELEFT));
 
     ddsd* surface = NULL;
     if (SUCCEEDED(hr = ddsd_create(self->manager->allocator, object->blitter, &surface))) {
@@ -2351,11 +2352,7 @@ HRESULT dds_wait_for_vertical_blank(dds* self, dds* surface, bool wait) {
             || (surface->desc.ddsCaps.dwCaps & (DDSCAPS_OVERLAY | DDSCAPS_VISIBLE));
     }
 
-    if (waitable) {
-        return ddg_is_ready(self->graphics, wait);
-    }
-
-    return DD_OK;
+    return waitable ? ddg_is_ready(self->graphics, wait) : DD_OK;
 }
 
 HRESULT dds_can_flip(dds* self) {

@@ -963,6 +963,19 @@ HRESULT ddsd_get_region(ddsd* self, RGNDATA** region) {
         return DDERR_INVALIDPARAMS;
     }
 
+    RGNDATAHEADER* header = &self->region->region->rdh;
+
+    if (header->nCount == 0) {
+        header->nCount = 1;
+        header->nRgnSize = sizeof(RECT);
+        header->rcBound.right = self->desc->dwWidth;
+        header->rcBound.bottom = self->desc->dwHeight;
+
+        RECT* rect = (RECT*)self->region->region->Buffer;
+        rect->right = self->desc->dwWidth;
+        rect->bottom = self->desc->dwHeight;
+    }
+
     *region = self->region->region;
 
     return DD_OK;
@@ -1001,7 +1014,10 @@ HRESULT ddsd_end_record_dc(ddsd* self) {
     if (self->flags & DDSD_TRACKCHANGES) {
         MAKETYPE(RECT, rect);
         if (GetBoundsRect(self->bitmap.dc, &rect, DCB_RESET) & DCB_SET) {
-            hr = region_add_rect(self->region, &rect);
+            MAKETYPE(RECT, zero);
+            if (!CompareMemory(&rect, &zero, sizeof(RECT))) {
+                hr = region_add_rect(self->region, &rect);
+            }
         }
     }
 

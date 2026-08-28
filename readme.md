@@ -1,7 +1,9 @@
 # SugarDraw
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/C0C619KV5Z)
-SugarDraw is a DirectDraw graphics API emulation layer. SugarDraw implements DirectDraw 2D graphics interfaces and provides 2D graphics capabilities for the systems where DirectDraw is not fully supported.
+
+SugarDraw is a DirectDraw graphics API emulation layer.
+SugarDraw implements DirectDraw 2D graphics interfaces and provides 2D graphics capabilities for the systems where DirectDraw is not fully supported.
 
 ## Code
 ```
@@ -14,9 +16,9 @@ git clone --recurse-submodules https://github.com/EugeneKirian/SugarDraw
 ## Work in Progress
 
 Examples of some games that can run with SugarDraw as the grahics API layer.
-![Heroes of Might and Magick |||](.\Images\homm3.png)
+![Heroes of Might and Magick |||](./Images/homm3.png)
 
-![Sudden Strike Gold](.\Images\ss.png)
+![Sudden Strike Gold](./Images/ss.png)
 
 ## Thanks
 
